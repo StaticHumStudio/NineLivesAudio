@@ -835,6 +835,8 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         public string? Description { get; set; }
         public List<ApiAuthor>? Authors { get; set; }
         public List<string>? Narrators { get; set; }
+
+        [JsonConverter(typeof(SeriesConverter))]
         public List<ApiSeries>? Series { get; set; }
         public List<string>? Genres { get; set; }
         public List<string>? Tags { get; set; }
@@ -845,6 +847,39 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         public string? Id { get; set; }
         public string? Name { get; set; }
         public string? Sequence { get; set; }
+    }
+
+    /// <summary>
+    /// Handles both single object and array formats for the series field.
+    /// Library items endpoint returns a single object; expanded item returns an array.
+    /// </summary>
+    private class SeriesConverter : JsonConverter<List<ApiSeries>?>
+    {
+        public override List<ApiSeries>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null)
+                return null;
+
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                return JsonSerializer.Deserialize<List<ApiSeries>>(ref reader, options);
+            }
+
+            if (reader.TokenType == JsonTokenType.StartObject)
+            {
+                var single = JsonSerializer.Deserialize<ApiSeries>(ref reader, options);
+                return single != null ? new List<ApiSeries> { single } : new List<ApiSeries>();
+            }
+
+            // Skip unexpected token types
+            reader.Skip();
+            return null;
+        }
+
+        public override void Write(Utf8JsonWriter writer, List<ApiSeries>? value, JsonSerializerOptions options)
+        {
+            JsonSerializer.Serialize(writer, value, options);
+        }
     }
 
     private class ApiAuthor
