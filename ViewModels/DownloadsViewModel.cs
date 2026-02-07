@@ -3,6 +3,7 @@ using AudioBookshelfApp.Models;
 using AudioBookshelfApp.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
 using System.Collections.ObjectModel;
 
 namespace AudioBookshelfApp.ViewModels;
@@ -11,6 +12,7 @@ public partial class DownloadsViewModel : ObservableObject
 {
     private readonly IDownloadService _downloadService;
     private readonly ILocalDatabase _database;
+    private readonly DispatcherQueue _dispatcherQueue;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -30,6 +32,7 @@ public partial class DownloadsViewModel : ObservableObject
     {
         _downloadService = downloadService;
         _database = database;
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
         _downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
         _downloadService.DownloadCompleted += OnDownloadCompleted;
@@ -182,33 +185,38 @@ public partial class DownloadsViewModel : ObservableObject
 
     private void OnDownloadProgressChanged(object? sender, DownloadProgressEventArgs e)
     {
-        var download = ActiveDownloads.FirstOrDefault(d => d.Id == e.DownloadId);
-        if (download != null)
+        _dispatcherQueue.TryEnqueue(() =>
         {
-            download.DownloadedBytes = e.DownloadedBytes;
-            download.TotalBytes = e.TotalBytes;
-            // Note: In a real app, you'd need to dispatch this to UI thread
-        }
+            var download = ActiveDownloads.FirstOrDefault(d => d.Id == e.DownloadId);
+            if (download != null)
+            {
+                download.DownloadedBytes = e.DownloadedBytes;
+                download.TotalBytes = e.TotalBytes;
+            }
+        });
     }
 
     private void OnDownloadCompleted(object? sender, DownloadItem download)
     {
-        var active = ActiveDownloads.FirstOrDefault(d => d.Id == download.Id);
-        if (active != null)
+        _dispatcherQueue.TryEnqueue(() =>
         {
-            ActiveDownloads.Remove(active);
-        }
-        CompletedDownloads.Insert(0, download);
+            var active = ActiveDownloads.FirstOrDefault(d => d.Id == download.Id);
+            if (active != null)
+                ActiveDownloads.Remove(active);
+            CompletedDownloads.Insert(0, download);
+        });
     }
 
     private void OnDownloadFailed(object? sender, DownloadItem download)
     {
-        // Update the item in the list to show failed status
-        var active = ActiveDownloads.FirstOrDefault(d => d.Id == download.Id);
-        if (active != null)
+        _dispatcherQueue.TryEnqueue(() =>
         {
-            active.Status = DownloadStatus.Failed;
-            active.ErrorMessage = download.ErrorMessage;
-        }
+            var active = ActiveDownloads.FirstOrDefault(d => d.Id == download.Id);
+            if (active != null)
+            {
+                active.Status = DownloadStatus.Failed;
+                active.ErrorMessage = download.ErrorMessage;
+            }
+        });
     }
 }

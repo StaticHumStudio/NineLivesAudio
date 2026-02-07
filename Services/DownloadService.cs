@@ -174,6 +174,7 @@ public class DownloadService : IDownloadService
             if (downloadItem.TotalBytes == 0)
                 downloadItem.TotalBytes = (long)(audioBook.AudioFiles.Sum(f => f.Duration.TotalSeconds) * 16000); // ~128kbps fallback
             _logger.Log($"[Download] Estimated total: {downloadItem.TotalBytes / 1024}KB for {audioBook.AudioFiles.Count} files");
+            await _database.UpdateDownloadItemAsync(downloadItem);
 
             for (int i = 0; i < audioBook.AudioFiles.Count; i++)
             {
@@ -342,9 +343,18 @@ public class DownloadService : IDownloadService
     private string GetDownloadPath(AudioBook audioBook)
     {
         var basePath = GetBasePath();
-        var folderName = SanitizeFileName($"{audioBook.Author} - {audioBook.Title}");
+        var author = string.IsNullOrWhiteSpace(audioBook.Author) || audioBook.Author == "Unknown Author"
+            ? null : audioBook.Author;
+        var title = audioBook.Title;
+
+        string folderName;
+        if (author != null)
+            folderName = SanitizeFileName($"{author} - {title}");
+        else
+            folderName = SanitizeFileName(title);
+
         if (string.IsNullOrWhiteSpace(folderName))
-            folderName = audioBook.Id; // fallback to ID if author/title missing
+            folderName = audioBook.Id;
         return Path.Combine(basePath, folderName);
     }
 
