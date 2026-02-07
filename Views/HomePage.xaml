@@ -7,44 +7,44 @@
     mc:Ignorable="d"
     NavigationCacheMode="Enabled">
 
-    <Grid x:Name="HomeRootGrid" Padding="24,16,24,24" Background="{StaticResource CosmicDeepBrush}">
+    <Grid x:Name="HomeRootGrid" Padding="24,32,24,32" Background="{StaticResource VoidDeepBrush}">
         <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="HomeLayoutStates">
-                <!-- Wide: > 900px — larger cards, more spacing -->
-                <VisualState x:Name="HomeWideState">
+            <VisualStateGroup x:Name="AltarLayoutStates">
+                <!-- Wide: > 900px — 3-col, larger cards -->
+                <VisualState x:Name="AltarWideState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="900"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="32,20,32,32"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="180"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="260"/>
-                        <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="4"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="32,32,32,32"/>
+                        <Setter Target="LivesGridLayout.MinItemWidth" Value="200"/>
+                        <Setter Target="LivesGridLayout.MinItemHeight" Value="280"/>
+                        <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="3"/>
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Medium: 600–900px — standard 3-col grid -->
-                <VisualState x:Name="HomeMediumState">
+                <!-- Medium: 600–900px — 3-col grid -->
+                <VisualState x:Name="AltarMediumState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="600"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="24,16,24,24"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="140"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="210"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="24,32,24,32"/>
+                        <Setter Target="LivesGridLayout.MinItemWidth" Value="160"/>
+                        <Setter Target="LivesGridLayout.MinItemHeight" Value="240"/>
                         <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="3"/>
                     </VisualState.Setters>
                 </VisualState>
 
                 <!-- Narrow: < 600px — 2-col grid, tighter spacing -->
-                <VisualState x:Name="HomeNarrowState">
+                <VisualState x:Name="AltarNarrowState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="12,12,12,16"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="130"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="195"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="12,24,12,16"/>
+                        <Setter Target="LivesGridLayout.MinItemWidth" Value="140"/>
+                        <Setter Target="LivesGridLayout.MinItemHeight" Value="220"/>
                         <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="2"/>
                     </VisualState.Setters>
                 </VisualState>
@@ -56,61 +56,45 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header with Stats -->
-        <Grid Grid.Row="0" Margin="0,0,0,20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                <FontIcon Glyph="&#xE735;" FontSize="18" Opacity="0.4"
-                          Foreground="{StaticResource CosmicAccentBrush}"/>
-                <TextBlock Text="Your Nine Lives"
-                           Style="{StaticResource TitleTextBlockStyle}"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource CosmicTextPrimaryBrush}"/>
-            </StackPanel>
-
-            <!-- Aggregate Listening Time -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
-                        VerticalAlignment="Center" Opacity="0.7"
-                        Visibility="{x:Bind ShowGrid, Mode=OneWay}">
-                <FontIcon Glyph="&#xE823;" FontSize="14"
-                          Foreground="{StaticResource CosmicAccentBrush}"/>
-                <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
-                           FontSize="13"
-                           Foreground="{StaticResource CosmicTextSecondaryBrush}"/>
-                <TextBlock Text="listened"
-                           FontSize="13"
-                           Foreground="{StaticResource CosmicTextSecondaryBrush}"
-                           Opacity="0.6"/>
-            </StackPanel>
-        </Grid>
+        <!-- Ritual Header — centered -->
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,24">
+            <TextBlock Text="THE ALTAR"
+                       Style="{StaticResource RitualDisplayStyle}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
+                       Style="{StaticResource RitualLabelStyle}"
+                       HorizontalAlignment="Center" Opacity="0.4"
+                       Visibility="{x:Bind ShowGrid, Mode=OneWay}"/>
+        </StackPanel>
 
         <!-- Loading -->
         <ProgressRing Grid.Row="1"
                       IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                       Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                       Width="36" Height="36"
+                      Foreground="{StaticResource SigilGoldDimBrush}"
                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
         <!-- Empty State -->
         <StackPanel Grid.Row="1"
                     Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay}"
-                    Style="{StaticResource EmptyStateContainerStyle}">
-            <FontIcon Glyph="&#xE8F1;" Style="{StaticResource EmptyStateIconStyle}"/>
-            <TextBlock Text="Start Your Journey" Style="{StaticResource EmptyStateTitleStyle}"/>
-            <TextBlock Text="Listen to a book and it will appear here as one of your nine lives."
-                       Style="{StaticResource EmptyStateSubtitleStyle}"/>
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock Text="THE ALTAR AWAITS"
+                       Style="{StaticResource RitualTitleStyle}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Begin listening to summon your nine lives."
+                       Style="{StaticResource SubtitleStyle}"
+                       Foreground="{StaticResource MistBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"/>
             <Button Content="Go to Library"
                     Style="{ThemeResource AccentButtonStyle}"
                     Margin="0,16,0,0"
+                    HorizontalAlignment="Center"
                     Click="GoToLibrary_Click"/>
         </StackPanel>
 
-        <!-- Nine Lives Grid -->
+        <!-- Nine Lives Grid — The Altar -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       Visibility="{x:Bind ShowGrid, Mode=OneWay}">
@@ -118,8 +102,8 @@
                            ItemsSource="{x:Bind ViewModel.Lives, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <UniformGridLayout x:Name="LivesGridLayout"
-                                       MinItemWidth="140"
-                                       MinItemHeight="210"
+                                       MinItemWidth="160"
+                                       MinItemHeight="240"
                                        MinColumnSpacing="12"
                                        MinRowSpacing="12"
                                        MaximumRowsOrColumns="3"
@@ -129,8 +113,8 @@
                     <DataTemplate>
                         <Grid CornerRadius="8"
                               Padding="0"
-                              Background="{StaticResource CosmicCardBrush}"
-                              BorderBrush="{StaticResource CosmicBorderGlowBrush}"
+                              Background="{StaticResource VoidSurfaceBrush}"
+                              BorderBrush="{StaticResource DustBrush}"
                               BorderThickness="1"
                               PointerEntered="Card_PointerEntered"
                               PointerExited="Card_PointerExited"
@@ -146,70 +130,56 @@
 
                             <!-- Cover Art -->
                             <Grid Grid.Row="0" CornerRadius="8,8,0,0">
-                                <Border Background="{StaticResource CosmicSurfaceBrush}"
+                                <Border Background="{StaticResource VoidElevatedBrush}"
                                         CornerRadius="8,8,0,0">
-                                    <FontIcon Glyph="&#xE8F1;" FontSize="32" Opacity="0.2"
-                                              Foreground="{StaticResource CosmicTextSecondaryBrush}"
+                                    <FontIcon Glyph="&#xE8F1;" FontSize="32" Opacity="0.15"
+                                              Foreground="{StaticResource MistFaintBrush}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <Image Stretch="UniformToFill"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
 
-                                <!-- Progress Ring Overlay -->
-                                <Grid HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                      Margin="0,0,8,8">
-                                    <ProgressRing IsIndeterminate="False"
-                                                  Value="{Binding ProgressPercent}"
-                                                  Width="28" Height="28"
-                                                  Foreground="{StaticResource CosmicAccentBrush}"
-                                                  Background="{StaticResource CosmicDeepBrush}"/>
-                                </Grid>
+                                <!-- Progress Ring Overlay (bottom-right) -->
+                                <ProgressRing IsIndeterminate="False"
+                                              Value="{Binding ProgressPercent}"
+                                              Width="28" Height="28"
+                                              Foreground="{StaticResource SigilGoldBrush}"
+                                              Background="{StaticResource DustBrush}"
+                                              HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                              Margin="0,0,8,8"/>
 
-                                <!-- Downloaded Badge -->
-                                <Border Visibility="{Binding IsDownloaded}"
-                                        HorizontalAlignment="Left" VerticalAlignment="Top"
-                                        Margin="6,6,0,0" Padding="4,2"
-                                        CornerRadius="4"
-                                        Background="{StaticResource CosmicSuccessBrush}"
-                                        Opacity="0.85">
-                                    <FontIcon Glyph="&#xE73E;" FontSize="10"
-                                              Foreground="{StaticResource CosmicDeepBrush}"/>
-                                </Border>
+                                <!-- LIFE Label Overlay (top-left) -->
+                                <TextBlock Text="{Binding LifeLabel}"
+                                           Style="{StaticResource RitualLabelStyle}"
+                                           Opacity="0.35"
+                                           HorizontalAlignment="Left" VerticalAlignment="Top"
+                                           Margin="8,8,0,0"/>
                             </Grid>
 
-                            <!-- Info -->
+                            <!-- Info Panel -->
                             <StackPanel Grid.Row="1" Padding="8,6,8,8" Spacing="2">
                                 <TextBlock Text="{Binding DisplayTitle}"
                                            Style="{StaticResource CardTitleStyle}"
-                                           Foreground="{StaticResource CosmicTextPrimaryBrush}"
                                            MaxLines="2"
                                            TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding DisplayAuthor}"
-                                           Style="{StaticResource SubtitleStyle}"
-                                           Foreground="{StaticResource CosmicTextSecondaryBrush}"
-                                           MaxLines="1"
-                                           TextTrimming="CharacterEllipsis"/>
-
-                                <!-- Cat + Listening Time -->
-                                <Grid Margin="0,4,0,0">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Cat Silhouette (placeholder, color-coded by hours) -->
-                                    <Viewbox Grid.Column="0" Width="16" Height="16" Margin="0,0,4,0"
-                                             VerticalAlignment="Center">
-                                        <Path Data="M 6,20 L 6,12 C 6,10 7,8 8,7 L 5,2 L 8,5 C 9,4.5 10,4 12,4 C 14,4 15,4.5 16,5 L 19,2 L 16,7 C 17,8 18,10 18,12 L 18,20 C 18,21 17,22 16,22 L 8,22 C 7,22 6,21 6,20 Z M 20,18 C 20,16 21,14 22,14 C 23,14 23,15 22,17 C 21,19 20,20 20,18 Z"
-                                              Fill="{Binding HoursListened, Converter={StaticResource HoursToCosmicBrushConverter}}"/>
-                                    </Viewbox>
+                                    <!-- Weight label -->
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Weight}"
+                                               Style="{StaticResource RitualLabelStyle}"
+                                               Foreground="{Binding Weight, Converter={StaticResource WeightToBrushConverter}}"
+                                               VerticalAlignment="Center"/>
 
-                                    <!-- Listening Time -->
+                                    <!-- Time Given -->
                                     <TextBlock Grid.Column="1"
-                                               Text="{Binding ListeningTimeText}"
-                                               FontSize="11" Opacity="0.6"
-                                               Foreground="{StaticResource CosmicTextSecondaryBrush}"
+                                               Text="{Binding TimeGiven}"
+                                               Style="{StaticResource CaptionStyle}"
                                                VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>

@@ -3,17 +3,88 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ════════════════════════════════════════════════════════════════════
-         COSMIC VISUAL IDENTITY - Color Tokens
-         Deep, calm, space-inspired palette
+         NAVIGATIONAL THEME OVERRIDES (must come before other resources)
          ════════════════════════════════════════════════════════════════════ -->
-    <Color x:Key="CosmicDeep">#FF0D1117</Color>
-    <Color x:Key="CosmicSurface">#FF161B22</Color>
-    <Color x:Key="CosmicCard">#FF21262D</Color>
-    <Color x:Key="CosmicAccent">#FF58A6FF</Color>
-    <Color x:Key="CosmicSuccess">#FF7EE787</Color>
-    <Color x:Key="CosmicTextPrimary">#FFC9D1D9</Color>
-    <Color x:Key="CosmicTextSecondary">#FF8B949E</Color>
-    <Color x:Key="CosmicBorderGlow">#4D58A6FF</Color>
+    <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#FFC5A55A"/>
+    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF111827"/>
+    <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#0DFFFFFF"/>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         9 LIVES VISUAL IDENTITY — Color Tokens
+         Derived from the Cosmic Cat-Eye Sigil logo
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- VOID: Backgrounds (deep blue-black) -->
+    <Color x:Key="VoidDeep">#FF050810</Color>
+    <Color x:Key="VoidBase">#FF0A0E1A</Color>
+    <Color x:Key="VoidSurface">#FF111827</Color>
+    <Color x:Key="VoidElevated">#FF1A2236</Color>
+
+    <!-- NEBULA: Teal-tinged surfaces (from logo pupil) -->
+    <Color x:Key="NebulaDark">#FF0F2A33</Color>
+    <Color x:Key="NebulaMid">#FF1A3A4A</Color>
+    <Color x:Key="NebulaLight">#FF2C5F6E</Color>
+
+    <!-- SIGIL GOLD: Rare, sacred, meaningful (from logo geometry) -->
+    <Color x:Key="SigilGold">#FFC5A55A</Color>
+    <Color x:Key="SigilGoldBright">#FFD4AF37</Color>
+    <Color x:Key="SigilGoldDim">#FF8A7339</Color>
+    <Color x:Key="SigilGoldGlow">#33C5A55A</Color>
+    <Color x:Key="SigilGoldFaint">#1AC5A55A</Color>
+
+    <!-- STARLIGHT: Text hierarchy -->
+    <Color x:Key="Starlight">#FFFFFFFF</Color>
+    <Color x:Key="StarlightDim">#FFE0E0E8</Color>
+    <Color x:Key="Mist">#FF9BA4B5</Color>
+    <Color x:Key="MistFaint">#FF6B7280</Color>
+    <Color x:Key="Dust">#FF3D4451</Color>
+
+    <!-- RITUAL: Functional accents -->
+    <Color x:Key="RitualSuccess">#FF4ADE80</Color>
+    <Color x:Key="RitualError">#FFEF4444</Color>
+    <Color x:Key="RitualWarning">#FFFBBF24</Color>
+
+    <!-- Brush Resources -->
+    <SolidColorBrush x:Key="VoidDeepBrush" Color="{StaticResource VoidDeep}"/>
+    <SolidColorBrush x:Key="VoidBaseBrush" Color="{StaticResource VoidBase}"/>
+    <SolidColorBrush x:Key="VoidSurfaceBrush" Color="{StaticResource VoidSurface}"/>
+    <SolidColorBrush x:Key="VoidElevatedBrush" Color="{StaticResource VoidElevated}"/>
+
+    <SolidColorBrush x:Key="NebulaDarkBrush" Color="{StaticResource NebulaDark}"/>
+    <SolidColorBrush x:Key="NebulaMidBrush" Color="{StaticResource NebulaMid}"/>
+    <SolidColorBrush x:Key="NebulaLightBrush" Color="{StaticResource NebulaLight}"/>
+
+    <SolidColorBrush x:Key="SigilGoldBrush" Color="{StaticResource SigilGold}"/>
+    <SolidColorBrush x:Key="SigilGoldBrightBrush" Color="{StaticResource SigilGoldBright}"/>
+    <SolidColorBrush x:Key="SigilGoldDimBrush" Color="{StaticResource SigilGoldDim}"/>
+    <SolidColorBrush x:Key="SigilGoldGlowBrush" Color="{StaticResource SigilGoldGlow}"/>
+    <SolidColorBrush x:Key="SigilGoldFaintBrush" Color="{StaticResource SigilGoldFaint}"/>
+
+    <SolidColorBrush x:Key="StarlightBrush" Color="{StaticResource Starlight}"/>
+    <SolidColorBrush x:Key="StarlightDimBrush" Color="{StaticResource StarlightDim}"/>
+    <SolidColorBrush x:Key="MistBrush" Color="{StaticResource Mist}"/>
+    <SolidColorBrush x:Key="MistFaintBrush" Color="{StaticResource MistFaint}"/>
+    <SolidColorBrush x:Key="DustBrush" Color="{StaticResource Dust}"/>
+
+    <SolidColorBrush x:Key="RitualSuccessBrush" Color="{StaticResource RitualSuccess}"/>
+    <SolidColorBrush x:Key="RitualErrorBrush" Color="{StaticResource RitualError}"/>
+    <SolidColorBrush x:Key="RitualWarningBrush" Color="{StaticResource RitualWarning}"/>
+
+    <!-- Progress Gradient: Gold → Teal -->
+    <LinearGradientBrush x:Key="SigilProgressGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource SigilGold}" Offset="0.0"/>
+        <GradientStop Color="{StaticResource NebulaLight}" Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <!-- ═══════ BACKWARD COMPAT: Old Cosmic* aliases → new palette ═══════ -->
+    <Color x:Key="CosmicDeep">#FF050810</Color>
+    <Color x:Key="CosmicSurface">#FF111827</Color>
+    <Color x:Key="CosmicCard">#FF1A2236</Color>
+    <Color x:Key="CosmicAccent">#FFC5A55A</Color>
+    <Color x:Key="CosmicSuccess">#FF4ADE80</Color>
+    <Color x:Key="CosmicTextPrimary">#FFE0E0E8</Color>
+    <Color x:Key="CosmicTextSecondary">#FF9BA4B5</Color>
+    <Color x:Key="CosmicBorderGlow">#33C5A55A</Color>
 
     <SolidColorBrush x:Key="CosmicDeepBrush" Color="{StaticResource CosmicDeep}"/>
     <SolidColorBrush x:Key="CosmicSurfaceBrush" Color="{StaticResource CosmicSurface}"/>
@@ -25,8 +96,18 @@
     <SolidColorBrush x:Key="CosmicBorderGlowBrush" Color="{StaticResource CosmicBorderGlow}"/>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         DESIGN TOKENS - Spacing Scale (4px base)
+         ORBIT SPACING SYSTEM
+         Core → Inner → Mid → Outer (gravity metaphor)
          ════════════════════════════════════════════════════════════════════ -->
+    <x:Double x:Key="OrbitCore">0</x:Double>
+    <x:Double x:Key="OrbitInner">12</x:Double>
+    <x:Double x:Key="OrbitInnerFar">16</x:Double>
+    <x:Double x:Key="OrbitMid">24</x:Double>
+    <x:Double x:Key="OrbitMidFar">32</x:Double>
+    <x:Double x:Key="OrbitOuter">48</x:Double>
+    <x:Double x:Key="OrbitOuterFar">64</x:Double>
+
+    <!-- Backward-compatible flat spacing -->
     <x:Double x:Key="SpacingXS">4</x:Double>
     <x:Double x:Key="SpacingSM">8</x:Double>
     <x:Double x:Key="SpacingMD">12</x:Double>
@@ -34,7 +115,8 @@
     <x:Double x:Key="SpacingXL">24</x:Double>
     <x:Double x:Key="SpacingXXL">32</x:Double>
 
-    <Thickness x:Key="PagePadding">24,16,24,16</Thickness>
+    <Thickness x:Key="PagePadding">32,24,32,24</Thickness>
+    <Thickness x:Key="AltarPadding">24,32,24,32</Thickness>
     <Thickness x:Key="CardPadding">16</Thickness>
     <Thickness x:Key="SectionSpacing">0,0,0,24</Thickness>
 
@@ -45,20 +127,48 @@
     <CornerRadius x:Key="RadiusRound">9999</CornerRadius>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         TYPOGRAPHY STYLES
+         TYPOGRAPHY — Ritual + Standard
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Page Title - Large, bold -->
+    <!-- Ritual Display: major page headers (THE ALTAR, THE ARCHIVE) -->
+    <Style x:Key="RitualDisplayStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="32"/>
+        <Setter Property="FontWeight" Value="Light"/>
+        <Setter Property="CharacterSpacing" Value="200"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
+    </Style>
+
+    <!-- Ritual Title: section headers -->
+    <Style x:Key="RitualTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24"/>
+        <Setter Property="FontWeight" Value="Light"/>
+        <Setter Property="CharacterSpacing" Value="150"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
+    </Style>
+
+    <!-- Ritual Label: LIFE I, LIGHT, MEDIUM, HEAVY -->
+    <Style x:Key="RitualLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="CharacterSpacing" Value="250"/>
+        <Setter Property="Foreground" Value="{StaticResource MistBrush}"/>
+    </Style>
+
+    <!-- Page Title: calm, not heavy -->
     <Style x:Key="PageTitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="28"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Light"/>
+        <Setter Property="CharacterSpacing" Value="100"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
 
     <!-- Section Title -->
     <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="20"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Light"/>
+        <Setter Property="CharacterSpacing" Value="80"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
@@ -66,29 +176,30 @@
     <Style x:Key="CardTitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         <Setter Property="MaxLines" Value="2"/>
     </Style>
 
-    <!-- Subtitle / Secondary text -->
+    <!-- Subtitle / Secondary -->
     <Style x:Key="SubtitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Opacity" Value="0.7"/>
+        <Setter Property="Foreground" Value="{StaticResource MistBrush}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         <Setter Property="MaxLines" Value="1"/>
     </Style>
 
-    <!-- Caption / Tertiary text -->
+    <!-- Caption / Tertiary -->
     <Style x:Key="CaptionStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11"/>
-        <Setter Property="Opacity" Value="0.5"/>
+        <Setter Property="Foreground" Value="{StaticResource MistFaintBrush}"/>
     </Style>
 
-    <!-- Monospace (for IDs, codes) -->
+    <!-- Monospace -->
     <Style x:Key="MonoStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Consolas"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Opacity" Value="0.7"/>
+        <Setter Property="Foreground" Value="{StaticResource MistBrush}"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -111,7 +222,6 @@
          BUTTON STYLES
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Transparent Button Style (for controls) -->
     <Style x:Key="TransparentButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
@@ -120,7 +230,6 @@
         <Setter Property="MinHeight" Value="44"/>
     </Style>
 
-    <!-- Icon Button Style -->
     <Style x:Key="IconButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -130,17 +239,15 @@
         <Setter Property="CornerRadius" Value="8"/>
     </Style>
 
-    <!-- Circular Button Style -->
     <Style x:Key="CircularButtonStyle" TargetType="Button">
         <Setter Property="CornerRadius" Value="22"/>
         <Setter Property="Width" Value="44"/>
         <Setter Property="Height" Value="44"/>
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidElevatedBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
-    <!-- Large Circular Button Style (for main play button) -->
     <Style x:Key="LargeCircularButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
         <Setter Property="CornerRadius" Value="36"/>
         <Setter Property="Width" Value="72"/>
@@ -148,13 +255,23 @@
         <Setter Property="Padding" Value="0"/>
     </Style>
 
-    <!-- Medium Circular Button Style -->
+    <!-- Sigil Play Button: gold, sacred -->
+    <Style x:Key="SigilPlayButtonStyle" TargetType="Button">
+        <Setter Property="CornerRadius" Value="36"/>
+        <Setter Property="Width" Value="72"/>
+        <Setter Property="Height" Value="72"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="{StaticResource SigilGoldBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource VoidDeepBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
     <Style x:Key="MediumCircularButtonStyle" TargetType="Button">
         <Setter Property="CornerRadius" Value="24"/>
         <Setter Property="Width" Value="48"/>
         <Setter Property="Height" Value="48"/>
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidElevatedBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
@@ -162,30 +279,26 @@
          CARD STYLES
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Standard Card -->
     <Style x:Key="CardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidSurfaceBrush}"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
         <Setter Property="Padding" Value="{StaticResource CardPadding}"/>
     </Style>
 
-    <!-- Elevated Card (subtle shadow effect) -->
     <Style x:Key="ElevatedCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidSurfaceBrush}"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
         <Setter Property="Padding" Value="{StaticResource CardPadding}"/>
-        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource DustBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
-    <!-- Book Card Border Style -->
     <Style x:Key="BookCardBorderStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidSurfaceBrush}"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
         <Setter Property="Padding" Value="8"/>
     </Style>
 
-    <!-- Section Header Style -->
     <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
@@ -194,25 +307,22 @@
          PROGRESS STYLES
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Download Progress Style -->
     <Style x:Key="DownloadProgressStyle" TargetType="ProgressBar">
         <Setter Property="Minimum" Value="0"/>
         <Setter Property="Maximum" Value="100"/>
         <Setter Property="Height" Value="8"/>
         <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="Foreground" Value="#FF00CC66"/>
+        <Setter Property="Foreground" Value="{StaticResource SigilGoldBrush}"/>
     </Style>
 
-    <!-- Mini Player Progress Style -->
     <Style x:Key="MiniPlayerProgressStyle" TargetType="ProgressBar">
         <Setter Property="Minimum" Value="0"/>
         <Setter Property="Maximum" Value="100"/>
-        <Setter Property="Height" Value="6"/>
+        <Setter Property="Height" Value="4"/>
         <Setter Property="Margin" Value="0,4,0,0"/>
-        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="CornerRadius" Value="2"/>
     </Style>
 
-    <!-- Player Slider Style -->
     <Style x:Key="PlayerSliderStyle" TargetType="Slider">
         <Setter Property="Minimum" Value="0"/>
         <Setter Property="Maximum" Value="100"/>
@@ -235,20 +345,23 @@
 
     <Style x:Key="EmptyStateIconStyle" TargetType="FontIcon">
         <Setter Property="FontSize" Value="48"/>
-        <Setter Property="Opacity" Value="0.3"/>
+        <Setter Property="Opacity" Value="0.2"/>
+        <Setter Property="Foreground" Value="{StaticResource MistFaintBrush}"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
 
     <Style x:Key="EmptyStateTitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="16"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Light"/>
+        <Setter Property="CharacterSpacing" Value="120"/>
+        <Setter Property="Foreground" Value="{StaticResource StarlightDimBrush}"/>
         <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
 
     <Style x:Key="EmptyStateSubtitleStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Opacity" Value="0.6"/>
+        <Setter Property="Foreground" Value="{StaticResource MistFaintBrush}"/>
         <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -259,14 +372,14 @@
          ════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="DownloadedBadgeStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource SystemFillColorSuccessBackgroundBrush}"/>
+        <Setter Property="Background" Value="{StaticResource NebulaDarkBrush}"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="6,2,6,2"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
 
     <Style x:Key="StreamingBadgeStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidElevatedBrush}"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="6,2,6,2"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
@@ -275,6 +388,7 @@
     <Style x:Key="BadgeTextStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="10"/>
         <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource MistBrush}"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -283,21 +397,21 @@
 
     <Style x:Key="CoverImageBorderStyle" TargetType="Border">
         <Setter Property="CornerRadius" Value="{StaticResource RadiusSM}"/>
-        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidElevatedBrush}"/>
     </Style>
 
     <Style x:Key="LargeCoverImageBorderStyle" TargetType="Border">
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
-        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+        <Setter Property="Background" Value="{StaticResource VoidElevatedBrush}"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         ANIMATION RESOURCES (for code-behind use)
+         ANIMATION RESOURCES
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Standard durations -->
-    <x:String x:Key="AnimationFast">0:0:0.15</x:String>
-    <x:String x:Key="AnimationNormal">0:0:0.2</x:String>
-    <x:String x:Key="AnimationSlow">0:0:0.3</x:String>
+    <x:String x:Key="AnimationMicro">0:0:0.12</x:String>
+    <x:String x:Key="AnimationFast">0:0:0.18</x:String>
+    <x:String x:Key="AnimationNormal">0:0:0.28</x:String>
+    <x:String x:Key="AnimationSlow">0:0:0.32</x:String>
 
 </ResourceDictionary>

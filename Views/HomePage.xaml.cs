@@ -88,7 +88,7 @@ public sealed partial class HomePage : Page
     {
         if (sender is Grid grid)
         {
-            grid.Scale = new System.Numerics.Vector3(1.03f, 1.03f, 1f);
+            grid.Scale = new System.Numerics.Vector3(1.015f, 1.015f, 1f);
         }
     }
 

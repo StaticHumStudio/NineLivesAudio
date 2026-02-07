@@ -9,23 +9,24 @@ namespace AudioBookshelfApp.Helpers;
 public static class CosmicCatHelper
 {
     /// <summary>
-    /// Cosmic energy color stops: (hours threshold, R, G, B).
+    /// Gold-spectrum energy color stops: (hours threshold, R, G, B).
     /// Interpolated linearly between adjacent stops.
+    /// Progression: dim gray → nebula teal → sigil gold → brilliant white-gold
     /// </summary>
     private static readonly (double hours, byte r, byte g, byte b)[] ColorStops =
     {
         (0,    0x4A, 0x4A, 0x4A),  // Dim gray
-        (1,    0x6E, 0x8B, 0xC4),  // Soft blue
-        (5,    0x9B, 0x59, 0xD0),  // Purple
-        (10,   0x58, 0xA6, 0xFF),  // Cosmic blue accent
-        (25,   0x56, 0xD4, 0xDD),  // Cyan
-        (50,   0xFF, 0xD7, 0x00),  // Gold
+        (1,    0x2C, 0x5F, 0x6E),  // NebulaLight — first glow
+        (5,    0x1A, 0x3A, 0x4A),  // NebulaMid — deeper teal
+        (10,   0x8A, 0x73, 0x39),  // SigilGoldDim — muted gold
+        (25,   0xC5, 0xA5, 0x5A),  // SigilGold — primary gold
+        (50,   0xD4, 0xAF, 0x37),  // SigilGoldBright — active gold
         (100,  0xFF, 0xF0, 0xC8),  // Brilliant white-gold
     };
 
     /// <summary>
-    /// Returns a color on the cosmic energy spectrum based on hours listened.
-    /// 0h=dim gray → 1h=soft blue → 5h=purple → 10h=cosmic blue → 25h=cyan → 50h=gold → 100h+=white-gold
+    /// Returns a color on the gold energy spectrum based on hours listened.
+    /// 0h=dim gray → 1h=nebula teal → 5h=deep teal → 10h=muted gold → 25h=gold → 50h=bright gold → 100h+=white-gold
     /// </summary>
     public static Color GetCosmicEnergyColor(double hoursListened)
     {

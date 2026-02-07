@@ -5,9 +5,11 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace AudioBookshelfApp
@@ -254,22 +256,6 @@ namespace AudioBookshelfApp
             return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
         }
 
-        /// <summary>
-        /// Set window to portrait preset (420×747). User can still resize freely afterwards.
-        /// </summary>
-        private void PortraitPreset_Click(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
-        {
-            _appWindow?.Resize(new Windows.Graphics.SizeInt32(420, 747));
-        }
-
-        /// <summary>
-        /// Set window to landscape preset (960×540). User can still resize freely afterwards.
-        /// </summary>
-        private void LandscapePreset_Click(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
-        {
-            _appWindow?.Resize(new Windows.Graphics.SizeInt32(960, 540));
-        }
-
         // --- Navigation ---
 
         private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
@@ -281,14 +267,28 @@ namespace AudioBookshelfApp
         {
             if (args.IsSettingsSelected)
             {
+                UpdateNavGlow(null);
                 NavigateToPage("Settings");
             }
-            else if (args.SelectedItemContainer != null)
+            else if (args.SelectedItemContainer is NavigationViewItem selectedItem)
             {
-                var tag = args.SelectedItemContainer.Tag?.ToString();
+                UpdateNavGlow(selectedItem);
+                var tag = selectedItem.Tag?.ToString();
                 if (!string.IsNullOrEmpty(tag))
                     NavigateToPage(tag);
             }
+        }
+
+        /// <summary>
+        /// Apply faint gold background glow to the selected navigation item.
+        /// </summary>
+        private void UpdateNavGlow(NavigationViewItem? selected)
+        {
+            foreach (var item in NavView.MenuItems.OfType<NavigationViewItem>())
+                item.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            if (selected != null)
+                selected.Background = new SolidColorBrush(
+                    Windows.UI.Color.FromArgb(0x1A, 0xC5, 0xA5, 0x5A)); // SigilGoldGlow
         }
 
         private void NavigateToPage(string pageTag)
@@ -325,6 +325,11 @@ namespace AudioBookshelfApp
                     MiniPlayerTitle.Text = normalized.DisplayTitle;
                     MiniPlayerAuthor.Text = normalized.DisplayAuthor;
                     MiniPlayPauseIcon.Glyph = e.State == PlaybackState.Playing ? "\uE769" : "\uE768";
+
+                    // Gold play icon when playing, default when paused
+                    MiniPlayPauseIcon.Foreground = e.State == PlaybackState.Playing
+                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xC5, 0xA5, 0x5A)) // SigilGold
+                        : new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8)); // StarlightDim
 
                     if (!string.IsNullOrEmpty(book.CoverPath))
                     {

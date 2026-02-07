@@ -65,6 +65,7 @@ public partial class HomeViewModel : ObservableObject
 
             Lives.Clear();
             bool isFirst = true;
+            int idx = 0;
             foreach (var book in recentBooks)
             {
                 var normalized = _normalizer.Normalize(book);
@@ -76,10 +77,15 @@ public partial class HomeViewModel : ObservableObject
                     ProgressPercent = book.ProgressPercent,
                     IsMostRecent = isFirst,
                     IsDownloaded = book.IsDownloaded,
-                    ListeningTimeText = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
+                    LifeIndex = idx,
+                    LifeLabel = $"LIFE {ToRoman(idx + 1)}",
+                    Weight = book.Duration.TotalHours < 4 ? "LIGHT"
+                           : book.Duration.TotalHours < 15 ? "MEDIUM" : "HEAVY",
+                    TimeGiven = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
                     HoursListened = book.CurrentTime.TotalHours
                 });
                 isFirst = false;
+                idx++;
             }
 
             // Compute aggregate listening time across all displayed items
@@ -100,6 +106,14 @@ public partial class HomeViewModel : ObservableObject
             IsLoading = false;
         }
     }
+
+    private static readonly string[] RomanNumerals =
+        { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
+
+    private static string ToRoman(int number) =>
+        number >= 1 && number <= RomanNumerals.Length
+            ? RomanNumerals[number - 1]
+            : number.ToString();
 
     [RelayCommand]
     private async Task PlayBookAsync(NineLivesItem? item)
@@ -130,6 +144,11 @@ public class NineLivesItem
     public double ProgressPercent { get; set; }
     public bool IsMostRecent { get; set; }
     public bool IsDownloaded { get; set; }
-    public string ListeningTimeText { get; set; } = string.Empty;
     public double HoursListened { get; set; }
+
+    // Altar properties
+    public int LifeIndex { get; set; }
+    public string LifeLabel { get; set; } = string.Empty;
+    public string Weight { get; set; } = string.Empty;
+    public string TimeGiven { get; set; } = string.Empty;
 }
