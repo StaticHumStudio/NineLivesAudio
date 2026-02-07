@@ -1,0 +1,25 @@
+namespace AudioBookshelfApp.Models;
+
+public class AppSettings
+{
+    public string ServerUrl { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string DownloadPath { get; set; } = string.Empty;
+    public bool AutoDownloadCovers { get; set; } = true;
+    public double PlaybackSpeed { get; set; } = 1.0;
+    public bool AutoSyncProgress { get; set; } = true;
+    public int SyncIntervalMinutes { get; set; } = 5;
+    public bool StartMinimized { get; set; } = false;
+    public bool MinimizeToTray { get; set; } = true;
+    public double Volume { get; set; } = 0.8;
+    public string Theme { get; set; } = "System"; // System, Light, Dark
+
+    // Security
+    public bool AllowSelfSignedCertificates { get; set; } = false;
+
+    // Diagnostics
+    public bool DiagnosticsMode { get; set; } = false;
+
+    // Server profiles for reconnection
+    public List<ServerProfile> ServerProfiles { get; set; } = new();
+}

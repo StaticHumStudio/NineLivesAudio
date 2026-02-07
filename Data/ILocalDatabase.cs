@@ -1,0 +1,55 @@
+using AudioBookshelfApp.Models;
+
+namespace AudioBookshelfApp.Data;
+
+public interface ILocalDatabase
+{
+    Task InitializeAsync();
+
+    // AudioBooks
+    Task<List<AudioBook>> GetAllAudioBooksAsync();
+    Task<AudioBook?> GetAudioBookAsync(string id);
+    Task SaveAudioBookAsync(AudioBook audioBook);
+    Task UpdateAudioBookAsync(AudioBook audioBook);
+    Task DeleteAudioBookAsync(string id);
+
+    // Libraries
+    Task<List<Library>> GetAllLibrariesAsync();
+    Task<Library?> GetLibraryAsync(string id);
+    Task SaveLibraryAsync(Library library);
+    Task UpdateLibraryAsync(Library library);
+    Task DeleteLibraryAsync(string id);
+
+    // Downloads
+    Task<List<DownloadItem>> GetAllDownloadItemsAsync();
+    Task<DownloadItem?> GetDownloadItemAsync(string id);
+    Task SaveDownloadItemAsync(DownloadItem downloadItem);
+    Task UpdateDownloadItemAsync(DownloadItem downloadItem);
+    Task DeleteDownloadItemAsync(string id);
+
+    // Playback Progress
+    Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished);
+    Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId);
+
+    // Nine Lives (recently played)
+    Task<List<AudioBook>> GetRecentlyPlayedAsync(int limit = 9);
+
+    // Offline Progress Queue
+    Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished);
+    Task<List<PendingProgressEntry>> GetPendingProgressAsync();
+    Task ClearPendingProgressAsync();
+    Task<int> GetPendingProgressCountAsync();
+
+    // Bulk operations
+    Task SaveAudioBooksAsync(IEnumerable<AudioBook> audioBooks);
+    Task SaveLibrariesAsync(IEnumerable<Library> libraries);
+    Task ClearAllDataAsync();
+}
+
+public class PendingProgressEntry
+{
+    public string ItemId { get; set; } = string.Empty;
+    public double CurrentTime { get; set; }
+    public bool IsFinished { get; set; }
+    public DateTime Timestamp { get; set; }
+}

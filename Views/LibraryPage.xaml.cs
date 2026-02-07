@@ -1,0 +1,598 @@
+using AudioBookshelfApp.Models;
+using AudioBookshelfApp.Services;
+using AudioBookshelfApp.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+
+namespace AudioBookshelfApp.Views;
+
+public sealed partial class LibraryPage : Page
+{
+    public LibraryViewModel ViewModel { get; }
+    private readonly ILoggingService _logger;
+    private readonly IAudioBookshelfApiService _apiService;
+    private List<GroupItem> _currentGroups = new();
+    private string? _selectedGroup;
+
+    // Touch scroll vs tap discrimination
+    private Windows.Foundation.Point? _pointerPressedPosition;
+    private object? _pointerPressedTag;
+    private const double TapDistanceThreshold = 12.0;
+
+    public LibraryPage()
+    {
+        ViewModel = App.Services.GetRequiredService<LibraryViewModel>();
+        _logger = App.Services.GetRequiredService<ILoggingService>();
+        _apiService = App.Services.GetRequiredService<IAudioBookshelfApiService>();
+        this.InitializeComponent();
+        UpdateViewModeButtons();
+        UpdateStatusPill();
+    }
+
+    private async void Page_Loaded(object sender, RoutedEventArgs e)
+    {
+        _logger.Log("LibraryPage loaded, initializing ViewModel");
+        await ViewModel.InitializeAsync();
+        _logger.Log("LibraryPage ViewModel initialized");
+        UpdateViewDisplay();
+        UpdateStatusPill();
+    }
+
+    private void UpdateStatusPill()
+    {
+        var isConnected = _apiService.IsAuthenticated;
+        StatusText.Text = isConnected ? "Connected" : "Offline";
+
+        // Update pill color
+        if (isConnected)
+        {
+            StatusPill.Background = (Brush)Application.Current.Resources["SystemFillColorSuccessBackgroundBrush"];
+        }
+        else
+        {
+            StatusPill.Background = (Brush)Application.Current.Resources["SystemFillColorNeutralBackgroundBrush"];
+        }
+    }
+
+    private void BookCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement card)
+        {
+            // Subtle scale effect on hover
+            card.Scale = new System.Numerics.Vector3(1.02f, 1.02f, 1f);
+        }
+    }
+
+    private void BookCard_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement card)
+        {
+            card.Scale = new System.Numerics.Vector3(1f, 1f, 1f);
+        }
+    }
+
+    private void CoverImage_ImageFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        _logger.LogDebug($"Cover image failed to load: {e.ErrorMessage}");
+    }
+
+    private void BookCard_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.Tag is AudioBook audioBook)
+        {
+            var point = e.GetCurrentPoint(element);
+
+            if (point.Properties.IsRightButtonPressed)
+            {
+                ShowBookContextMenu(element, audioBook, point.Position);
+            }
+            else if (point.Properties.IsLeftButtonPressed)
+            {
+                _pointerPressedPosition = point.Position;
+                _pointerPressedTag = audioBook;
+            }
+        }
+    }
+
+    private void BookCard_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition == null) return;
+        if (sender is FrameworkElement element)
+        {
+            var point = e.GetCurrentPoint(element);
+            var dx = point.Position.X - _pointerPressedPosition.Value.X;
+            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
+            {
+                _pointerPressedPosition = null;
+                _pointerPressedTag = null;
+            }
+        }
+    }
+
+    private void BookCard_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition != null && _pointerPressedTag is AudioBook audioBook)
+        {
+            _logger.Log($"Opening book details: {audioBook.Title}");
+            NavigateToBookDetail(audioBook);
+        }
+        _pointerPressedPosition = null;
+        _pointerPressedTag = null;
+    }
+
+    private void NavigateToBookDetail(AudioBook audioBook)
+    {
+        Frame.Navigate(typeof(BookDetailPage), audioBook);
+    }
+
+    private void ShowBookContextMenu(FrameworkElement element, AudioBook audioBook, Windows.Foundation.Point position)
+    {
+        var menu = new MenuFlyout();
+
+        var viewItem = new MenuFlyoutItem
+        {
+            Text = "View Details",
+            Icon = new FontIcon { Glyph = "\uE8A5" }
+        };
+        viewItem.Click += (s, e) => NavigateToBookDetail(audioBook);
+        menu.Items.Add(viewItem);
+
+        var playItem = new MenuFlyoutItem
+        {
+            Text = "Play",
+            Icon = new FontIcon { Glyph = "\uE768" }
+        };
+        playItem.Click += (s, e) => _ = ViewModel.PlayAudioBookCommand.ExecuteAsync(audioBook);
+        menu.Items.Add(playItem);
+
+        menu.Items.Add(new MenuFlyoutSeparator());
+
+        if (!audioBook.IsDownloaded)
+        {
+            var downloadItem = new MenuFlyoutItem
+            {
+                Text = "Download",
+                Icon = new FontIcon { Glyph = "\uE896" }
+            };
+            downloadItem.Click += (s, e) => _ = ViewModel.DownloadAudioBookCommand.ExecuteAsync(audioBook);
+            menu.Items.Add(downloadItem);
+        }
+        else
+        {
+            var removeItem = new MenuFlyoutItem
+            {
+                Text = "Remove Download",
+                Icon = new FontIcon { Glyph = "\uE74D" }
+            };
+            removeItem.Click += (s, e) => _ = ViewModel.RemoveDownloadCommand.ExecuteAsync(audioBook);
+            menu.Items.Add(removeItem);
+        }
+
+        menu.ShowAt(element, position);
+    }
+
+    private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SortComboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        {
+            ViewModel.CurrentSortMode = tag switch
+            {
+                "Title" => SortMode.Title,
+                "Author" => SortMode.Author,
+                "Progress" => SortMode.Progress,
+                "RecentProgress" => SortMode.RecentProgress,
+                _ => SortMode.Default
+            };
+        }
+    }
+
+    private void HideFinishedToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        ViewModel.HideFinished = HideFinishedToggle.IsOn;
+    }
+
+    private void ViewModeAll_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CurrentViewMode = ViewMode.All;
+        _selectedGroup = null;
+        UpdateViewModeButtons();
+        UpdateViewDisplay();
+    }
+
+    private void ViewModeSeries_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CurrentViewMode = ViewMode.Series;
+        _selectedGroup = null;
+        UpdateViewModeButtons();
+        UpdateViewDisplay();
+    }
+
+    private void ViewModeAuthor_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CurrentViewMode = ViewMode.Author;
+        _selectedGroup = null;
+        UpdateViewModeButtons();
+        UpdateViewDisplay();
+    }
+
+    private void ViewModeGenre_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CurrentViewMode = ViewMode.Genre;
+        _selectedGroup = null;
+        UpdateViewModeButtons();
+        UpdateViewDisplay();
+    }
+
+    private void BackToGroups_Click(object sender, RoutedEventArgs e)
+    {
+        _selectedGroup = null;
+        UpdateViewDisplay();
+    }
+
+    private void UpdateViewModeButtons()
+    {
+        var accentStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
+        var defaultStyle = (Style)Application.Current.Resources["DefaultButtonStyle"];
+
+        ViewModeAllButton.Style = ViewModel.CurrentViewMode == ViewMode.All ? accentStyle : defaultStyle;
+        ViewModeSeriesButton.Style = ViewModel.CurrentViewMode == ViewMode.Series ? accentStyle : defaultStyle;
+        ViewModeAuthorButton.Style = ViewModel.CurrentViewMode == ViewMode.Author ? accentStyle : defaultStyle;
+        ViewModeGenreButton.Style = ViewModel.CurrentViewMode == ViewMode.Genre ? accentStyle : defaultStyle;
+    }
+
+    private void UpdateViewDisplay()
+    {
+        if (ViewModel.CurrentViewMode == ViewMode.All)
+        {
+            // Show all books grid
+            AllBooksView.Visibility = Visibility.Visible;
+            GroupsView.Visibility = Visibility.Collapsed;
+            GroupDetailView.Visibility = Visibility.Collapsed;
+        }
+        else if (_selectedGroup != null)
+        {
+            // Show books in selected group
+            AllBooksView.Visibility = Visibility.Collapsed;
+            GroupsView.Visibility = Visibility.Collapsed;
+            GroupDetailView.Visibility = Visibility.Visible;
+            LoadGroupDetail();
+        }
+        else
+        {
+            // Show group cards
+            AllBooksView.Visibility = Visibility.Collapsed;
+            GroupsView.Visibility = Visibility.Visible;
+            GroupDetailView.Visibility = Visibility.Collapsed;
+            LoadGroups();
+        }
+    }
+
+    private void LoadGroups()
+    {
+        _currentGroups = ViewModel.CurrentViewMode switch
+        {
+            ViewMode.Series => CreateSeriesGroups(),
+            ViewMode.Author => CreateAuthorGroups(),
+            ViewMode.Genre => CreateGenreGroups(),
+            _ => new List<GroupItem>()
+        };
+
+        _logger.Log($"Loaded {_currentGroups.Count} groups for {ViewModel.CurrentViewMode}");
+
+        GroupsRepeater.ItemTemplate = CreateGroupCardTemplate();
+        GroupsRepeater.ItemsSource = _currentGroups;
+    }
+
+    private List<GroupItem> CreateSeriesGroups()
+    {
+        return ViewModel.AudioBooks
+            .Where(b => !string.IsNullOrEmpty(b.SeriesName))
+            .GroupBy(b => b.SeriesName!)
+            .Select(g => new GroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.OrderBy(b => ParseSequence(b.SeriesSequence)).FirstOrDefault()?.CoverPath,
+                Icon = "\uE8F1"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
+    }
+
+    private List<GroupItem> CreateAuthorGroups()
+    {
+        return ViewModel.AudioBooks
+            .Where(b => !string.IsNullOrEmpty(b.Author))
+            .GroupBy(b => b.Author)
+            .Select(g => new GroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.FirstOrDefault()?.CoverPath,
+                Icon = "\uE77B"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
+    }
+
+    private List<GroupItem> CreateGenreGroups()
+    {
+        return ViewModel.AudioBooks
+            .SelectMany(b => b.Genres.Select(g => new { Genre = g, Book = b }))
+            .GroupBy(x => x.Genre)
+            .Select(g => new GroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.FirstOrDefault()?.Book.CoverPath,
+                Icon = "\uE8D6"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
+    }
+
+    private DataTemplate CreateGroupCardTemplate()
+    {
+        var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
+            <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+                <Grid Background=""{ThemeResource CardBackgroundFillColorDefaultBrush}""
+                      CornerRadius=""8""
+                      Padding=""16"">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width=""60""/>
+                        <ColumnDefinition Width=""*""/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column=""0""
+                            Width=""60""
+                            Height=""60""
+                            CornerRadius=""4""
+                            Background=""{ThemeResource SystemControlBackgroundBaseLowBrush}"">
+                        <Grid>
+                            <FontIcon Glyph=""{Binding Icon}"" FontSize=""24"" Opacity=""0.5""
+                                      HorizontalAlignment=""Center"" VerticalAlignment=""Center""/>
+                            <Image Source=""{Binding CoverUrl}"" Stretch=""UniformToFill""/>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column=""1"" Margin=""12,0,0,0"" VerticalAlignment=""Center"">
+                        <TextBlock Text=""{Binding Name}""
+                                   FontWeight=""SemiBold""
+                                   FontSize=""14""
+                                   TextTrimming=""CharacterEllipsis""
+                                   MaxLines=""2""
+                                   TextWrapping=""Wrap""/>
+                        <TextBlock Text=""{Binding BookCountText}""
+                                   FontSize=""12""
+                                   Opacity=""0.6""
+                                   Margin=""0,4,0,0""/>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>");
+        return template;
+    }
+
+    private void GroupsRepeater_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Hook up click events for group cards
+        if (sender is ItemsRepeater repeater)
+        {
+            repeater.ElementPrepared += GroupsRepeater_ElementPrepared;
+        }
+    }
+
+    private void GroupsRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        if (args.Element is FrameworkElement element)
+        {
+            element.PointerPressed -= GroupCard_PointerPressed;
+            element.PointerPressed += GroupCard_PointerPressed;
+            element.PointerMoved -= GroupCard_PointerMoved;
+            element.PointerMoved += GroupCard_PointerMoved;
+            element.PointerReleased -= GroupCard_PointerReleased;
+            element.PointerReleased += GroupCard_PointerReleased;
+        }
+    }
+
+    private void GroupCard_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is GroupItem group)
+        {
+            var point = e.GetCurrentPoint(element);
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                _pointerPressedPosition = point.Position;
+                _pointerPressedTag = group;
+            }
+        }
+    }
+
+    private void GroupCard_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition == null) return;
+        if (sender is FrameworkElement element)
+        {
+            var point = e.GetCurrentPoint(element);
+            var dx = point.Position.X - _pointerPressedPosition.Value.X;
+            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
+            {
+                _pointerPressedPosition = null;
+                _pointerPressedTag = null;
+            }
+        }
+    }
+
+    private void GroupCard_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition != null && _pointerPressedTag is GroupItem group)
+        {
+            _logger.Log($"Selected group: {group.Name}");
+            _selectedGroup = group.Name;
+            UpdateViewDisplay();
+        }
+        _pointerPressedPosition = null;
+        _pointerPressedTag = null;
+    }
+
+    private void LoadGroupDetail()
+    {
+        if (_selectedGroup == null) return;
+
+        GroupDetailTitle.Text = _selectedGroup;
+
+        var books = ViewModel.CurrentViewMode switch
+        {
+            ViewMode.Series => ViewModel.AudioBooks
+                .Where(b => b.SeriesName == _selectedGroup)
+                .OrderBy(b => ParseSequence(b.SeriesSequence))
+                .ToList(),
+            ViewMode.Author => ViewModel.AudioBooks
+                .Where(b => b.Author == _selectedGroup)
+                .OrderBy(b => b.Title)
+                .ToList(),
+            ViewMode.Genre => ViewModel.AudioBooks
+                .Where(b => b.Genres.Contains(_selectedGroup))
+                .OrderBy(b => b.Title)
+                .ToList(),
+            _ => new List<AudioBook>()
+        };
+
+        _logger.Log($"Group '{_selectedGroup}' has {books.Count} books");
+
+        GroupBooksRepeater.ItemTemplate = CreateBookCardTemplate();
+        GroupBooksRepeater.ItemsSource = books;
+
+        // Hook up click events
+        GroupBooksRepeater.ElementPrepared -= GroupBooksRepeater_ElementPrepared;
+        GroupBooksRepeater.ElementPrepared += GroupBooksRepeater_ElementPrepared;
+    }
+
+    private void GroupBooksRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        if (args.Element is FrameworkElement element)
+        {
+            element.PointerPressed -= DetailBookCard_PointerPressed;
+            element.PointerPressed += DetailBookCard_PointerPressed;
+            element.PointerMoved -= DetailBookCard_PointerMoved;
+            element.PointerMoved += DetailBookCard_PointerMoved;
+            element.PointerReleased -= DetailBookCard_PointerReleased;
+            element.PointerReleased += DetailBookCard_PointerReleased;
+        }
+    }
+
+    private void DetailBookCard_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is AudioBook audioBook)
+        {
+            var point = e.GetCurrentPoint(element);
+            if (point.Properties.IsRightButtonPressed)
+            {
+                ShowBookContextMenu(element, audioBook, point.Position);
+            }
+            else if (point.Properties.IsLeftButtonPressed)
+            {
+                _pointerPressedPosition = point.Position;
+                _pointerPressedTag = audioBook;
+            }
+        }
+    }
+
+    private void DetailBookCard_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition == null) return;
+        if (sender is FrameworkElement element)
+        {
+            var point = e.GetCurrentPoint(element);
+            var dx = point.Position.X - _pointerPressedPosition.Value.X;
+            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
+            {
+                _pointerPressedPosition = null;
+                _pointerPressedTag = null;
+            }
+        }
+    }
+
+    private void DetailBookCard_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pointerPressedPosition != null && _pointerPressedTag is AudioBook audioBook)
+        {
+            _logger.Log($"Opening book from group: {audioBook.Title}");
+            NavigateToBookDetail(audioBook);
+        }
+        _pointerPressedPosition = null;
+        _pointerPressedTag = null;
+    }
+
+    private DataTemplate CreateBookCardTemplate()
+    {
+        var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
+            <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+                <Grid Background=""{ThemeResource CardBackgroundFillColorDefaultBrush}""
+                      CornerRadius=""8""
+                      Padding=""8"">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height=""*""/>
+                        <RowDefinition Height=""Auto""/>
+                        <RowDefinition Height=""Auto""/>
+                        <RowDefinition Height=""Auto""/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row=""0""
+                            CornerRadius=""4""
+                            Background=""{ThemeResource SystemControlBackgroundBaseLowBrush}"">
+                        <Grid>
+                            <FontIcon Glyph=""&#xE8F1;""
+                                      FontSize=""48""
+                                      Opacity=""0.3""
+                                      HorizontalAlignment=""Center""
+                                      VerticalAlignment=""Center""/>
+                            <Image Source=""{Binding CoverPath}"" Stretch=""UniformToFill""/>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Grid.Row=""1""
+                               Text=""{Binding Title}""
+                               FontWeight=""SemiBold""
+                               TextTrimming=""CharacterEllipsis""
+                               MaxLines=""2""
+                               TextWrapping=""Wrap""
+                               Margin=""0,8,0,4""/>
+
+                    <TextBlock Grid.Row=""2""
+                               Text=""{Binding Author}""
+                               Opacity=""0.7""
+                               FontSize=""12""
+                               TextTrimming=""CharacterEllipsis""/>
+
+                    <ProgressBar Grid.Row=""3""
+                                 Value=""{Binding Progress}""
+                                 Maximum=""1""
+                                 Margin=""0,8,0,0""/>
+                </Grid>
+            </DataTemplate>");
+        return template;
+    }
+
+    private static double ParseSequence(string? sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return double.MaxValue;
+        if (double.TryParse(sequence, out var num)) return num;
+        return double.MaxValue;
+    }
+
+    public class GroupItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public int BookCount { get; set; }
+        public string? CoverUrl { get; set; }
+        public string Icon { get; set; } = "\uE8F1";
+        public string BookCountText => BookCount == 1 ? "1 book" : $"{BookCount} books";
+    }
+}

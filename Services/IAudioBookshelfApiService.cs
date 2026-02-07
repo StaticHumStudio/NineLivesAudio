@@ -1,0 +1,72 @@
+using AudioBookshelfApp.Models;
+
+namespace AudioBookshelfApp.Services;
+
+public interface IAudioBookshelfApiService
+{
+    bool IsAuthenticated { get; }
+    string? ServerUrl { get; }
+    string? LastError { get; }
+
+    // Authentication
+    Task<bool> LoginAsync(string serverUrl, string username, string password);
+    Task LogoutAsync();
+    Task<bool> ValidateTokenAsync();
+
+    // Libraries
+    Task<List<Library>> GetLibrariesAsync();
+    Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 100, int page = 0);
+
+    // Audiobooks
+    Task<AudioBook?> GetAudioBookAsync(string itemId);
+    Task<Stream> GetAudioFileStreamAsync(string itemId, string fileIno);
+    Task<byte[]?> GetCoverImageAsync(string itemId, int? width = null, int? height = null);
+
+    // Playback & Progress
+    Task<PlaybackSessionInfo?> StartPlaybackSessionAsync(string itemId);
+    Task<bool> UpdateProgressAsync(string itemId, double currentTime, bool isFinished = false);
+    Task<bool> SyncSessionProgressAsync(string sessionId, double currentTime, double duration, double timeListened = 0);
+    Task ClosePlaybackSessionAsync(string sessionId);
+
+    // User
+    Task<UserProgress?> GetUserProgressAsync(string itemId);
+    Task<List<UserProgress>> GetAllUserProgressAsync();
+
+    // Bookmarks
+    Task<List<Bookmark>> GetBookmarksAsync(string itemId);
+    Task<bool> CreateBookmarkAsync(string itemId, string title, double time);
+    Task<bool> DeleteBookmarkAsync(string itemId, double time);
+
+    // Reconnection
+    event EventHandler<ReconnectionEventArgs>? ReconnectionAttempted;
+    Task<bool> TryReconnectAsync();
+}
+
+public class ReconnectionEventArgs : EventArgs
+{
+    public bool Success { get; init; }
+    public string? ServerUrl { get; init; }
+    public string? ErrorMessage { get; init; }
+    public int AttemptNumber { get; init; }
+}
+
+public class PlaybackSessionInfo
+{
+    public string Id { get; set; } = string.Empty;
+    public string ItemId { get; set; } = string.Empty;
+    public string? EpisodeId { get; set; }
+    public double CurrentTime { get; set; }
+    public double Duration { get; set; }
+    public string MediaType { get; set; } = "book";
+    public List<AudioStreamInfo> AudioTracks { get; set; } = new();
+    public List<Chapter> Chapters { get; set; } = new();
+}
+
+public class AudioStreamInfo
+{
+    public int Index { get; set; }
+    public string Codec { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public double Duration { get; set; }
+    public string ContentUrl { get; set; } = string.Empty;
+}

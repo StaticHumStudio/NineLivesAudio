@@ -1,0 +1,26 @@
+# Build results
+bin/
+obj/
+binpublish/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS / Rider
+.vs/
+.idea/
+*.csproj.user
+
+# NuGet
+packages/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Secrets
+*.env
+appsettings.Development.json

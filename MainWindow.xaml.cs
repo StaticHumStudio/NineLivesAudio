@@ -1,0 +1,368 @@
+using AudioBookshelfApp.Services;
+using AudioBookshelfApp.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System;
+using System.Diagnostics;
+
+namespace AudioBookshelfApp
+{
+    public sealed partial class MainWindow : Window
+    {
+        private readonly IAppInitializer _initializer;
+        private readonly ILoggingService _logger;
+        private readonly IAudioPlaybackService _playbackService;
+        private readonly INotificationService _notifications;
+        private readonly IMetadataNormalizer _normalizer;
+        private readonly IConnectivityService _connectivity;
+        private readonly INavigationService _navigationService;
+        private readonly MainViewModel _mainViewModel;
+        private DateTime _lastMiniPlayerUpdate = DateTime.MinValue;
+
+        // Window reference for preset sizing
+        private Microsoft.UI.Windowing.AppWindow? _appWindow;
+
+        public MainWindow()
+        {
+            this.InitializeComponent();
+
+            Title = "AudioBookshelf";
+
+            // Set initial window size (portrait default) — user can freely resize/maximize
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+            _appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+            _appWindow?.Resize(new Windows.Graphics.SizeInt32(420, 747)); // portrait default
+
+            // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
+            SetMinimumWindowSize(hwnd, 320, 480);
+
+            _initializer = App.Services.GetRequiredService<IAppInitializer>();
+            _logger = App.Services.GetRequiredService<ILoggingService>();
+            _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();
+            _notifications = App.Services.GetRequiredService<INotificationService>();
+            _normalizer = App.Services.GetRequiredService<IMetadataNormalizer>();
+            _connectivity = App.Services.GetRequiredService<IConnectivityService>();
+            _navigationService = App.Services.GetRequiredService<INavigationService>();
+            _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
+
+            // Wire MiniPlayer to playback events
+            _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
+            _playbackService.PositionChanged += OnPositionChanged;
+
+            // Wire notification service
+            _notifications.NotificationRequested += OnNotificationRequested;
+
+            // Wire connectivity monitoring
+            _connectivity.ConnectivityChanged += OnConnectivityChanged;
+
+            // Kick off async init after the window content is loaded
+            if (this.Content is FrameworkElement rootElement)
+                rootElement.Loaded += OnContentLoaded;
+        }
+
+        private async void OnContentLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el)
+                el.Loaded -= OnContentLoaded; // Only once
+            await RunInitializationAsync();
+        }
+
+        private async Task RunInitializationAsync()
+        {
+            try
+            {
+                InitOverlay.Visibility = Visibility.Visible;
+                InitErrorPanel.Visibility = Visibility.Collapsed;
+                AppContent.Visibility = Visibility.Collapsed;
+                InitStatusText.Text = "Initializing...";
+
+                await _initializer.InitializeAsync();
+
+                if (_initializer.State == InitState.Ready)
+                {
+                    ShowApp();
+                }
+                else
+                {
+                    ShowInitError(_initializer.ErrorMessage ?? "Unknown initialization error");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("MainWindow init failed", ex);
+                ShowInitError(ex.Message);
+            }
+        }
+
+        private void ShowApp()
+        {
+            InitOverlay.Visibility = Visibility.Collapsed;
+            InitErrorPanel.Visibility = Visibility.Collapsed;
+            AppContent.Visibility = Visibility.Visible;
+
+            // Initialize navigation service with frame and nav view
+            _navigationService.Initialize(ContentFrame, NavView);
+
+            NavView.SelectedItem = NavView.MenuItems[0]; // Home
+            NavigateToPage("Home");
+
+            // Start connectivity monitoring
+            _ = _connectivity.StartMonitoringAsync();
+            UpdateConnectivityUI(_connectivity.IsOnline, _connectivity.IsServerReachable);
+        }
+
+        private void ShowInitError(string message)
+        {
+            InitOverlay.Visibility = Visibility.Collapsed;
+            InitErrorPanel.Visibility = Visibility.Visible;
+            AppContent.Visibility = Visibility.Collapsed;
+            InitErrorText.Text = message;
+        }
+
+        private async void RetryInit_Click(object sender, RoutedEventArgs e)
+        {
+            await RunInitializationAsync();
+        }
+
+        private void OpenLogs_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var logDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "AudioBookshelfApp", "Logs");
+                Process.Start(new ProcessStartInfo { FileName = logDir, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Failed to open logs folder", ex);
+            }
+        }
+
+        private async void ResetConnection_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var settings = App.Services.GetRequiredService<ISettingsService>();
+                await settings.ClearAuthTokenAsync();
+                settings.Settings.ServerUrl = string.Empty;
+                settings.Settings.Username = string.Empty;
+                await settings.SaveSettingsAsync();
+                _logger.Log("Connection reset by user from init error screen");
+                await RunInitializationAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Reset connection failed", ex);
+            }
+        }
+
+        // --- Connectivity ---
+
+        private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() => UpdateConnectivityUI(e.IsOnline, e.IsServerReachable));
+        }
+
+        private void UpdateConnectivityUI(bool isOnline, bool isServerReachable)
+        {
+            if (!isOnline)
+            {
+                ConnectivityIcon.Glyph = "\uF384"; // Wifi off
+                ConnectivityText.Text = "Offline";
+                ConnectivityIcon.Opacity = 0.5;
+            }
+            else if (!isServerReachable)
+            {
+                ConnectivityIcon.Glyph = "\uE783"; // Warning
+                ConnectivityText.Text = "Server unreachable";
+                ConnectivityIcon.Opacity = 0.7;
+            }
+            else
+            {
+                ConnectivityIcon.Glyph = "\uE701"; // Wifi
+                ConnectivityText.Text = "Connected";
+                ConnectivityIcon.Opacity = 0.6;
+            }
+        }
+
+        // --- Window Sizing: Minimum size + optional presets ---
+
+        /// <summary>
+        /// Set a minimum window size via Win32 — does not enforce aspect ratio,
+        /// does not block maximize, does not fight the OS.
+        /// </summary>
+        private static void SetMinimumWindowSize(IntPtr hwnd, int minWidth, int minHeight)
+        {
+            // Use a subclass/hook to enforce WM_GETMINMAXINFO
+            // For WinUI 3, the simplest reliable approach is via SetWindowPos constraints.
+            // WinUI 3 doesn't expose min-size directly, but we can use presenter settings.
+            // For now, the minimum is advisory — layouts handle narrow widths via VisualStates.
+        }
+
+        /// <summary>
+        /// Set window to portrait preset (420×747). User can still resize freely afterwards.
+        /// </summary>
+        private void PortraitPreset_Click(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            _appWindow?.Resize(new Windows.Graphics.SizeInt32(420, 747));
+        }
+
+        /// <summary>
+        /// Set window to landscape preset (960×540). User can still resize freely afterwards.
+        /// </summary>
+        private void LandscapePreset_Click(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            _appWindow?.Resize(new Windows.Graphics.SizeInt32(960, 540));
+        }
+
+        // --- Navigation ---
+
+        private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
+        {
+            _navigationService.GoBack();
+        }
+
+        private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+        {
+            if (args.IsSettingsSelected)
+            {
+                NavigateToPage("Settings");
+            }
+            else if (args.SelectedItemContainer != null)
+            {
+                var tag = args.SelectedItemContainer.Tag?.ToString();
+                if (!string.IsNullOrEmpty(tag))
+                    NavigateToPage(tag);
+            }
+        }
+
+        private void NavigateToPage(string pageTag)
+        {
+            Type? pageType = pageTag switch
+            {
+                "Home" => typeof(Views.HomePage),
+                "Library" => typeof(Views.LibraryPage),
+                "Player" => typeof(Views.PlayerPage),
+                "Downloads" => typeof(Views.DownloadsPage),
+                "Settings" => typeof(Views.SettingsPage),
+                _ => null
+            };
+
+            if (pageType != null)
+                _navigationService.NavigateTo(pageType);
+        }
+
+        // --- MiniPlayer wiring ---
+
+        private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                var book = _playbackService.CurrentAudioBook;
+                bool showMini = book != null && e.State != PlaybackState.Stopped;
+
+                MiniPlayerBar.Visibility = showMini ? Visibility.Visible : Visibility.Collapsed;
+
+                if (book != null)
+                {
+                    // Use normalized metadata for display
+                    var normalized = _normalizer.Normalize(book);
+                    MiniPlayerTitle.Text = normalized.DisplayTitle;
+                    MiniPlayerAuthor.Text = normalized.DisplayAuthor;
+                    MiniPlayPauseIcon.Glyph = e.State == PlaybackState.Playing ? "\uE769" : "\uE768";
+
+                    if (!string.IsNullOrEmpty(book.CoverPath))
+                    {
+                        try { MiniPlayerArt.Source = new BitmapImage(new Uri(book.CoverPath)); }
+                        catch { MiniPlayerArt.Source = null; }
+                    }
+                }
+            });
+        }
+
+        private void OnPositionChanged(object? sender, TimeSpan position)
+        {
+            // Throttle mini player updates to ~4/sec
+            var now = DateTime.UtcNow;
+            if ((now - _lastMiniPlayerUpdate).TotalMilliseconds < 250)
+                return;
+            _lastMiniPlayerUpdate = now;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                var duration = _playbackService.Duration;
+                if (duration.TotalSeconds > 0)
+                    MiniPlayerProgress.Value = position.TotalSeconds / duration.TotalSeconds * 100;
+            });
+        }
+
+        private void MiniPlayer_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            var point = e.GetCurrentPoint(sender as UIElement);
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                if (NavView.MenuItems.Count > 2)
+                    NavView.SelectedItem = NavView.MenuItems[2]; // Player
+                _navigationService.NavigateTo(typeof(Views.PlayerPage));
+            }
+        }
+
+        private async void MiniPlayPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (_playbackService.State == PlaybackState.Playing)
+                await _playbackService.PauseAsync();
+            else
+                await _playbackService.PlayAsync();
+        }
+
+        private async void MiniRewind_Click(object sender, RoutedEventArgs e)
+        {
+            var pos = _playbackService.Position - TimeSpan.FromSeconds(10);
+            if (pos < TimeSpan.Zero) pos = TimeSpan.Zero;
+            await _playbackService.SeekAsync(pos);
+        }
+
+        private async void MiniForward_Click(object sender, RoutedEventArgs e)
+        {
+            var pos = _playbackService.Position + TimeSpan.FromSeconds(30);
+            if (pos > _playbackService.Duration) pos = _playbackService.Duration;
+            await _playbackService.SeekAsync(pos);
+        }
+
+        // --- Notification handling ---
+
+        private void OnNotificationRequested(object? sender, NotificationEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (e.ShouldDismiss)
+                {
+                    AppNotification.IsOpen = false;
+                    return;
+                }
+
+                AppNotification.Title = e.Title ?? string.Empty;
+                AppNotification.Message = e.Message;
+                AppNotification.Severity = e.Type switch
+                {
+                    NotificationType.Success => InfoBarSeverity.Success,
+                    NotificationType.Error => InfoBarSeverity.Error,
+                    NotificationType.Warning => InfoBarSeverity.Warning,
+                    _ => InfoBarSeverity.Informational
+                };
+                AppNotification.IsOpen = true;
+            });
+        }
+
+        private void AppNotification_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+        {
+            // Auto-closed or user closed
+        }
+    }
+}

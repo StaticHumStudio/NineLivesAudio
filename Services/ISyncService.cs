@@ -1,0 +1,41 @@
+using AudioBookshelfApp.Models;
+
+namespace AudioBookshelfApp.Services;
+
+public interface ISyncService
+{
+    bool IsSyncing { get; }
+    DateTime? LastSyncTime { get; }
+
+    event EventHandler<SyncEventArgs>? SyncStarted;
+    event EventHandler<SyncEventArgs>? SyncCompleted;
+    event EventHandler<SyncErrorEventArgs>? SyncFailed;
+
+    Task StartAsync();
+    Task StopAsync();
+    Task SyncNowAsync();
+    Task SyncLibrariesAsync();
+    Task SyncProgressAsync();
+
+    /// <summary>Mark which item is actively playing (session owns progress).</summary>
+    void SetActivePlaybackItem(string? itemId);
+
+    /// <summary>Throttled position report during playback.</summary>
+    Task ReportPlaybackPositionAsync(string itemId, double currentTime, double duration, bool isFinished = false);
+
+    /// <summary>Force-push final progress on stop/exit.</summary>
+    Task FlushPlaybackProgressAsync(string itemId, double currentTime, double duration, bool isFinished);
+}
+
+public class SyncEventArgs : EventArgs
+{
+    public DateTime Timestamp { get; set; } = DateTime.Now;
+    public int ItemsSynced { get; set; }
+}
+
+public class SyncErrorEventArgs : EventArgs
+{
+    public DateTime Timestamp { get; set; } = DateTime.Now;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public Exception? Exception { get; set; }
+}
