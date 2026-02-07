@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace AudioBookshelfApp
 {
@@ -39,7 +40,7 @@ namespace AudioBookshelfApp
             _appWindow?.Resize(new Windows.Graphics.SizeInt32(420, 747)); // portrait default
 
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
-            SetMinimumWindowSize(hwnd, 320, 480);
+            SetMinimumWindowSize(hwnd, 400, 480);
 
             _initializer = App.Services.GetRequiredService<IAppInitializer>();
             _logger = App.Services.GetRequiredService<ILoggingService>();
@@ -191,18 +192,66 @@ namespace AudioBookshelfApp
             }
         }
 
-        // --- Window Sizing: Minimum size + optional presets ---
+        // --- Window Sizing: Minimum size via Win32 WM_GETMINMAXINFO hook ---
+
+        private const int WM_GETMINMAXINFO = 0x0024;
+        private const int GWLP_WNDPROC = -4;
+
+        private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        private static WndProcDelegate? _newWndProc; // prevent GC of delegate
+        private static IntPtr _oldWndProc;
+        private static int _minWidthPx;
+        private static int _minHeightPx;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hwnd);
 
         /// <summary>
-        /// Set a minimum window size via Win32 — does not enforce aspect ratio,
-        /// does not block maximize, does not fight the OS.
+        /// Enforce a minimum window size via Win32 subclass hook.
+        /// Accounts for DPI scaling (WM_GETMINMAXINFO uses physical pixels).
         /// </summary>
         private static void SetMinimumWindowSize(IntPtr hwnd, int minWidth, int minHeight)
         {
-            // Use a subclass/hook to enforce WM_GETMINMAXINFO
-            // For WinUI 3, the simplest reliable approach is via SetWindowPos constraints.
-            // WinUI 3 doesn't expose min-size directly, but we can use presenter settings.
-            // For now, the minimum is advisory — layouts handle narrow widths via VisualStates.
+            var dpi = GetDpiForWindow(hwnd);
+            var scale = dpi / 96.0;
+            _minWidthPx = (int)(minWidth * scale);
+            _minHeightPx = (int)(minHeight * scale);
+
+            _newWndProc = new WndProcDelegate(MinSizeWndProc);
+            _oldWndProc = SetWindowLongPtr(hwnd, GWLP_WNDPROC,
+                Marshal.GetFunctionPointerForDelegate(_newWndProc));
+        }
+
+        private static IntPtr MinSizeWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+        {
+            if (msg == WM_GETMINMAXINFO)
+            {
+                var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                info.ptMinTrackSize.X = _minWidthPx;
+                info.ptMinTrackSize.Y = _minHeightPx;
+                Marshal.StructureToPtr(info, lParam, false);
+                return IntPtr.Zero;
+            }
+            return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
         }
 
         /// <summary>

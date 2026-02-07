@@ -1,4 +1,5 @@
 using AudioBookshelfApp.Data;
+using AudioBookshelfApp.Helpers;
 using AudioBookshelfApp.Models;
 using AudioBookshelfApp.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,9 @@ public partial class HomeViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _showEmptyState;
+
+    [ObservableProperty]
+    private string _totalListeningTimeText = "";
 
     public ObservableCollection<NineLivesItem> Lives { get; } = new();
 
@@ -71,13 +75,20 @@ public partial class HomeViewModel : ObservableObject
                     DisplayAuthor = normalized.DisplayAuthor,
                     ProgressPercent = book.ProgressPercent,
                     IsMostRecent = isFirst,
-                    IsDownloaded = book.IsDownloaded
+                    IsDownloaded = book.IsDownloaded,
+                    ListeningTimeText = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
+                    HoursListened = book.CurrentTime.TotalHours
                 });
                 isFirst = false;
             }
 
+            // Compute aggregate listening time across all displayed items
+            var totalTime = TimeSpan.FromSeconds(
+                recentBooks.Sum(b => b.CurrentTime.TotalSeconds));
+            TotalListeningTimeText = CosmicCatHelper.FormatListeningTime(totalTime);
+
             ShowEmptyState = Lives.Count == 0;
-            _logger.Log($"[Home] Loaded {Lives.Count} lives");
+            _logger.Log($"[Home] Loaded {Lives.Count} lives, total listened: {TotalListeningTimeText}");
         }
         catch (Exception ex)
         {
@@ -119,4 +130,6 @@ public class NineLivesItem
     public double ProgressPercent { get; set; }
     public bool IsMostRecent { get; set; }
     public bool IsDownloaded { get; set; }
+    public string ListeningTimeText { get; set; } = string.Empty;
+    public double HoursListened { get; set; }
 }

@@ -56,15 +56,38 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
-            <FontIcon Glyph="&#xE735;" FontSize="18" Opacity="0.4"
-                      Foreground="{StaticResource CosmicAccentBrush}"/>
-            <TextBlock Text="Your Nine Lives"
-                       Style="{StaticResource TitleTextBlockStyle}"
-                       FontWeight="SemiBold"
-                       Foreground="{StaticResource CosmicTextPrimaryBrush}"/>
-        </StackPanel>
+        <!-- Header with Stats -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                <FontIcon Glyph="&#xE735;" FontSize="18" Opacity="0.4"
+                          Foreground="{StaticResource CosmicAccentBrush}"/>
+                <TextBlock Text="Your Nine Lives"
+                           Style="{StaticResource TitleTextBlockStyle}"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource CosmicTextPrimaryBrush}"/>
+            </StackPanel>
+
+            <!-- Aggregate Listening Time -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                        VerticalAlignment="Center" Opacity="0.7"
+                        Visibility="{x:Bind ShowGrid, Mode=OneWay}">
+                <FontIcon Glyph="&#xE823;" FontSize="14"
+                          Foreground="{StaticResource CosmicAccentBrush}"/>
+                <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
+                           FontSize="13"
+                           Foreground="{StaticResource CosmicTextSecondaryBrush}"/>
+                <TextBlock Text="listened"
+                           FontSize="13"
+                           Foreground="{StaticResource CosmicTextSecondaryBrush}"
+                           Opacity="0.6"/>
+            </StackPanel>
+        </Grid>
 
         <!-- Loading -->
         <ProgressRing Grid.Row="1"
@@ -167,6 +190,28 @@
                                            Foreground="{StaticResource CosmicTextSecondaryBrush}"
                                            MaxLines="1"
                                            TextTrimming="CharacterEllipsis"/>
+
+                                <!-- Cat + Listening Time -->
+                                <Grid Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Cat Silhouette (placeholder, color-coded by hours) -->
+                                    <Viewbox Grid.Column="0" Width="16" Height="16" Margin="0,0,4,0"
+                                             VerticalAlignment="Center">
+                                        <Path Data="M 6,20 L 6,12 C 6,10 7,8 8,7 L 5,2 L 8,5 C 9,4.5 10,4 12,4 C 14,4 15,4.5 16,5 L 19,2 L 16,7 C 17,8 18,10 18,12 L 18,20 C 18,21 17,22 16,22 L 8,22 C 7,22 6,21 6,20 Z M 20,18 C 20,16 21,14 22,14 C 23,14 23,15 22,17 C 21,19 20,20 20,18 Z"
+                                              Fill="{Binding HoursListened, Converter={StaticResource HoursToCosmicBrushConverter}}"/>
+                                    </Viewbox>
+
+                                    <!-- Listening Time -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding ListeningTimeText}"
+                                               FontSize="11" Opacity="0.6"
+                                               Foreground="{StaticResource CosmicTextSecondaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
                             </StackPanel>
                         </Grid>
                     </DataTemplate>

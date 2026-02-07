@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace AudioBookshelfApp.Helpers;
@@ -171,6 +172,27 @@ public class StringToImageSourceConverter : IValueConverter
             }
         }
         return null;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class HoursToCosmicBrushConverter : IValueConverter
+{
+    private static readonly SolidColorBrush DefaultBrush =
+        new(Windows.UI.Color.FromArgb(0xFF, 0x4A, 0x4A, 0x4A));
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is double hours)
+        {
+            var color = CosmicCatHelper.GetCosmicEnergyColor(hours);
+            return new SolidColorBrush(color);
+        }
+        return DefaultBrush;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)

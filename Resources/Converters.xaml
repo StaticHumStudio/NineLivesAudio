@@ -12,5 +12,6 @@
     <helpers:NullToVisibilityInverseConverter x:Key="NullToVisibilityInverseConverter"/>
     <helpers:DownloadStatusToGlyphConverter x:Key="DownloadStatusToGlyphConverter"/>
     <helpers:StringToImageSourceConverter x:Key="StringToImageSourceConverter"/>
+    <helpers:HoursToCosmicBrushConverter x:Key="HoursToCosmicBrushConverter"/>
 
 </ResourceDictionary>

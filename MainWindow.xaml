@@ -45,7 +45,11 @@
             </Grid.RowDefinitions>
 
             <NavigationView x:Name="NavView" Grid.Row="0"
-                            PaneDisplayMode="Auto"
+                            PaneDisplayMode="LeftCompact"
+                            CompactModeThresholdWidth="0"
+                            ExpandedModeThresholdWidth="900"
+                            CompactPaneLength="48"
+                            OpenPaneLength="200"
                             IsBackButtonVisible="Auto"
                             BackRequested="NavView_BackRequested"
                             IsSettingsVisible="True"
