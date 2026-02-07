@@ -735,7 +735,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
             AddedAt = item.AddedAt.HasValue
                 ? DateTimeOffset.FromUnixTimeMilliseconds(item.AddedAt.Value).DateTime
                 : null,
-            SeriesName = firstSeries?.Name,
+            SeriesName = firstSeries?.Name ?? metadata?.SeriesName,
             SeriesSequence = firstSeries?.Sequence,
             Genres = metadata?.Genres ?? new List<string>(),
             Tags = metadata?.Tags ?? new List<string>(),
@@ -835,6 +835,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         public string? Description { get; set; }
         public List<ApiAuthor>? Authors { get; set; }
         public List<string>? Narrators { get; set; }
+        public string? SeriesName { get; set; }
 
         [JsonConverter(typeof(SeriesConverter))]
         public List<ApiSeries>? Series { get; set; }
