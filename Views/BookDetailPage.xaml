@@ -26,7 +26,7 @@
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Medium: 600–900px — side-by-side but compact cover -->
+                <!-- Medium: 600-900px — side-by-side but compact cover -->
                 <VisualState x:Name="MediumState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="600"/>
@@ -69,11 +69,12 @@
         </Grid.RowDefinitions>
 
         <!-- Header with Back Button -->
-        <Grid Grid.Row="0" Padding="16,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+        <Grid Grid.Row="0" Padding="16,8" Background="{StaticResource VoidSurfaceBrush}">
             <Button Click="BackButton_Click" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE72B;" FontSize="16"/>
-                    <TextBlock x:Name="BackButtonLabel" Text="Back to Library" VerticalAlignment="Center"/>
+                    <FontIcon Glyph="&#xE72B;" FontSize="16" Foreground="{StaticResource MistFaintBrush}"/>
+                    <TextBlock x:Name="BackButtonLabel" Text="Back to Library" VerticalAlignment="Center"
+                               Foreground="{StaticResource MistFaintBrush}"/>
                 </StackPanel>
             </Button>
         </Grid>
@@ -91,10 +92,10 @@
 
                     <!-- Cover Image -->
                     <Border x:Name="CoverBorder" Grid.Column="0"
-                            CornerRadius="8"
+                            CornerRadius="{StaticResource RadiusMD}"
                             Width="180"
                             Height="270"
-                            Background="{ThemeResource SystemControlBackgroundBaseLowBrush}">
+                            Background="{StaticResource VoidElevatedBrush}">
                         <Grid>
                             <FontIcon Glyph="&#xE8F1;" FontSize="64" Opacity="0.3"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -104,18 +105,20 @@
 
                     <!-- Book Info -->
                     <StackPanel Grid.Column="1" Margin="24,0,0,0" Spacing="6">
-                        <TextBlock x:Name="TitleText" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="TitleText" Style="{StaticResource RitualTitleStyle}" TextWrapping="Wrap"/>
 
                         <!-- Author (clickable) -->
-                        <HyperlinkButton x:Name="AuthorLink" Click="AuthorLink_Click" Padding="0">
+                        <HyperlinkButton x:Name="AuthorLink" Click="AuthorLink_Click" Padding="0"
+                                         Foreground="{StaticResource MistBrush}">
                             <TextBlock x:Name="AuthorText" FontSize="16"/>
                         </HyperlinkButton>
 
                         <!-- Narrator -->
-                        <TextBlock x:Name="NarratorText" FontSize="14" Opacity="0.6" Visibility="Collapsed"/>
+                        <TextBlock x:Name="NarratorText" Style="{StaticResource SubtitleStyle}" Visibility="Collapsed"/>
 
                         <!-- Series (clickable) -->
-                        <HyperlinkButton x:Name="SeriesLink" Click="SeriesLink_Click" Padding="0" Visibility="Collapsed">
+                        <HyperlinkButton x:Name="SeriesLink" Click="SeriesLink_Click" Padding="0" Visibility="Collapsed"
+                                         Foreground="{StaticResource MistBrush}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE8F1;" FontSize="12"/>
                                 <TextBlock x:Name="SeriesText" FontSize="14"/>
@@ -124,12 +127,12 @@
 
                         <!-- Duration -->
                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                            <FontIcon Glyph="&#xE916;" FontSize="12" Opacity="0.6"/>
-                            <TextBlock x:Name="DurationText" FontSize="14" Opacity="0.6"/>
+                            <FontIcon Glyph="&#xE916;" FontSize="12" Foreground="{StaticResource MistFaintBrush}"/>
+                            <TextBlock x:Name="DurationText" FontSize="14" Foreground="{StaticResource MistFaintBrush}"/>
                         </StackPanel>
 
                         <!-- Added Date -->
-                        <TextBlock x:Name="AddedAtText" FontSize="12" Opacity="0.5" Visibility="Collapsed"/>
+                        <TextBlock x:Name="AddedAtText" Style="{StaticResource CaptionStyle}" Visibility="Collapsed"/>
 
                         <!-- Progress Section -->
                         <StackPanel x:Name="ProgressPanel" Margin="0,12,0,0" Spacing="4">
@@ -138,7 +141,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="ProgressText" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ProgressText" FontSize="14" VerticalAlignment="Center"
+                                           Foreground="{StaticResource StarlightDimBrush}"/>
                                 <ToggleSwitch x:Name="ChapterToggle" Grid.Column="1"
                                               Header="By Chapter" OnContent="" OffContent=""
                                               Toggled="ChapterToggle_Toggled"
@@ -146,15 +150,16 @@
                                               Margin="12,0,0,0" MinWidth="0"/>
                             </Grid>
                             <ProgressBar x:Name="ProgressBar" Maximum="100" Height="8"
-                                         Foreground="#FF00CC66"/>
-                            <TextBlock x:Name="ChapterInfoText" FontSize="12" Opacity="0.6"
+                                         Foreground="{StaticResource SigilGoldBrush}"/>
+                            <TextBlock x:Name="ChapterInfoText" Style="{StaticResource CaptionStyle}"
                                        Visibility="Collapsed"/>
                         </StackPanel>
 
                         <!-- Action Buttons -->
                         <StackPanel x:Name="ActionButtonsPanel" Orientation="Horizontal" Spacing="12" Margin="0,16,0,0">
                             <Button x:Name="PlayButton" Click="PlayButton_Click"
-                                    Style="{ThemeResource AccentButtonStyle}" Padding="24,12">
+                                    Style="{ThemeResource AccentButtonStyle}" Padding="24,12"
+                                    Background="{StaticResource SigilGoldBrush}" Foreground="{StaticResource VoidDeepBrush}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon x:Name="PlayIcon" Glyph="&#xE768;" FontSize="16"/>
                                     <TextBlock x:Name="PlayButtonText" Text="Play"/>
@@ -170,12 +175,11 @@
 
                         <!-- Downloaded Badge -->
                         <Border x:Name="DownloadedBadge"
-                                Background="{ThemeResource SystemAccentColor}"
-                                CornerRadius="4" Padding="8,4"
+                                Style="{StaticResource DownloadedBadgeStyle}"
                                 HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="White"/>
-                                <TextBlock Text="Downloaded" Foreground="White" FontSize="12"/>
+                                <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{StaticResource MistBrush}"/>
+                                <TextBlock Text="Downloaded" Foreground="{StaticResource MistBrush}" FontSize="12"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -184,10 +188,10 @@
                 <!-- === NARROW: Stacked Cover above Info === -->
                 <StackPanel x:Name="BookHeaderNarrow" Spacing="16" Visibility="Collapsed">
                     <!-- Cover Image (centered, smaller) -->
-                    <Border CornerRadius="8"
+                    <Border CornerRadius="{StaticResource RadiusMD}"
                             Width="200" Height="300"
                             HorizontalAlignment="Center"
-                            Background="{ThemeResource SystemControlBackgroundBaseLowBrush}">
+                            Background="{StaticResource VoidElevatedBrush}">
                         <Grid>
                             <FontIcon Glyph="&#xE8F1;" FontSize="64" Opacity="0.3"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -197,19 +201,21 @@
 
                     <!-- Book Info (stacked below cover) -->
                     <StackPanel Spacing="6">
-                        <TextBlock x:Name="TitleTextNarrow" FontSize="22" FontWeight="Bold"
+                        <TextBlock x:Name="TitleTextNarrow" Style="{StaticResource RitualTitleStyle}"
                                    TextWrapping="Wrap" TextAlignment="Center"/>
 
                         <HyperlinkButton x:Name="AuthorLinkNarrow" Click="AuthorLink_Click"
-                                         Padding="0" HorizontalAlignment="Center">
+                                         Padding="0" HorizontalAlignment="Center"
+                                         Foreground="{StaticResource MistBrush}">
                             <TextBlock x:Name="AuthorTextNarrow" FontSize="15"/>
                         </HyperlinkButton>
 
-                        <TextBlock x:Name="NarratorTextNarrow" FontSize="13" Opacity="0.6"
+                        <TextBlock x:Name="NarratorTextNarrow" Style="{StaticResource SubtitleStyle}"
                                    Visibility="Collapsed" TextAlignment="Center"/>
 
                         <HyperlinkButton x:Name="SeriesLinkNarrow" Click="SeriesLink_Click"
-                                         Padding="0" Visibility="Collapsed" HorizontalAlignment="Center">
+                                         Padding="0" Visibility="Collapsed" HorizontalAlignment="Center"
+                                         Foreground="{StaticResource MistBrush}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE8F1;" FontSize="12"/>
                                 <TextBlock x:Name="SeriesTextNarrow" FontSize="13"/>
@@ -217,11 +223,11 @@
                         </HyperlinkButton>
 
                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                            <FontIcon Glyph="&#xE916;" FontSize="12" Opacity="0.6"/>
-                            <TextBlock x:Name="DurationTextNarrow" FontSize="13" Opacity="0.6"/>
+                            <FontIcon Glyph="&#xE916;" FontSize="12" Foreground="{StaticResource MistFaintBrush}"/>
+                            <TextBlock x:Name="DurationTextNarrow" FontSize="13" Foreground="{StaticResource MistFaintBrush}"/>
                         </StackPanel>
 
-                        <TextBlock x:Name="AddedAtTextNarrow" FontSize="12" Opacity="0.5"
+                        <TextBlock x:Name="AddedAtTextNarrow" Style="{StaticResource CaptionStyle}"
                                    Visibility="Collapsed" TextAlignment="Center"/>
 
                         <!-- Progress Section -->
@@ -232,7 +238,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="ProgressTextNarrow" FontSize="13"
-                                           TextAlignment="Center" VerticalAlignment="Center"/>
+                                           TextAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{StaticResource StarlightDimBrush}"/>
                                 <ToggleSwitch x:Name="ChapterToggleNarrow" Grid.Column="1"
                                               Header="By Chapter" OnContent="" OffContent=""
                                               Toggled="ChapterToggle_Toggled"
@@ -240,19 +247,18 @@
                                               Margin="12,0,0,0" MinWidth="0"/>
                             </Grid>
                             <ProgressBar x:Name="ProgressBarNarrow" Maximum="100" Height="8"
-                                         Foreground="#FF00CC66"/>
-                            <TextBlock x:Name="ChapterInfoTextNarrow" FontSize="12" Opacity="0.6"
+                                         Foreground="{StaticResource SigilGoldBrush}"/>
+                            <TextBlock x:Name="ChapterInfoTextNarrow" Style="{StaticResource CaptionStyle}"
                                        Visibility="Collapsed" TextAlignment="Center"/>
                         </StackPanel>
 
                         <!-- Downloaded Badge -->
                         <Border x:Name="DownloadedBadgeNarrow"
-                                Background="{ThemeResource SystemAccentColor}"
-                                CornerRadius="4" Padding="8,4"
+                                Style="{StaticResource DownloadedBadgeStyle}"
                                 HorizontalAlignment="Center" Margin="0,4,0,0" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="White"/>
-                                <TextBlock Text="Downloaded" Foreground="White" FontSize="12"/>
+                                <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{StaticResource MistBrush}"/>
+                                <TextBlock Text="Downloaded" Foreground="{StaticResource MistBrush}" FontSize="12"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -260,24 +266,26 @@
 
                 <!-- Metadata Details -->
                 <StackPanel x:Name="MetadataPanel" Spacing="12"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            CornerRadius="8" Padding="16">
-                    <TextBlock Text="Details" FontSize="18" FontWeight="SemiBold"/>
+                            Background="{StaticResource VoidSurfaceBrush}"
+                            CornerRadius="8" Padding="16"
+                            BorderBrush="{StaticResource DustBrush}" BorderThickness="1">
+                    <TextBlock Text="Details" Style="{StaticResource SectionTitleStyle}"/>
                     <StackPanel x:Name="MetadataItemsPanel" Spacing="8"/>
                 </StackPanel>
 
                 <!-- Genres -->
                 <StackPanel x:Name="GenresPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Genres" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="Genres" Style="{StaticResource SectionTitleStyle}"/>
                     <ItemsRepeater x:Name="GenresRepeater">
                         <ItemsRepeater.Layout>
                             <StackLayout Orientation="Horizontal" Spacing="8"/>
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
-                                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                <Border Background="{StaticResource NebulaDarkBrush}"
                                         CornerRadius="12" Padding="14,6">
-                                    <TextBlock Text="{x:Bind}" FontSize="12"/>
+                                    <TextBlock Text="{x:Bind}" FontSize="12"
+                                               Foreground="{StaticResource MistBrush}"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsRepeater.ItemTemplate>
@@ -286,16 +294,17 @@
 
                 <!-- Tags -->
                 <StackPanel x:Name="TagsPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Tags" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="Tags" Style="{StaticResource SectionTitleStyle}"/>
                     <ItemsRepeater x:Name="TagsRepeater">
                         <ItemsRepeater.Layout>
                             <StackLayout Orientation="Horizontal" Spacing="8"/>
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
-                                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                <Border Background="{StaticResource NebulaDarkBrush}"
                                         CornerRadius="12" Padding="14,6">
-                                    <TextBlock Text="{x:Bind}" FontSize="12"/>
+                                    <TextBlock Text="{x:Bind}" FontSize="12"
+                                               Foreground="{StaticResource MistBrush}"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsRepeater.ItemTemplate>
@@ -304,13 +313,14 @@
 
                 <!-- Description -->
                 <StackPanel x:Name="DescriptionPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock Text="Description" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="DescriptionText" TextWrapping="Wrap" Opacity="0.8" LineHeight="24"/>
+                    <TextBlock Text="Description" Style="{StaticResource SectionTitleStyle}"/>
+                    <TextBlock x:Name="DescriptionText" TextWrapping="Wrap"
+                               Foreground="{StaticResource MistBrush}" LineHeight="24"/>
                 </StackPanel>
 
                 <!-- Chapters List -->
                 <StackPanel x:Name="ChaptersPanel" Spacing="8" Visibility="Collapsed">
-                    <TextBlock x:Name="ChaptersHeader" Text="Chapters" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="ChaptersHeader" Text="Chapters" Style="{StaticResource SectionTitleStyle}"/>
                     <ItemsRepeater x:Name="ChaptersRepeater">
                         <ItemsRepeater.Layout>
                             <StackLayout Spacing="4"/>
@@ -320,7 +330,7 @@
 
                 <!-- Audio Files List -->
                 <StackPanel x:Name="TracksPanel" Spacing="8" Margin="0,0,0,80">
-                    <TextBlock x:Name="TracksHeader" Text="Tracks" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TracksHeader" Text="Tracks" Style="{StaticResource SectionTitleStyle}"/>
                     <ItemsRepeater x:Name="TracksRepeater">
                         <ItemsRepeater.Layout>
                             <StackLayout Spacing="4"/>

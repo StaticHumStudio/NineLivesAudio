@@ -50,11 +50,13 @@ public sealed partial class LibraryPage : Page
         // Update pill color
         if (isConnected)
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["SystemFillColorSuccessBackgroundBrush"];
+            StatusPill.Background = (Brush)Application.Current.Resources["NebulaDarkBrush"];
+            StatusEllipse.Fill = (Brush)Application.Current.Resources["RitualSuccessBrush"];
         }
         else
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["SystemFillColorNeutralBackgroundBrush"];
+            StatusPill.Background = (Brush)Application.Current.Resources["VoidElevatedBrush"];
+            StatusEllipse.Fill = (Brush)Application.Current.Resources["MistFaintBrush"];
         }
     }
 
@@ -236,13 +238,21 @@ public sealed partial class LibraryPage : Page
 
     private void UpdateViewModeButtons()
     {
-        var accentStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
-        var defaultStyle = (Style)Application.Current.Resources["DefaultButtonStyle"];
+        var activeBg = (Brush)Application.Current.Resources["SigilGoldBrush"];
+        var activeFg = (Brush)Application.Current.Resources["VoidDeepBrush"];
+        var inactiveBg = (Brush)Application.Current.Resources["VoidElevatedBrush"];
+        var inactiveFg = (Brush)Application.Current.Resources["StarlightDimBrush"];
 
-        ViewModeAllButton.Style = ViewModel.CurrentViewMode == ViewMode.All ? accentStyle : defaultStyle;
-        ViewModeSeriesButton.Style = ViewModel.CurrentViewMode == ViewMode.Series ? accentStyle : defaultStyle;
-        ViewModeAuthorButton.Style = ViewModel.CurrentViewMode == ViewMode.Author ? accentStyle : defaultStyle;
-        ViewModeGenreButton.Style = ViewModel.CurrentViewMode == ViewMode.Genre ? accentStyle : defaultStyle;
+        SetViewModeButton(ViewModeAllButton, ViewModel.CurrentViewMode == ViewMode.All, activeBg, activeFg, inactiveBg, inactiveFg);
+        SetViewModeButton(ViewModeSeriesButton, ViewModel.CurrentViewMode == ViewMode.Series, activeBg, activeFg, inactiveBg, inactiveFg);
+        SetViewModeButton(ViewModeAuthorButton, ViewModel.CurrentViewMode == ViewMode.Author, activeBg, activeFg, inactiveBg, inactiveFg);
+        SetViewModeButton(ViewModeGenreButton, ViewModel.CurrentViewMode == ViewMode.Genre, activeBg, activeFg, inactiveBg, inactiveFg);
+    }
+
+    private static void SetViewModeButton(Button button, bool isActive, Brush activeBg, Brush activeFg, Brush inactiveBg, Brush inactiveFg)
+    {
+        button.Background = isActive ? activeBg : inactiveBg;
+        button.Foreground = isActive ? activeFg : inactiveFg;
     }
 
     private void UpdateViewDisplay()
@@ -340,9 +350,11 @@ public sealed partial class LibraryPage : Page
     {
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
-                <Grid Background=""{ThemeResource CardBackgroundFillColorDefaultBrush}""
+                <Grid Background=""#FF111827""
                       CornerRadius=""8""
-                      Padding=""16"">
+                      Padding=""16""
+                      BorderBrush=""#FF3D4451""
+                      BorderThickness=""1"">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width=""60""/>
                         <ColumnDefinition Width=""*""/>
@@ -352,10 +364,11 @@ public sealed partial class LibraryPage : Page
                             Width=""60""
                             Height=""60""
                             CornerRadius=""4""
-                            Background=""{ThemeResource SystemControlBackgroundBaseLowBrush}"">
+                            Background=""#FF1A2236"">
                         <Grid>
                             <FontIcon Glyph=""{Binding Icon}"" FontSize=""24"" Opacity=""0.5""
-                                      HorizontalAlignment=""Center"" VerticalAlignment=""Center""/>
+                                      HorizontalAlignment=""Center"" VerticalAlignment=""Center""
+                                      Foreground=""#FF6B7280""/>
                             <Image Source=""{Binding CoverUrl}"" Stretch=""UniformToFill""/>
                         </Grid>
                     </Border>
@@ -364,12 +377,13 @@ public sealed partial class LibraryPage : Page
                         <TextBlock Text=""{Binding Name}""
                                    FontWeight=""SemiBold""
                                    FontSize=""14""
+                                   Foreground=""#FFE0E0E8""
                                    TextTrimming=""CharacterEllipsis""
                                    MaxLines=""2""
                                    TextWrapping=""Wrap""/>
                         <TextBlock Text=""{Binding BookCountText}""
                                    FontSize=""12""
-                                   Opacity=""0.6""
+                                   Foreground=""#FF6B7280""
                                    Margin=""0,4,0,0""/>
                     </StackPanel>
                 </Grid>
@@ -534,9 +548,11 @@ public sealed partial class LibraryPage : Page
     {
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
-                <Grid Background=""{ThemeResource CardBackgroundFillColorDefaultBrush}""
+                <Grid Background=""#FF111827""
                       CornerRadius=""8""
-                      Padding=""8"">
+                      Padding=""8""
+                      BorderBrush=""#FF3D4451""
+                      BorderThickness=""1"">
                     <Grid.RowDefinitions>
                         <RowDefinition Height=""*""/>
                         <RowDefinition Height=""Auto""/>
@@ -546,11 +562,12 @@ public sealed partial class LibraryPage : Page
 
                     <Border Grid.Row=""0""
                             CornerRadius=""4""
-                            Background=""{ThemeResource SystemControlBackgroundBaseLowBrush}"">
+                            Background=""#FF1A2236"">
                         <Grid>
                             <FontIcon Glyph=""&#xE8F1;""
                                       FontSize=""48""
                                       Opacity=""0.3""
+                                      Foreground=""#FF6B7280""
                                       HorizontalAlignment=""Center""
                                       VerticalAlignment=""Center""/>
                             <Image Source=""{Binding CoverPath}"" Stretch=""UniformToFill""/>
@@ -560,6 +577,7 @@ public sealed partial class LibraryPage : Page
                     <TextBlock Grid.Row=""1""
                                Text=""{Binding Title}""
                                FontWeight=""SemiBold""
+                               Foreground=""#FFE0E0E8""
                                TextTrimming=""CharacterEllipsis""
                                MaxLines=""2""
                                TextWrapping=""Wrap""
@@ -567,13 +585,14 @@ public sealed partial class LibraryPage : Page
 
                     <TextBlock Grid.Row=""2""
                                Text=""{Binding Author}""
-                               Opacity=""0.7""
+                               Foreground=""#FF6B7280""
                                FontSize=""12""
                                TextTrimming=""CharacterEllipsis""/>
 
                     <ProgressBar Grid.Row=""3""
                                  Value=""{Binding Progress}""
                                  Maximum=""1""
+                                 Foreground=""#FFC5A55A""
                                  Margin=""0,8,0,0""/>
                 </Grid>
             </DataTemplate>");

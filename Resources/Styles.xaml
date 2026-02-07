@@ -69,6 +69,7 @@
     <SolidColorBrush x:Key="RitualSuccessBrush" Color="{StaticResource RitualSuccess}"/>
     <SolidColorBrush x:Key="RitualErrorBrush" Color="{StaticResource RitualError}"/>
     <SolidColorBrush x:Key="RitualWarningBrush" Color="{StaticResource RitualWarning}"/>
+    <SolidColorBrush x:Key="RitualErrorFaintBrush" Color="#33EF4444"/>
 
     <!-- Progress Gradient: Gold → Teal -->
     <LinearGradientBrush x:Key="SigilProgressGradient" StartPoint="0,0" EndPoint="1,1">

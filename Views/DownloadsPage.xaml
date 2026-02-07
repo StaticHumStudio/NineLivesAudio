@@ -42,7 +42,8 @@
                       Width="50"
                       Height="50"
                       HorizontalAlignment="Center"
-                      VerticalAlignment="Center"/>
+                      VerticalAlignment="Center"
+                      Foreground="{StaticResource SigilGoldDimBrush}"/>
 
         <!-- Content -->
         <ScrollViewer Grid.Row="1"
@@ -61,9 +62,11 @@
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="models:DownloadItem">
-                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                <Border Background="{StaticResource VoidSurfaceBrush}"
                                         CornerRadius="{StaticResource RadiusMD}"
-                                        Padding="16">
+                                        Padding="16"
+                                        BorderBrush="{StaticResource DustBrush}"
+                                        BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -135,9 +138,11 @@
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="models:DownloadItem">
-                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                <Border Background="{StaticResource VoidSurfaceBrush}"
                                         CornerRadius="{StaticResource RadiusMD}"
-                                        Padding="16">
+                                        Padding="16"
+                                        BorderBrush="{StaticResource DustBrush}"
+                                        BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -148,7 +153,7 @@
                                         <!-- Checkmark -->
                                         <FontIcon Grid.Column="0"
                                                   Glyph="&#xE73E;"
-                                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                  Foreground="{StaticResource RitualSuccessBrush}"
                                                   FontSize="20"
                                                   Margin="0,0,12,0"/>
 
@@ -200,7 +205,7 @@
         <Border Grid.Row="1"
                 VerticalAlignment="Top"
                 Visibility="{x:Bind ViewModel.HasError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                Background="{StaticResource RitualErrorFaintBrush}"
                 CornerRadius="{StaticResource RadiusSM}"
                 Padding="12"
                 Margin="0,0,0,16">
@@ -209,9 +214,10 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <FontIcon Glyph="&#xE7BA;" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Margin="0,0,12,0"/>
+                <FontIcon Glyph="&#xE7BA;" Foreground="{StaticResource RitualErrorBrush}" Margin="0,0,12,0"/>
                 <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                           TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{StaticResource MistBrush}"/>
             </Grid>
         </Border>
     </Grid>

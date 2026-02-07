@@ -8,17 +8,19 @@
     Loaded="Page_Loaded">
 
     <ScrollViewer>
-        <StackPanel Padding="16" Spacing="24" MaxWidth="600">
+        <StackPanel Padding="{StaticResource PagePadding}" Spacing="24" MaxWidth="600">
 
             <!-- Server Connection -->
             <StackPanel>
                 <TextBlock Text="Server Connection"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Connection Status -->
@@ -51,6 +53,8 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Connect"
                                     Style="{ThemeResource AccentButtonStyle}"
+                                    Background="{StaticResource SigilGoldBrush}"
+                                    Foreground="{StaticResource VoidDeepBrush}"
                                     Command="{x:Bind ViewModel.ConnectCommand}"
                                     Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"
                                     IsEnabled="{x:Bind ViewModel.IsConnecting, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
@@ -75,12 +79,14 @@
             <!-- Playback Settings -->
             <StackPanel>
                 <TextBlock Text="Playback"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Default Volume -->
@@ -110,12 +116,14 @@
             <!-- Downloads Settings -->
             <StackPanel>
                 <TextBlock Text="Downloads"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Download Path -->
@@ -145,12 +153,14 @@
             <!-- Sync Settings -->
             <StackPanel>
                 <TextBlock Text="Sync"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Auto Sync Progress -->
@@ -174,12 +184,14 @@
             <!-- Appearance -->
             <StackPanel>
                 <TextBlock Text="Appearance"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Theme -->
@@ -204,12 +216,14 @@
             <!-- Security -->
             <StackPanel>
                 <TextBlock Text="Security"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <ToggleSwitch Header="Allow self-signed SSL certificates"
@@ -217,8 +231,7 @@
 
                         <TextBlock Text="Only applies to your configured server host. Required for some self-hosted setups."
                                    TextWrapping="Wrap"
-                                   Opacity="0.5"
-                                   FontSize="12"/>
+                                   Style="{StaticResource CaptionStyle}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -226,12 +239,14 @@
             <!-- Data Management -->
             <StackPanel>
                 <TextBlock Text="Data"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <Button Content="Clear Local Cache"
@@ -239,8 +254,7 @@
 
                         <TextBlock Text="This will remove cached library data. Downloaded audiobooks will not be affected."
                                    TextWrapping="Wrap"
-                                   Opacity="0.5"
-                                   FontSize="12"/>
+                                   Style="{StaticResource CaptionStyle}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -248,12 +262,14 @@
             <!-- Diagnostics -->
             <StackPanel>
                 <TextBlock Text="Diagnostics"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <ToggleSwitch Header="Diagnostics mode"
@@ -261,8 +277,7 @@
 
                         <TextBlock Text="Enables verbose logging for API requests, state transitions, and playback events."
                                    TextWrapping="Wrap"
-                                   Opacity="0.5"
-                                   FontSize="12"/>
+                                   Style="{StaticResource CaptionStyle}"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Open Logs"
@@ -281,12 +296,14 @@
             <!-- Settings Doctor -->
             <StackPanel>
                 <TextBlock Text="Settings Doctor"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="12">
 
                         <Grid ColumnSpacing="12" RowSpacing="6">
@@ -303,24 +320,30 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Settings file:" Opacity="0.6" FontSize="12"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Settings file:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.SettingsFilePath, Mode=OneWay}"
-                                       FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
+                                       FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"
+                                       Foreground="{StaticResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Settings source:" Opacity="0.6" FontSize="12"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SettingsSource, Mode=OneWay}" FontSize="12"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Settings source:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SettingsSource, Mode=OneWay}" FontSize="12"
+                                       Foreground="{StaticResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Token source:" Opacity="0.6" FontSize="12"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.TokenSource, Mode=OneWay}" FontSize="12"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Token source:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.TokenSource, Mode=OneWay}" FontSize="12"
+                                       Foreground="{StaticResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Last loaded:" Opacity="0.6" FontSize="12"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.LastLoadedAt, Mode=OneWay}" FontSize="12"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Last loaded:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.LastLoadedAt, Mode=OneWay}" FontSize="12"
+                                       Foreground="{StaticResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Session ID:" Opacity="0.6" FontSize="12"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.SessionId, Mode=OneWay}" FontSize="12" FontFamily="Consolas"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Session ID:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.SessionId, Mode=OneWay}"
+                                       Style="{StaticResource MonoStyle}"/>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Server host:" Opacity="0.6" FontSize="12"/>
-                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.ServerHost, Mode=OneWay}" FontSize="12"/>
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Server host:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.ServerHost, Mode=OneWay}" FontSize="12"
+                                       Foreground="{StaticResource StarlightDimBrush}"/>
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
@@ -337,6 +360,8 @@
             <!-- Save Button -->
             <Button Content="Save Settings"
                     Style="{ThemeResource AccentButtonStyle}"
+                    Background="{StaticResource SigilGoldBrush}"
+                    Foreground="{StaticResource VoidDeepBrush}"
                     Command="{x:Bind ViewModel.SaveSettingsCommand}"
                     HorizontalAlignment="Right"/>
 
@@ -360,19 +385,22 @@
             <!-- About Section -->
             <StackPanel Margin="0,16,0,32">
                 <TextBlock Text="About"
-                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <Border Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="8"
-                        Padding="16">
+                        Padding="16"
+                        BorderBrush="{StaticResource DustBrush}"
+                        BorderThickness="1">
                     <StackPanel Spacing="8">
                         <TextBlock Text="AudioBookshelf Client"
-                                   FontWeight="SemiBold"/>
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource StarlightDimBrush}"/>
                         <TextBlock Text="Version 1.0.0"
-                                   Opacity="0.7"/>
+                                   Foreground="{StaticResource MistBrush}"/>
                         <TextBlock Text="A lightweight Windows client for AudioBookshelf"
-                                   Opacity="0.5"
+                                   Foreground="{StaticResource MistFaintBrush}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>

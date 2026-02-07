@@ -64,8 +64,9 @@
             <Button x:Name="PlayerBackButton" Click="BackButton_Click"
                     Background="Transparent" BorderThickness="0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE72B;" FontSize="16"/>
-                    <TextBlock x:Name="PlayerBackButtonLabel" Text="Back" VerticalAlignment="Center"/>
+                    <FontIcon Glyph="&#xE72B;" FontSize="16" Foreground="{StaticResource MistFaintBrush}"/>
+                    <TextBlock x:Name="PlayerBackButtonLabel" Text="Back" VerticalAlignment="Center"
+                               Foreground="{StaticResource MistFaintBrush}"/>
                 </StackPanel>
             </Button>
         </Grid>
@@ -224,8 +225,9 @@
                     <!-- Play/Pause -->
                     <Button x:Name="PlayPauseButton"
                             Click="PlayPause_Click"
-                            Style="{StaticResource LargeCircularButtonStyle}">
-                        <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" FontSize="28"/>
+                            Style="{StaticResource SigilPlayButtonStyle}">
+                        <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" FontSize="28"
+                                  Foreground="{StaticResource VoidDeepBrush}"/>
                     </Button>
 
                     <!-- Skip Forward 30s -->
@@ -264,7 +266,8 @@
                                 Style="{StaticResource IconButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <FontIcon Glyph="&#xEC57;" FontSize="16"/>
-                                <TextBlock x:Name="SpeedText" Text="1.0x"/>
+                                <TextBlock x:Name="SpeedText" Text="1.0x"
+                                           Foreground="{StaticResource MistBrush}"/>
                             </StackPanel>
                         </Button>
                         <TextBlock Text="Speed" Style="{StaticResource CaptionStyle}"
@@ -277,7 +280,8 @@
                                 Style="{StaticResource IconButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <FontIcon Glyph="&#xE708;" FontSize="16"/>
-                                <TextBlock x:Name="SleepButtonText" Text="Off"/>
+                                <TextBlock x:Name="SleepButtonText" Text="Off"
+                                           Foreground="{StaticResource MistBrush}"/>
                             </StackPanel>
                         </Button>
                         <TextBlock Text="Sleep" Style="{StaticResource CaptionStyle}"
@@ -290,7 +294,8 @@
                             <Button.Flyout>
                                 <Flyout>
                                     <StackPanel Width="200">
-                                        <TextBlock Text="Volume" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <TextBlock Text="Volume" FontWeight="SemiBold" Margin="0,0,0,8"
+                                                   Foreground="{StaticResource StarlightDimBrush}"/>
                                         <Slider x:Name="VolumeSlider"
                                                 Minimum="0"
                                                 Maximum="1"
@@ -329,14 +334,16 @@
                 <!-- Sleep Timer Status -->
                 <Border x:Name="SleepTimerPanel"
                         Visibility="Collapsed"
-                        Background="{ThemeResource SystemFillColorNeutralBackgroundBrush}"
+                        Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="{StaticResource RadiusSM}"
                         Padding="12"
                         Margin="0,24,0,0">
                     <Grid>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE708;" FontSize="16"/>
-                            <TextBlock x:Name="SleepTimerStatusText"/>
+                            <FontIcon Glyph="&#xE708;" FontSize="16"
+                                      Foreground="{StaticResource SigilGoldDimBrush}"/>
+                            <TextBlock x:Name="SleepTimerStatusText"
+                                       Foreground="{StaticResource SigilGoldDimBrush}"/>
                         </StackPanel>
                         <Button HorizontalAlignment="Right"
                                 Click="CancelSleepTimer_Click"
@@ -351,10 +358,11 @@
         <!-- Loading Overlay -->
         <Grid x:Name="LoadingOverlay"
               Grid.Row="1"
-              Background="{ThemeResource SystemControlBackgroundAltMediumHighBrush}"
+              Background="{StaticResource VoidDeepBrush}"
               Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
-                <ProgressRing IsActive="True" Width="50" Height="50"/>
+                <ProgressRing IsActive="True" Width="50" Height="50"
+                              Foreground="{StaticResource SigilGoldDimBrush}"/>
                 <TextBlock Text="Loading audiobook..." Style="{StaticResource SubtitleStyle}"
                            HorizontalAlignment="Center"/>
             </StackPanel>

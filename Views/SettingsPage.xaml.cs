@@ -12,8 +12,8 @@ public sealed partial class SettingsPage : Page
     public SettingsViewModel ViewModel { get; }
 
     public SolidColorBrush ConnectionStatusColor => ViewModel.IsConnected
-        ? new SolidColorBrush(Colors.Green)
-        : new SolidColorBrush(Colors.Gray);
+        ? (SolidColorBrush)Application.Current.Resources["RitualSuccessBrush"]
+        : (SolidColorBrush)Application.Current.Resources["MistFaintBrush"];
 
     public int SpeedSelectedIndex
     {

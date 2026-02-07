@@ -248,13 +248,13 @@ public sealed partial class PlayerPage : Page
 
         if (isLocal)
         {
-            SourceBadge.Background = (Brush)Application.Current.Resources["SystemFillColorSuccessBackgroundBrush"];
+            SourceBadge.Background = (Brush)Application.Current.Resources["NebulaDarkBrush"];
             SourceBadgeIcon.Glyph = "\uE73E"; // Checkmark
             SourceBadgeText.Text = "Playing from local file";
         }
         else
         {
-            SourceBadge.Background = (Brush)Application.Current.Resources["SystemFillColorNeutralBackgroundBrush"];
+            SourceBadge.Background = (Brush)Application.Current.Resources["VoidElevatedBrush"];
             SourceBadgeIcon.Glyph = "\uE753"; // Cloud/wifi
             SourceBadgeText.Text = "Streaming from server";
         }

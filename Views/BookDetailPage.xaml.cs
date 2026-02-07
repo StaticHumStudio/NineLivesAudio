@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -286,7 +287,7 @@ public sealed partial class BookDetailPage : Page
         var labelBlock = new TextBlock
         {
             Text = label,
-            Opacity = 0.6,
+            Foreground = (Brush)Application.Current.Resources["MistFaintBrush"],
             FontSize = 13
         };
         Grid.SetColumn(labelBlock, 0);
@@ -295,7 +296,8 @@ public sealed partial class BookDetailPage : Page
         {
             Text = value,
             FontSize = 13,
-            TextWrapping = TextWrapping.Wrap
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)Application.Current.Resources["StarlightDimBrush"]
         };
         Grid.SetColumn(valueBlock, 1);
 
@@ -358,7 +360,8 @@ public sealed partial class BookDetailPage : Page
     {
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
-                <Grid CornerRadius=""4"" Padding=""12,8"">
+                <Grid CornerRadius=""4"" Padding=""12,8""
+                      Background=""{Binding ChapterBackground}"">
                     <Grid.RowDefinitions>
                         <RowDefinition Height=""Auto""/>
                         <RowDefinition Height=""Auto""/>
@@ -369,17 +372,18 @@ public sealed partial class BookDetailPage : Page
                         <ColumnDefinition Width=""Auto""/>
                         <ColumnDefinition Width=""Auto""/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Opacity=""0.6""/>
+                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""#FF6B7280""/>
                     <TextBlock Grid.Column=""1"" Text=""{Binding Title}"" TextTrimming=""CharacterEllipsis""
-                               FontWeight=""{Binding TitleWeight}""/>
-                    <TextBlock Grid.Column=""2"" Text=""{Binding StatusIcon}"" Margin=""8,0,0,0"" FontSize=""12""/>
-                    <TextBlock Grid.Column=""3"" Text=""{Binding StartTime}"" Opacity=""0.6"" Margin=""8,0,0,0""/>
+                               FontWeight=""{Binding TitleWeight}"" Foreground=""#FFE0E0E8""/>
+                    <TextBlock Grid.Column=""2"" Text=""{Binding StatusIcon}"" Margin=""8,0,0,0"" FontSize=""12""
+                               Foreground=""#FFC5A55A""/>
+                    <TextBlock Grid.Column=""3"" Text=""{Binding StartTime}"" Foreground=""#FF6B7280"" Margin=""8,0,0,0""/>
                     <ProgressBar Grid.Row=""1"" Grid.ColumnSpan=""4""
                                  Minimum=""0"" Maximum=""100""
                                  Value=""{Binding ProgressPercent}""
                                  Height=""3"" Margin=""0,4,0,0""
                                  CornerRadius=""2""
-                                 Foreground=""#FF00CC66""
+                                 Foreground=""#FFC5A55A""
                                  Visibility=""{Binding ProgressBarVisibility}""/>
                 </Grid>
             </DataTemplate>");
@@ -412,7 +416,7 @@ public sealed partial class BookDetailPage : Page
     {
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
-                <Grid Background=""{ThemeResource CardBackgroundFillColorSecondaryBrush}""
+                <Grid Background=""#FF111827""
                       CornerRadius=""4""
                       Padding=""12,8"">
                     <Grid.ColumnDefinitions>
@@ -420,9 +424,10 @@ public sealed partial class BookDetailPage : Page
                         <ColumnDefinition Width=""*""/>
                         <ColumnDefinition Width=""Auto""/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Opacity=""0.6""/>
-                    <TextBlock Grid.Column=""1"" Text=""{Binding Title}"" TextTrimming=""CharacterEllipsis""/>
-                    <TextBlock Grid.Column=""2"" Text=""{Binding Duration}"" Opacity=""0.6"" Margin=""8,0,0,0""/>
+                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""#FF6B7280""/>
+                    <TextBlock Grid.Column=""1"" Text=""{Binding Title}"" TextTrimming=""CharacterEllipsis""
+                               Foreground=""#FFE0E0E8""/>
+                    <TextBlock Grid.Column=""2"" Text=""{Binding Duration}"" Foreground=""#FF6B7280"" Margin=""8,0,0,0""/>
                 </Grid>
             </DataTemplate>");
         return template;
@@ -652,6 +657,8 @@ public sealed partial class BookDetailPage : Page
         };
 
         public string TitleWeight => IsCurrent ? "SemiBold" : "Normal";
+
+        public string ChapterBackground => IsCurrent ? "#1AC5A55A" : "Transparent";
 
         public Microsoft.UI.Xaml.Visibility ProgressBarVisibility =>
             Status == "current" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;

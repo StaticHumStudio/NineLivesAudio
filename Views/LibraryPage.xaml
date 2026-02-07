@@ -66,10 +66,11 @@
 
             <!-- Status Pill -->
             <Border x:Name="StatusPill" Grid.Column="1" Style="{StaticResource StatusPillStyle}"
-                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}">
+                    Background="{StaticResource NebulaDarkBrush}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Ellipse Width="6" Height="6" Fill="{ThemeResource SystemFillColorSuccessBrush}"/>
-                    <TextBlock x:Name="StatusText" Text="Connected" Style="{StaticResource StatusPillTextStyle}"/>
+                    <Ellipse x:Name="StatusEllipse" Width="6" Height="6" Fill="{StaticResource RitualSuccessBrush}"/>
+                    <TextBlock x:Name="StatusText" Text="Connected" Style="{StaticResource StatusPillTextStyle}"
+                               Foreground="{StaticResource MistBrush}"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -125,7 +126,7 @@
         <!-- Error State -->
         <Border Grid.Row="3"
                 Visibility="{x:Bind ViewModel.HasError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                Background="{StaticResource RitualErrorFaintBrush}"
                 CornerRadius="{StaticResource RadiusMD}"
                 Padding="16"
                 Margin="0,0,0,12">
@@ -134,9 +135,10 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <FontIcon Glyph="&#xE7BA;" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Margin="0,0,12,0"/>
+                <FontIcon Glyph="&#xE7BA;" Foreground="{StaticResource RitualErrorBrush}" Margin="0,0,12,0"/>
                 <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                           TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{StaticResource MistBrush}"/>
             </Grid>
         </Border>
 
@@ -144,7 +146,8 @@
         <Grid Grid.Row="4"
               Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
-                <ProgressRing IsActive="True" Width="48" Height="48"/>
+                <ProgressRing IsActive="True" Width="48" Height="48"
+                              Foreground="{StaticResource SigilGoldDimBrush}"/>
                 <TextBlock Text="Loading library..." Style="{StaticResource SubtitleStyle}" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
@@ -246,7 +249,8 @@
                                     <ProgressBar Value="{x:Bind ProgressPercent}"
                                                  Style="{StaticResource DownloadProgressStyle}"/>
                                     <TextBlock Text="{x:Bind ProgressText}"
-                                               FontSize="11" Opacity="0.6"/>
+                                               FontSize="11"
+                                               Foreground="{StaticResource MistFaintBrush}"/>
                                 </StackPanel>
                                 </Grid>
                             </Border>
