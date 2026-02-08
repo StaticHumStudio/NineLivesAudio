@@ -84,6 +84,9 @@ public partial class LibraryViewModel : ObservableObject
     [ObservableProperty]
     private bool _hideFinished;
 
+    [ObservableProperty]
+    private bool _showDownloadedOnly;
+
     public ObservableCollection<Library> Libraries { get; } = new();
     public ObservableCollection<AudioBook> AudioBooks { get; } = new();
     public ObservableCollection<AudioBook> FilteredAudioBooks { get; } = new();
@@ -453,6 +456,11 @@ public partial class LibraryViewModel : ObservableObject
         ApplyFilterInternal();
     }
 
+    partial void OnShowDownloadedOnlyChanged(bool value)
+    {
+        ApplyFilterInternal();
+    }
+
     [RelayCommand]
     private void SetViewMode(ViewMode mode)
     {
@@ -520,6 +528,12 @@ public partial class LibraryViewModel : ObservableObject
             if (HideFinished)
             {
                 filtered = filtered.Where(b => !b.IsFinished && b.Progress < 1.0);
+            }
+
+            // Apply downloaded-only filter
+            if (ShowDownloadedOnly)
+            {
+                filtered = filtered.Where(b => b.IsDownloaded);
             }
 
             // Apply search filter (use normalized SearchText for efficiency)

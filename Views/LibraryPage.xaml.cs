@@ -198,6 +198,11 @@ public sealed partial class LibraryPage : Page
         ViewModel.HideFinished = HideFinishedToggle.IsOn;
     }
 
+    private void DownloadedOnlyToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        ViewModel.ShowDownloadedOnly = DownloadedOnlyToggle.IsOn;
+    }
+
     private void ViewModeAll_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.CurrentViewMode = ViewMode.All;

@@ -211,22 +211,28 @@
             <!-- ALL: Audiobooks Grid -->
             <ScrollViewer x:Name="AllBooksView">
                 <StackPanel>
-                <!-- Sort + Hide Finished (only visible in All view) -->
-                <StackPanel x:Name="SortFilterPanel" Orientation="Horizontal" Spacing="8"
-                            HorizontalAlignment="Right" Margin="0,0,0,12">
-                    <ToggleSwitch x:Name="HideFinishedToggle"
-                                  Header="Hide Finished" OnContent="" OffContent=""
-                                  Toggled="HideFinishedToggle_Toggled"
-                                  MinWidth="0" Margin="0,-4,0,0"/>
+                <!-- Sort + Filters (inline, left-aligned) -->
+                <StackPanel x:Name="SortFilterPanel" Orientation="Horizontal" Spacing="16"
+                            HorizontalAlignment="Left" Margin="0,0,0,12"
+                            VerticalAlignment="Center">
                     <ComboBox x:Name="SortComboBox"
                               PlaceholderText="Sort" MinWidth="110"
-                              SelectionChanged="SortComboBox_SelectionChanged">
+                              SelectionChanged="SortComboBox_SelectionChanged"
+                              VerticalAlignment="Center">
                         <ComboBoxItem Content="Default" Tag="Default" IsSelected="True"/>
                         <ComboBoxItem Content="Title" Tag="Title"/>
                         <ComboBoxItem Content="Author" Tag="Author"/>
                         <ComboBoxItem Content="Progress" Tag="Progress"/>
                         <ComboBoxItem Content="Recent" Tag="RecentProgress"/>
                     </ComboBox>
+                    <ToggleSwitch x:Name="HideFinishedToggle"
+                                  Header="Hide Finished" OnContent="" OffContent=""
+                                  Toggled="HideFinishedToggle_Toggled"
+                                  MinWidth="0" VerticalAlignment="Center" Margin="0,-4,0,0"/>
+                    <ToggleSwitch x:Name="DownloadedOnlyToggle"
+                                  Header="Downloaded" OnContent="" OffContent=""
+                                  Toggled="DownloadedOnlyToggle_Toggled"
+                                  MinWidth="0" VerticalAlignment="Center" Margin="0,-4,0,0"/>
                 </StackPanel>
                 <ItemsRepeater x:Name="BooksRepeater"
                                ItemsSource="{x:Bind ViewModel.FilteredAudioBooks}"
