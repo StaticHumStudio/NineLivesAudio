@@ -419,6 +419,12 @@
                                                  FontSize="11"
                                                  Padding="0"
                                                  Foreground="{StaticResource SigilGoldDimBrush}"/>
+                                <HyperlinkButton Content="Source Code on GitHub"
+                                                 NavigateUri="https://github.com/jiffy1080/AudioBookshelfApp"
+                                                 FontSize="11"
+                                                 Padding="0"
+                                                 Margin="0,4,0,0"
+                                                 Foreground="{StaticResource SigilGoldDimBrush}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
