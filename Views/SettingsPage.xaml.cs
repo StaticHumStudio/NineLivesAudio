@@ -101,4 +101,20 @@ public sealed partial class SettingsPage : Page
     {
         ViewModel.DismissSuccessCommand.Execute(null);
     }
+
+    private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        var mainWindow = App.Services.GetRequiredService<MainWindow>();
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.MusicLibrary;
+        picker.FileTypeFilter.Add("*");
+
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder != null)
+        {
+            ViewModel.DownloadPath = folder.Path;
+        }
+    }
 }

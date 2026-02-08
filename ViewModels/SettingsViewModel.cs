@@ -322,15 +322,6 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task BrowseDownloadPathAsync()
-    {
-        var defaultPath = GetDefaultDownloadPath();
-        Directory.CreateDirectory(defaultPath);
-        DownloadPath = defaultPath;
-        await Task.CompletedTask;
-    }
-
-    [RelayCommand]
     private async Task ClearCacheAsync()
     {
         try

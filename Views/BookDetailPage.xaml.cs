@@ -208,12 +208,14 @@ public sealed partial class BookDetailPage : Page
             }
 
             PlayButtonText.Text = "Continue";
+            PlayButtonTextNarrow.Text = "Continue";
         }
         else if (progressPercentValue > 0)
         {
             // Book progress mode
             ShowBookProgress(progressPercentValue);
             PlayButtonText.Text = "Continue";
+            PlayButtonTextNarrow.Text = "Continue";
         }
         else
         {
@@ -442,14 +444,18 @@ public sealed partial class BookDetailPage : Page
             DownloadedBadge.Visibility = Visibility.Visible;
             DownloadedBadgeNarrow.Visibility = Visibility.Visible;
             DownloadIcon.Glyph = "\uE74D";
+            DownloadIconNarrow.Glyph = "\uE74D";
             DownloadButtonText.Text = "Remove Download";
+            DownloadButtonTextNarrow.Text = "Remove Download";
         }
         else
         {
             DownloadedBadge.Visibility = Visibility.Collapsed;
             DownloadedBadgeNarrow.Visibility = Visibility.Collapsed;
             DownloadIcon.Glyph = "\uE896";
+            DownloadIconNarrow.Glyph = "\uE896";
             DownloadButtonText.Text = "Download";
+            DownloadButtonTextNarrow.Text = "Download";
         }
     }
 
@@ -509,9 +515,13 @@ public sealed partial class BookDetailPage : Page
         try
         {
             PlayButton.IsEnabled = false;
+            PlayButtonNarrow.IsEnabled = false;
             DownloadButton.IsEnabled = false;
+            DownloadButtonNarrow.IsEnabled = false;
             PlayIcon.Glyph = "\uE916"; // Loading icon
+            PlayIconNarrow.Glyph = "\uE916";
             PlayButtonText.Text = "Loading stream...";
+            PlayButtonTextNarrow.Text = "Loading stream...";
 
             var loaded = await _playbackService.LoadAudioBookAsync(_audioBook);
             if (loaded)
@@ -524,7 +534,9 @@ public sealed partial class BookDetailPage : Page
             {
                 _logger.LogWarning("Failed to load audiobook for playback");
                 PlayButtonText.Text = "Failed - try again";
+                PlayButtonTextNarrow.Text = "Failed - try again";
                 PlayIcon.Glyph = "\uE768";
+                PlayIconNarrow.Glyph = "\uE768";
                 await Task.Delay(3000);
             }
         }
@@ -532,16 +544,25 @@ public sealed partial class BookDetailPage : Page
         {
             _logger.LogError("Error playing audiobook", ex);
             PlayButtonText.Text = $"Error: {ex.Message}";
+            PlayButtonTextNarrow.Text = $"Error: {ex.Message}";
             PlayIcon.Glyph = "\uE768";
+            PlayIconNarrow.Glyph = "\uE768";
             await Task.Delay(3000);
         }
         finally
         {
             PlayButton.IsEnabled = true;
+            PlayButtonNarrow.IsEnabled = true;
             DownloadButton.IsEnabled = true;
+            DownloadButtonNarrow.IsEnabled = true;
             PlayIcon.Glyph = "\uE768";
+            PlayIconNarrow.Glyph = "\uE768";
             if (_audioBook != null)
-                PlayButtonText.Text = _audioBook.ProgressPercent > 0 ? "Continue" : "Play";
+            {
+                var label = _audioBook.ProgressPercent > 0 ? "Continue" : "Play";
+                PlayButtonText.Text = label;
+                PlayButtonTextNarrow.Text = label;
+            }
         }
     }
 
@@ -552,10 +573,12 @@ public sealed partial class BookDetailPage : Page
         try
         {
             DownloadButton.IsEnabled = false;
+            DownloadButtonNarrow.IsEnabled = false;
 
             if (_audioBook.IsDownloaded)
             {
                 DownloadButtonText.Text = "Removing...";
+                DownloadButtonTextNarrow.Text = "Removing...";
                 await _downloadService.DeleteDownloadAsync(_audioBook.Id);
                 _audioBook.IsDownloaded = false;
                 _audioBook.LocalPath = null;
@@ -565,6 +588,7 @@ public sealed partial class BookDetailPage : Page
             else
             {
                 DownloadButtonText.Text = "Starting download...";
+                DownloadButtonTextNarrow.Text = "Starting download...";
                 _logger.Log($"Starting download for: {_audioBook.Title}, AudioFiles: {_audioBook.AudioFiles.Count}");
 
                 // Subscribe to download events
@@ -574,6 +598,7 @@ public sealed partial class BookDetailPage : Page
 
                 var downloadItem = await _downloadService.QueueDownloadAsync(_audioBook);
                 DownloadButtonText.Text = "Downloading...";
+                DownloadButtonTextNarrow.Text = "Downloading...";
                 _logger.Log($"Queued download for: {_audioBook.Title}, DownloadId: {downloadItem.Id}");
             }
 
@@ -583,12 +608,14 @@ public sealed partial class BookDetailPage : Page
         {
             _logger.LogError("Error with download action", ex);
             DownloadButtonText.Text = $"Error: {ex.Message}";
+            DownloadButtonTextNarrow.Text = $"Error: {ex.Message}";
             await Task.Delay(3000);
             UpdateDownloadState();
         }
         finally
         {
             DownloadButton.IsEnabled = true;
+            DownloadButtonNarrow.IsEnabled = true;
         }
     }
 
@@ -598,6 +625,7 @@ public sealed partial class BookDetailPage : Page
         {
             var pct = Math.Min((int)e.Progress, 100); // e.Progress is already 0-100
             DownloadButtonText.Text = $"Downloading... {pct}%";
+            DownloadButtonTextNarrow.Text = $"Downloading... {pct}%";
         });
     }
 
@@ -623,6 +651,7 @@ public sealed partial class BookDetailPage : Page
         {
             _logger.LogWarning($"Download failed for: {e.Title} - {e.ErrorMessage}");
             DownloadButtonText.Text = $"Failed: {e.ErrorMessage}";
+            DownloadButtonTextNarrow.Text = $"Failed: {e.ErrorMessage}";
 
             // Unsubscribe
             _downloadService.DownloadProgressChanged -= OnDownloadProgress;

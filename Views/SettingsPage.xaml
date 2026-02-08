@@ -137,7 +137,7 @@
                                      IsReadOnly="True"
                                      Grid.Column="0"/>
                             <Button Content="Browse"
-                                    Command="{x:Bind ViewModel.BrowseDownloadPathCommand}"
+                                    Click="BrowseButton_Click"
                                     VerticalAlignment="Bottom"
                                     Margin="8,0,0,0"
                                     Grid.Column="1"/>
