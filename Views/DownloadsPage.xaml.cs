@@ -1,12 +1,12 @@
 using System.ComponentModel;
 using System.Collections.Specialized;
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.ViewModels;
+using NineLivesAudio.Models;
+using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace AudioBookshelfApp.Views;
+namespace NineLivesAudio.Views;
 
 public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
 {

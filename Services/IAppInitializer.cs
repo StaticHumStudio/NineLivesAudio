@@ -1,4 +1,4 @@
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 /// <summary>
 /// Handles async app initialization without blocking the UI thread.

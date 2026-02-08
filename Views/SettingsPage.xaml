@@ -1,5 +1,5 @@
 <Page
-    x:Class="AudioBookshelfApp.Views.SettingsPage"
+    x:Class="NineLivesAudio.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -394,14 +394,33 @@
                         BorderBrush="{StaticResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="AudioBookshelf Client"
+                        <TextBlock Text="Nine Lives Audio"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource StarlightDimBrush}"/>
                         <TextBlock Text="Version 1.0.0"
                                    Foreground="{StaticResource MistBrush}"/>
-                        <TextBlock Text="A lightweight Windows client for AudioBookshelf"
+                        <TextBlock Text="A lightweight Windows client for Audiobookshelf"
                                    Foreground="{StaticResource MistFaintBrush}"
                                    TextWrapping="Wrap"/>
+                        <Border Margin="0,8,0,0" Padding="0" Background="Transparent">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="This app is not affiliated with or endorsed by the Audiobookshelf project."
+                                           Foreground="{StaticResource MistFaintBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Opacity="0.7"/>
+                                <TextBlock Text="Audiobookshelf is open-source software licensed under GPL-3.0."
+                                           Foreground="{StaticResource MistFaintBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Opacity="0.7"/>
+                                <HyperlinkButton Content="audiobookshelf.org"
+                                                 NavigateUri="https://www.audiobookshelf.org/"
+                                                 FontSize="11"
+                                                 Padding="0"
+                                                 Foreground="{StaticResource SigilGoldDimBrush}"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
             </StackPanel>

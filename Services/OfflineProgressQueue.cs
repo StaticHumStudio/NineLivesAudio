@@ -1,6 +1,6 @@
-using AudioBookshelfApp.Data;
+using NineLivesAudio.Data;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class OfflineProgressQueue : IOfflineProgressQueue
 {

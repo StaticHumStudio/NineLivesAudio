@@ -1,6 +1,6 @@
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
-using AudioBookshelfApp.ViewModels;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
+using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 
-namespace AudioBookshelfApp.Views;
+namespace NineLivesAudio.Views;
 
 public sealed partial class BookDetailPage : Page
 {

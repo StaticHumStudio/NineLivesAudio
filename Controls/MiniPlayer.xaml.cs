@@ -1,11 +1,11 @@
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace AudioBookshelfApp.Controls;
+namespace NineLivesAudio.Controls;
 
 public sealed partial class MiniPlayer : UserControl
 {

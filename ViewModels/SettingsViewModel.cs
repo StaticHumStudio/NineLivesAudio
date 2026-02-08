@@ -1,10 +1,10 @@
-using AudioBookshelfApp.Data;
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
+using NineLivesAudio.Data;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace AudioBookshelfApp.ViewModels;
+namespace NineLivesAudio.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
@@ -411,7 +411,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             var logDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AudioBookshelfApp", "Logs");
+                "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
             Directory.CreateDirectory(logDir);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {

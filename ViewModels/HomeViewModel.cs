@@ -1,12 +1,12 @@
-using AudioBookshelfApp.Data;
-using AudioBookshelfApp.Helpers;
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
+using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 
-namespace AudioBookshelfApp.ViewModels;
+namespace NineLivesAudio.ViewModels;
 
 public partial class HomeViewModel : ObservableObject
 {
@@ -61,12 +61,12 @@ public partial class HomeViewModel : ObservableObject
             IsLoading = true;
             _logger.Log("[Home] Loading Nine Lives...");
 
-            var recentBooks = await _database.GetRecentlyPlayedAsync(9);
+            var recentEntries = await _database.GetRecentlyPlayedAsync(9);
 
             Lives.Clear();
             bool isFirst = true;
             int idx = 0;
-            foreach (var book in recentBooks)
+            foreach (var (book, lastPlayedAt) in recentEntries)
             {
                 var normalized = _normalizer.Normalize(book);
                 Lives.Add(new NineLivesItem
@@ -83,7 +83,9 @@ public partial class HomeViewModel : ObservableObject
                     Weight = book.Duration.TotalHours < 4 ? "LIGHT"
                            : book.Duration.TotalHours < 15 ? "MEDIUM" : "HEAVY",
                     TimeGiven = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
-                    HoursListened = book.CurrentTime.TotalHours
+                    HoursListened = book.CurrentTime.TotalHours,
+                    LastPlayedAt = lastPlayedAt,
+                    LastPlayedLabel = FormatRelativeTime(lastPlayedAt)
                 });
                 isFirst = false;
                 idx++;
@@ -91,7 +93,7 @@ public partial class HomeViewModel : ObservableObject
 
             // Compute aggregate listening time across all displayed items
             var totalTime = TimeSpan.FromSeconds(
-                recentBooks.Sum(b => b.CurrentTime.TotalSeconds));
+                recentEntries.Sum(e => e.Book.CurrentTime.TotalSeconds));
             TotalListeningTimeText = CosmicCatHelper.FormatListeningTime(totalTime);
 
             ShowEmptyState = Lives.Count == 0;
@@ -115,6 +117,19 @@ public partial class HomeViewModel : ObservableObject
         number >= 1 && number <= RomanNumerals.Length
             ? RomanNumerals[number - 1]
             : number.ToString();
+
+    private static string FormatRelativeTime(DateTime timestamp)
+    {
+        if (timestamp == DateTime.MinValue) return "";
+        var elapsed = DateTime.Now - timestamp;
+        if (elapsed.TotalMinutes < 1) return "Just now";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        if (elapsed.TotalDays < 2) return "Yesterday";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}d ago";
+        if (elapsed.TotalDays < 30) return $"{(int)(elapsed.TotalDays / 7)}w ago";
+        return timestamp.ToString("MMM d");
+    }
 
     [RelayCommand]
     private async Task PlayBookAsync(NineLivesItem? item)
@@ -153,4 +168,8 @@ public class NineLivesItem
     public string LifeLabel { get; set; } = string.Empty;
     public string Weight { get; set; } = string.Empty;
     public string TimeGiven { get; set; } = string.Empty;
+
+    // Last listened
+    public DateTime LastPlayedAt { get; set; }
+    public string LastPlayedLabel { get; set; } = string.Empty;
 }

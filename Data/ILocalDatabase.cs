@@ -1,6 +1,6 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 
-namespace AudioBookshelfApp.Data;
+namespace NineLivesAudio.Data;
 
 public interface ILocalDatabase
 {
@@ -32,7 +32,7 @@ public interface ILocalDatabase
     Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId);
 
     // Nine Lives (recently played)
-    Task<List<AudioBook>> GetRecentlyPlayedAsync(int limit = 9);
+    Task<List<(AudioBook Book, DateTime LastPlayedAt)>> GetRecentlyPlayedAsync(int limit = 9);
 
     // Offline Progress Queue
     Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished);

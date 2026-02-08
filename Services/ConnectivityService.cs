@@ -1,6 +1,6 @@
 using Windows.Networking.Connectivity;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class ConnectivityService : IConnectivityService, IDisposable
 {

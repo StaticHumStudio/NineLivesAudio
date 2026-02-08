@@ -1,8 +1,8 @@
-using AudioBookshelfApp.Views;
+using NineLivesAudio.Views;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class NavigationService : INavigationService
 {

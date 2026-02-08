@@ -1,11 +1,11 @@
-using AudioBookshelfApp.ViewModels;
+using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
-namespace AudioBookshelfApp.Views;
+namespace NineLivesAudio.Views;
 
 public sealed partial class SettingsPage : Page
 {

@@ -1,10 +1,10 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 {
@@ -387,7 +387,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
             {
                 deviceInfo = new
                 {
-                    clientName = "AudioBookshelfApp",
+                    clientName = "NineLivesAudio",
                     deviceId = Environment.MachineName
                 },
                 supportedMimeTypes = new[] { "audio/mpeg", "audio/mp4", "audio/ogg", "audio/flac" }

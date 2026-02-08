@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace AudioBookshelfApp.Helpers;
+namespace NineLivesAudio.Helpers;
 
 public class BoolToVisibilityConverter : IValueConverter
 {

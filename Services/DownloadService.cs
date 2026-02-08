@@ -1,8 +1,8 @@
-using AudioBookshelfApp.Data;
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Data;
+using NineLivesAudio.Models;
 using System.Collections.Concurrent;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class DownloadService : IDownloadService
 {

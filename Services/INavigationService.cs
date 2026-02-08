@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public interface INavigationService
 {

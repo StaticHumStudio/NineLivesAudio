@@ -1,6 +1,6 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public interface IDownloadService
 {

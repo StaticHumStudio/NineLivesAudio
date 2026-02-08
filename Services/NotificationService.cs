@@ -1,4 +1,4 @@
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class NotificationService : INotificationService
 {

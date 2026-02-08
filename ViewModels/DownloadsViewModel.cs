@@ -1,12 +1,12 @@
-using AudioBookshelfApp.Data;
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
+using NineLivesAudio.Data;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using System.Collections.ObjectModel;
 
-namespace AudioBookshelfApp.ViewModels;
+namespace NineLivesAudio.ViewModels;
 
 public partial class DownloadsViewModel : ObservableObject
 {

@@ -1,6 +1,8 @@
-# AudioBookshelfApp
+# Nine Lives Audio
 
 A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) built with WinUI 3, .NET 10, and Windows App SDK 1.6. Browse your library, stream or play downloaded audiobooks, track progress across devices, and pick up right where you left off.
+
+> **Note:** This app is not affiliated with or endorsed by the Audiobookshelf project. Audiobookshelf is open-source software licensed under GPL-3.0.
 
 ## Features
 
@@ -110,7 +112,7 @@ dotnet run -r win-x64
 ## Project Structure
 
 ```
-AudioBookshelfApp/
+NineLivesAudio/
   App.xaml(.cs)              # Application entry point and DI container
   MainWindow.xaml(.cs)       # Shell window with navigation frame
   Controls/

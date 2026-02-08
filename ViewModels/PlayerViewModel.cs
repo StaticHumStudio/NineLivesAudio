@@ -1,9 +1,9 @@
-using AudioBookshelfApp.Models;
-using AudioBookshelfApp.Services;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace AudioBookshelfApp.ViewModels;
+namespace NineLivesAudio.ViewModels;
 
 public partial class PlayerViewModel : ObservableObject
 {

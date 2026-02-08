@@ -1,11 +1,11 @@
 using Microsoft.UI.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using AudioBookshelfApp.Services;
-using AudioBookshelfApp.ViewModels;
-using AudioBookshelfApp.Data;
+using NineLivesAudio.Services;
+using NineLivesAudio.ViewModels;
+using NineLivesAudio.Data;
 
-namespace AudioBookshelfApp;
+namespace NineLivesAudio;
 
 public partial class App : Application
 {

@@ -1,7 +1,7 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using System.Text.RegularExpressions;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public partial class MetadataNormalizer : IMetadataNormalizer
 {

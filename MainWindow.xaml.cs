@@ -1,5 +1,5 @@
-using AudioBookshelfApp.Services;
-using AudioBookshelfApp.ViewModels;
+using NineLivesAudio.Services;
+using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -12,7 +12,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-namespace AudioBookshelfApp
+namespace NineLivesAudio
 {
     public sealed partial class MainWindow : Window
     {
@@ -33,16 +33,16 @@ namespace AudioBookshelfApp
         {
             this.InitializeComponent();
 
-            Title = "AudioBookshelf";
+            Title = "Nine Lives Audio";
 
             // Set initial window size (portrait default) — user can freely resize/maximize
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             _appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-            _appWindow?.Resize(new Windows.Graphics.SizeInt32(420, 747)); // portrait default
+            _appWindow?.Resize(new Windows.Graphics.SizeInt32(550, 660)); // 10% larger than minimum
 
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
-            SetMinimumWindowSize(hwnd, 400, 480);
+            SetMinimumWindowSize(hwnd, 500, 600);
 
             _initializer = App.Services.GetRequiredService<IAppInitializer>();
             _logger = App.Services.GetRequiredService<ILoggingService>();
@@ -138,7 +138,7 @@ namespace AudioBookshelfApp
             {
                 var logDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AudioBookshelfApp", "Logs");
+                    "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
                 Process.Start(new ProcessStartInfo { FileName = logDir, UseShellExecute = true });
             }
             catch (Exception ex)

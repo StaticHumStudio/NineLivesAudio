@@ -1,7 +1,7 @@
-using AudioBookshelfApp.Data;
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Data;
+using NineLivesAudio.Models;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class SyncService : ISyncService, IDisposable
 {

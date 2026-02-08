@@ -1,6 +1,6 @@
 using Windows.UI;
 
-namespace AudioBookshelfApp.Helpers;
+namespace NineLivesAudio.Helpers;
 
 /// <summary>
 /// Provides cosmic energy color progression, listening time formatting,

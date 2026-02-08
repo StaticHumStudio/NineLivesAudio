@@ -1,8 +1,8 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
-namespace AudioBookshelfApp.Data;
+namespace NineLivesAudio.Data;
 
 public class LocalDatabase : ILocalDatabase, IDisposable
 {
@@ -13,7 +13,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     public LocalDatabase()
     {
         var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(localFolder, "AudioBookshelfApp");
+        var appFolder = Path.Combine(localFolder, "AudioBookshelfApp"); // Legacy folder name for backward compatibility
         Directory.CreateDirectory(appFolder);
         _dbPath = Path.Combine(appFolder, "audiobookshelf.db");
     }
@@ -437,14 +437,14 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     }
 
     // Nine Lives (recently played)
-    public async Task<List<AudioBook>> GetRecentlyPlayedAsync(int limit = 9)
+    public async Task<List<(AudioBook Book, DateTime LastPlayedAt)>> GetRecentlyPlayedAsync(int limit = 9)
     {
         EnsureInitialized();
-        var audioBooks = new List<AudioBook>();
+        var results = new List<(AudioBook Book, DateTime LastPlayedAt)>();
 
         var command = _connection!.CreateCommand();
         command.CommandText = @"
-            SELECT ab.* FROM AudioBooks ab
+            SELECT ab.*, pp.UpdatedAt AS LastPlayedAt FROM AudioBooks ab
             INNER JOIN PlaybackProgress pp ON ab.Id = pp.AudioBookId
             ORDER BY pp.UpdatedAt DESC
             LIMIT @limit";
@@ -453,10 +453,15 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            audioBooks.Add(ReadAudioBook(reader));
+            var book = ReadAudioBook(reader);
+            var lastPlayedOrd = reader.GetOrdinal("LastPlayedAt");
+            var lastPlayed = reader.IsDBNull(lastPlayedOrd)
+                ? DateTime.MinValue
+                : DateTime.Parse(reader.GetString(lastPlayedOrd));
+            results.Add((book, lastPlayed));
         }
 
-        return audioBooks;
+        return results;
     }
 
     // Bulk operations

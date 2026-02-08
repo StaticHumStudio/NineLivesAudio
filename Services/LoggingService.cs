@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Threading.Channels;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public interface ILoggingService
 {
@@ -50,7 +50,7 @@ public class LoggingService : ILoggingService, IDisposable
         try
         {
             var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            logDir = Path.Combine(localFolder, "AudioBookshelfApp", "Logs");
+            logDir = Path.Combine(localFolder, "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
             Directory.CreateDirectory(logDir);
         }
         catch
@@ -106,7 +106,7 @@ public class LoggingService : ILoggingService, IDisposable
         var logDir = Path.GetDirectoryName(_logPath)!;
         var exportDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-            "AudioBookshelfApp_Logs");
+            "NineLivesAudio_Logs");
         Directory.CreateDirectory(exportDir);
 
         var zipPath = Path.Combine(exportDir, $"logs_{DateTime.Now:yyyyMMdd_HHmmss}.zip");

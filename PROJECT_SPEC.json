@@ -1,0 +1,839 @@
+{
+  "project": {
+    "name": "NineLivesAudio",
+    "type": "WinUI 3 Desktop Application",
+    "description": "A native Windows desktop client for Audiobookshelf, an open-source self-hosted audiobook and podcast server. The application allows users to connect to their Audiobookshelf server instance, browse their audiobook library with multiple organizational views (all books, by series, by author, by genre), view detailed book metadata, stream audiobooks directly from the server, download audiobooks for offline playback, track and sync listening progress bidirectionally with the server, and manage playback with features like variable speed, sleep timer, and volume control. The app is designed to run as an unpackaged WinUI 3 application targeting low memory usage (30-60MB idle) and uses a local SQLite database for offline caching of library metadata and progress.",
+    "root_namespace": "NineLivesAudio",
+    "solution_file": null,
+    "packaging": "Unpackaged (WindowsPackageType=None)",
+    "self_contained": true
+  },
+  "build": {
+    "sdk": "Microsoft.NET.Sdk",
+    "output_type": "WinExe",
+    "target_framework": "net10.0-windows10.0.22621.0",
+    "target_platform_min_version": "10.0.17763.0",
+    "platforms": ["x86", "x64", "ARM64"],
+    "runtime_identifiers": ["win-x86", "win-x64", "win-arm64"],
+    "nullable": "enable",
+    "implicit_usings": "enable",
+    "use_winui": true,
+    "enable_msix_tooling": true,
+    "build_command": "dotnet build -r win-x64 -c Debug",
+    "code_signing_required": true,
+    "code_signing_reason": "Windows Smart App Control blocks unsigned DLLs for unpackaged apps",
+    "code_signing_cert_subject": "CN=NineLivesAudio",
+    "code_signing_type": "Self-signed (development)"
+  },
+  "dependencies": [
+    {"package": "Microsoft.WindowsAppSDK", "version": "1.6.250205002", "purpose": "WinUI 3 framework"},
+    {"package": "Microsoft.Windows.SDK.BuildTools", "version": "10.0.26100.1", "purpose": "Windows SDK build tools"},
+    {"package": "CommunityToolkit.Mvvm", "version": "8.4.0", "purpose": "MVVM pattern (ObservableObject, ObservableProperty, RelayCommand)"},
+    {"package": "CommunityToolkit.WinUI.Controls.Primitives", "version": "8.2.250402", "purpose": "WinUI community controls"},
+    {"package": "CommunityToolkit.WinUI.Controls.Sizers", "version": "8.2.250402", "purpose": "WinUI sizer controls"},
+    {"package": "NAudio", "version": "2.2.1", "purpose": "Audio playback (WaveOutEvent, AudioFileReader, StreamMediaFoundationReader)"},
+    {"package": "NAudio.WinMM", "version": "2.2.1", "purpose": "Windows multimedia audio support"},
+    {"package": "Microsoft.Data.Sqlite", "version": "10.0.0", "purpose": "SQLite database for local caching"},
+    {"package": "Microsoft.Extensions.DependencyInjection", "version": "10.0.0", "purpose": "Dependency injection container"},
+    {"package": "Microsoft.Extensions.Hosting", "version": "10.0.0", "purpose": "Generic host for DI setup"}
+  ],
+  "architecture": {
+    "pattern": "MVVM",
+    "di_container": "Microsoft.Extensions.DependencyInjection via Microsoft.Extensions.Hosting",
+    "service_lifetimes": {
+      "singletons": [
+        "ILoggingService -> LoggingService",
+        "ISettingsService -> SettingsService",
+        "IAudioBookshelfApiService -> AudioBookshelfApiService",
+        "IAudioPlaybackService -> AudioPlaybackService",
+        "IDownloadService -> DownloadService",
+        "ISyncService -> SyncService",
+        "ILocalDatabase -> LocalDatabase",
+        "MainWindow"
+      ],
+      "transient": [
+        "MainViewModel",
+        "LibraryViewModel",
+        "PlayerViewModel",
+        "DownloadsViewModel",
+        "SettingsViewModel"
+      ]
+    },
+    "startup_sequence": [
+      "App constructor: register global exception handlers, build DI Host",
+      "OnLaunched: resolve ILoggingService",
+      "OnLaunched: resolve ILocalDatabase, call InitializeAsync synchronously",
+      "OnLaunched: resolve ISettingsService, call LoadSettingsAsync synchronously",
+      "OnLaunched: resolve MainWindow, call Activate"
+    ]
+  },
+  "navigation": {
+    "shell": "NavigationView in MainWindow.xaml with Frame (ContentFrame)",
+    "pages": [
+      {"tag": "Library", "page_class": "LibraryPage", "icon": "Library", "description": "Browse audiobook library with view modes"},
+      {"tag": "Player", "page_class": "PlayerPage", "icon": "Play", "description": "Full audiobook player with controls"},
+      {"tag": "Downloads", "page_class": "DownloadsPage", "icon": "Download", "description": "Manage downloaded audiobooks"},
+      {"tag": "Settings", "page_class": "SettingsPage", "icon": "Settings (built-in)", "description": "Server connection and app settings"}
+    ],
+    "sub_pages": [
+      {"page_class": "BookDetailPage", "navigated_from": "LibraryPage", "parameter": "AudioBook object", "description": "Detailed book view with play/download actions"}
+    ],
+    "mini_player": {
+      "location": "Bottom of MainWindow, overlaid on NavigationView",
+      "visibility": "Collapsed by default, shown when audiobook is loaded",
+      "controls": ["album art", "title", "author", "progress bar", "rewind", "play/pause", "forward"]
+    }
+  },
+  "files": {
+    "root": [
+      {"path": "NineLivesAudio.csproj", "type": "project_file"},
+      {"path": "App.xaml", "type": "xaml", "x_class": "NineLivesAudio.App", "root_element": "Application"},
+      {"path": "App.xaml.cs", "type": "code_behind", "classes": ["App : Application"]},
+      {"path": "MainWindow.xaml", "type": "xaml", "x_class": "NineLivesAudio.MainWindow", "root_element": "Window"},
+      {"path": "MainWindow.xaml.cs", "type": "code_behind", "classes": ["MainWindow : Window"]},
+      {"path": "app.manifest", "type": "manifest"},
+      {"path": "NineLivesAudio.cer", "type": "certificate"}
+    ],
+    "scripts": [
+      {"path": "build-and-run.ps1", "purpose": "Build, sign, and run the app"},
+      {"path": "sign.ps1", "purpose": "Sign DLL and EXE with self-signed cert"},
+      {"path": "trust-cert.ps1", "purpose": "Export cert and add to TrustedPublisher and Root stores"},
+      {"path": "find-settings.ps1", "purpose": "Utility to locate settings.json files in AppData"}
+    ],
+    "models": [
+      {
+        "path": "Models/AppSettings.cs",
+        "namespace": "NineLivesAudio.Models",
+        "classes": [{
+          "name": "AppSettings",
+          "properties": [
+            {"name": "ServerUrl", "type": "string", "default": "\"\""},
+            {"name": "Username", "type": "string", "default": "\"\""},
+            {"name": "DownloadPath", "type": "string", "default": "\"\""},
+            {"name": "AutoDownloadCovers", "type": "bool", "default": "true"},
+            {"name": "PlaybackSpeed", "type": "double", "default": "1"},
+            {"name": "AutoSyncProgress", "type": "bool", "default": "true"},
+            {"name": "SyncIntervalMinutes", "type": "int", "default": "5"},
+            {"name": "StartMinimized", "type": "bool", "default": "false"},
+            {"name": "MinimizeToTray", "type": "bool", "default": "true"},
+            {"name": "Volume", "type": "double", "default": "0.8"},
+            {"name": "Theme", "type": "string", "default": "\"System\""}
+          ]
+        }]
+      },
+      {
+        "path": "Models/AudioBook.cs",
+        "namespace": "NineLivesAudio.Models",
+        "classes": [
+          {
+            "name": "AudioBook",
+            "properties": [
+              {"name": "Id", "type": "string"},
+              {"name": "Title", "type": "string"},
+              {"name": "Author", "type": "string"},
+              {"name": "Narrator", "type": "string?"},
+              {"name": "Description", "type": "string?"},
+              {"name": "CoverPath", "type": "string?"},
+              {"name": "Duration", "type": "TimeSpan"},
+              {"name": "AddedAt", "type": "DateTime?"},
+              {"name": "AudioFiles", "type": "List<AudioFile>"},
+              {"name": "SeriesName", "type": "string?"},
+              {"name": "SeriesSequence", "type": "string?"},
+              {"name": "Genres", "type": "List<string>"},
+              {"name": "Tags", "type": "List<string>"},
+              {"name": "CurrentTime", "type": "TimeSpan"},
+              {"name": "Progress", "type": "double"},
+              {"name": "IsFinished", "type": "bool"},
+              {"name": "IsDownloaded", "type": "bool"},
+              {"name": "LocalPath", "type": "string?"}
+            ]
+          },
+          {
+            "name": "AudioFile",
+            "properties": [
+              {"name": "Id", "type": "string"},
+              {"name": "Ino", "type": "string"},
+              {"name": "Index", "type": "int"},
+              {"name": "Duration", "type": "TimeSpan"},
+              {"name": "Filename", "type": "string"},
+              {"name": "LocalPath", "type": "string?"},
+              {"name": "MimeType", "type": "string?"},
+              {"name": "Size", "type": "long"}
+            ]
+          }
+        ]
+      },
+      {
+        "path": "Models/DownloadItem.cs",
+        "namespace": "NineLivesAudio.Models",
+        "classes": [{
+          "name": "DownloadItem",
+          "properties": [
+            {"name": "Id", "type": "string"},
+            {"name": "AudioBookId", "type": "string"},
+            {"name": "Title", "type": "string"},
+            {"name": "Status", "type": "DownloadStatus"},
+            {"name": "TotalBytes", "type": "long"},
+            {"name": "DownloadedBytes", "type": "long"},
+            {"name": "Progress", "type": "double", "computed": true, "formula": "TotalBytes > 0 ? (double)DownloadedBytes / TotalBytes * 100 : 0"},
+            {"name": "StartedAt", "type": "DateTime?"},
+            {"name": "CompletedAt", "type": "DateTime?"},
+            {"name": "ErrorMessage", "type": "string?"},
+            {"name": "FilesToDownload", "type": "List<string>"}
+          ]
+        }],
+        "enums": [{
+          "name": "DownloadStatus",
+          "values": ["Queued", "Downloading", "Paused", "Completed", "Failed", "Cancelled"]
+        }]
+      },
+      {
+        "path": "Models/Library.cs",
+        "namespace": "NineLivesAudio.Models",
+        "classes": [
+          {
+            "name": "Library",
+            "properties": [
+              {"name": "Id", "type": "string"},
+              {"name": "Name", "type": "string"},
+              {"name": "Folders", "type": "List<Folder>"},
+              {"name": "DisplayOrder", "type": "int"},
+              {"name": "Icon", "type": "string?"},
+              {"name": "MediaType", "type": "string?"}
+            ]
+          },
+          {
+            "name": "Folder",
+            "properties": [
+              {"name": "Id", "type": "string"},
+              {"name": "FullPath", "type": "string"},
+              {"name": "LibraryId", "type": "string?"}
+            ]
+          }
+        ]
+      },
+      {
+        "path": "Models/UserProgress.cs",
+        "namespace": "NineLivesAudio.Models",
+        "classes": [{
+          "name": "UserProgress",
+          "properties": [
+            {"name": "LibraryItemId", "type": "string"},
+            {"name": "EpisodeId", "type": "string?"},
+            {"name": "CurrentTime", "type": "TimeSpan"},
+            {"name": "Progress", "type": "double"},
+            {"name": "IsFinished", "type": "bool"},
+            {"name": "LastUpdate", "type": "DateTime"}
+          ]
+        }]
+      }
+    ],
+    "services": [
+      {
+        "path": "Services/IAudioBookshelfApiService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "IAudioBookshelfApiService",
+          "properties": [
+            {"name": "IsAuthenticated", "type": "bool"},
+            {"name": "ServerUrl", "type": "string?"},
+            {"name": "LastError", "type": "string?"}
+          ],
+          "methods": [
+            {"name": "LoginAsync", "params": ["string serverUrl", "string username", "string password"], "returns": "Task<bool>"},
+            {"name": "LogoutAsync", "params": [], "returns": "Task"},
+            {"name": "ValidateTokenAsync", "params": [], "returns": "Task<bool>"},
+            {"name": "GetLibrariesAsync", "params": [], "returns": "Task<List<Library>>"},
+            {"name": "GetLibraryItemsAsync", "params": ["string libraryId", "int limit=100", "int page=0"], "returns": "Task<List<AudioBook>>"},
+            {"name": "GetAudioBookAsync", "params": ["string itemId"], "returns": "Task<AudioBook?>"},
+            {"name": "GetAudioFileStreamAsync", "params": ["string itemId", "string fileIno"], "returns": "Task<Stream>"},
+            {"name": "GetCoverImageAsync", "params": ["string itemId", "int? width=null", "int? height=null"], "returns": "Task<byte[]?>"},
+            {"name": "StartPlaybackSessionAsync", "params": ["string itemId"], "returns": "Task<PlaybackSessionInfo?>"},
+            {"name": "UpdateProgressAsync", "params": ["string itemId", "double currentTime", "bool isFinished=false"], "returns": "Task<bool>"},
+            {"name": "SyncSessionProgressAsync", "params": ["string sessionId", "double currentTime", "double duration"], "returns": "Task<bool>"},
+            {"name": "ClosePlaybackSessionAsync", "params": ["string sessionId"], "returns": "Task"},
+            {"name": "GetUserProgressAsync", "params": ["string itemId"], "returns": "Task<UserProgress?>"},
+            {"name": "GetAllUserProgressAsync", "params": [], "returns": "Task<List<UserProgress>>"}
+          ]
+        }],
+        "classes": [
+          {
+            "name": "PlaybackSessionInfo",
+            "properties": [
+              {"name": "Id", "type": "string"},
+              {"name": "ItemId", "type": "string"},
+              {"name": "EpisodeId", "type": "string?"},
+              {"name": "CurrentTime", "type": "double"},
+              {"name": "Duration", "type": "double"},
+              {"name": "MediaType", "type": "string"},
+              {"name": "AudioTracks", "type": "List<AudioStreamInfo>"}
+            ]
+          },
+          {
+            "name": "AudioStreamInfo",
+            "properties": [
+              {"name": "Index", "type": "int"},
+              {"name": "Codec", "type": "string"},
+              {"name": "Title", "type": "string?"},
+              {"name": "Duration", "type": "double"},
+              {"name": "ContentUrl", "type": "string"}
+            ]
+          }
+        ]
+      },
+      {
+        "path": "Services/AudioBookshelfApiService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "classes": [{
+          "name": "AudioBookshelfApiService",
+          "implements": ["IAudioBookshelfApiService", "IDisposable"],
+          "private_dto_classes": [
+            "LoginResponse", "ApiUser", "LibrariesResponse", "ApiLibrary", "ApiFolder",
+            "LibraryItemsResponse", "ApiLibraryItem", "ApiMedia", "ApiMetadata",
+            "ApiSeries", "ApiAuthor", "ApiAudioFile", "ApiFileMetadata",
+            "ApiUserMediaProgress", "ApiPlaybackSession", "ApiAudioTrack",
+            "ApiUserProgress", "ApiItemsInProgress", "ApiProgressItem"
+          ]
+        }]
+      },
+      {
+        "path": "Services/IAudioPlaybackService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "IAudioPlaybackService",
+          "events": [
+            {"name": "PlaybackStateChanged", "type": "EventHandler<PlaybackStateChangedEventArgs>"},
+            {"name": "PositionChanged", "type": "EventHandler<TimeSpan>"}
+          ],
+          "properties": [
+            {"name": "State", "type": "PlaybackState"},
+            {"name": "Position", "type": "TimeSpan"},
+            {"name": "Duration", "type": "TimeSpan"},
+            {"name": "Volume", "type": "float"},
+            {"name": "PlaybackSpeed", "type": "float"},
+            {"name": "CurrentAudioBook", "type": "AudioBook?"}
+          ],
+          "methods": [
+            {"name": "LoadAudioBookAsync", "params": ["AudioBook audioBook"], "returns": "Task<bool>"},
+            {"name": "PlayAsync", "params": [], "returns": "Task"},
+            {"name": "PauseAsync", "params": [], "returns": "Task"},
+            {"name": "StopAsync", "params": [], "returns": "Task"},
+            {"name": "SeekAsync", "params": ["TimeSpan position"], "returns": "Task"},
+            {"name": "SetVolumeAsync", "params": ["float volume"], "returns": "Task"},
+            {"name": "SetPlaybackSpeedAsync", "params": ["float speed"], "returns": "Task"}
+          ]
+        }],
+        "enums": [{
+          "name": "PlaybackState",
+          "values": ["Stopped", "Loading", "Playing", "Paused", "Buffering"]
+        }],
+        "classes": [{
+          "name": "PlaybackStateChangedEventArgs",
+          "extends": "EventArgs",
+          "properties": [
+            {"name": "State", "type": "PlaybackState"},
+            {"name": "OldState", "type": "PlaybackState"},
+            {"name": "ErrorMessage", "type": "string?"}
+          ]
+        }]
+      },
+      {
+        "path": "Services/AudioPlaybackService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "classes": [{
+          "name": "AudioPlaybackService",
+          "implements": ["IAudioPlaybackService", "IDisposable"],
+          "dependencies": ["IAudioBookshelfApiService", "ISettingsService", "ILoggingService"],
+          "playback_strategy": "Downloads entire audio file to temp directory before playback via NAudio AudioFileReader. Falls back to local file if available. Uses HttpCompletionOption.ResponseHeadersRead for streaming download with 80KB buffer.",
+          "temp_file_location": "%TEMP%/AudioBookshelfApp/abs_stream_{bookId}.tmp"
+        }]
+      },
+      {
+        "path": "Services/IDownloadService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "IDownloadService",
+          "events": [
+            {"name": "DownloadProgressChanged", "type": "EventHandler<DownloadProgressEventArgs>"},
+            {"name": "DownloadCompleted", "type": "EventHandler<string>"},
+            {"name": "DownloadFailed", "type": "EventHandler<(string downloadId, string error)>"}
+          ],
+          "methods": [
+            {"name": "QueueDownloadAsync", "params": ["AudioBook audioBook"], "returns": "Task<string>"},
+            {"name": "PauseDownloadAsync", "params": ["string downloadId"], "returns": "Task"},
+            {"name": "ResumeDownloadAsync", "params": ["string downloadId"], "returns": "Task"},
+            {"name": "CancelDownloadAsync", "params": ["string downloadId"], "returns": "Task"},
+            {"name": "GetActiveDownloadsAsync", "params": [], "returns": "Task<List<DownloadItem>>"},
+            {"name": "IsBookDownloadedAsync", "params": ["string audioBookId"], "returns": "Task<bool>"},
+            {"name": "DeleteDownloadAsync", "params": ["string downloadId"], "returns": "Task"}
+          ]
+        }],
+        "classes": [{
+          "name": "DownloadProgressEventArgs",
+          "extends": "EventArgs",
+          "properties": [
+            {"name": "DownloadId", "type": "string"},
+            {"name": "Progress", "type": "double"},
+            {"name": "DownloadedBytes", "type": "long"},
+            {"name": "TotalBytes", "type": "long"}
+          ]
+        }]
+      },
+      {
+        "path": "Services/DownloadService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "classes": [{
+          "name": "DownloadService",
+          "implements": ["IDownloadService"],
+          "dependencies": ["IAudioBookshelfApiService", "ILocalDatabase", "ISettingsService", "ILoggingService"],
+          "download_strategy": "Downloads individual audio files via GetAudioFileStreamAsync using file Ino values. Uses ConcurrentDictionary for active downloads and SemaphoreSlim for concurrency control."
+        }]
+      },
+      {
+        "path": "Services/ISettingsService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "ISettingsService",
+          "properties": [
+            {"name": "Settings", "type": "AppSettings"}
+          ],
+          "methods": [
+            {"name": "LoadSettingsAsync", "params": [], "returns": "Task"},
+            {"name": "SaveSettingsAsync", "params": [], "returns": "Task"},
+            {"name": "GetAuthTokenAsync", "params": [], "returns": "Task<string?>"},
+            {"name": "SaveAuthTokenAsync", "params": ["string token"], "returns": "Task"},
+            {"name": "ClearAuthTokenAsync", "params": [], "returns": "Task"}
+          ]
+        }]
+      },
+      {
+        "path": "Services/SettingsService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "classes": [{
+          "name": "SettingsService",
+          "implements": ["ISettingsService"],
+          "storage": {
+            "settings_file": "%LOCALAPPDATA%/AudioBookshelfApp/settings.json",
+            "auth_token_primary": "Windows.Security.Credentials.PasswordVault",
+            "auth_token_fallback": "%LOCALAPPDATA%/AudioBookshelfApp/.auth_token",
+            "settings_fallback": "ApplicationData.Current.LocalFolder (legacy, migrated from)"
+          }
+        }]
+      },
+      {
+        "path": "Services/ISyncService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "ISyncService",
+          "properties": [
+            {"name": "IsSyncing", "type": "bool"},
+            {"name": "LastSyncTime", "type": "DateTime?"}
+          ],
+          "events": [
+            {"name": "SyncStarted", "type": "EventHandler<SyncEventArgs>"},
+            {"name": "SyncCompleted", "type": "EventHandler<SyncEventArgs>"},
+            {"name": "SyncFailed", "type": "EventHandler<SyncErrorEventArgs>"}
+          ],
+          "methods": [
+            {"name": "StartAsync", "params": [], "returns": "Task"},
+            {"name": "StopAsync", "params": [], "returns": "Task"},
+            {"name": "SyncNowAsync", "params": [], "returns": "Task"},
+            {"name": "SyncLibrariesAsync", "params": [], "returns": "Task"},
+            {"name": "SyncProgressAsync", "params": [], "returns": "Task"}
+          ]
+        }]
+      },
+      {
+        "path": "Services/SyncService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "classes": [{
+          "name": "SyncService",
+          "implements": ["ISyncService", "IDisposable"],
+          "dependencies": ["IAudioBookshelfApiService", "ILocalDatabase", "ISettingsService", "ILoggingService"]
+        }]
+      },
+      {
+        "path": "Services/LoggingService.cs",
+        "namespace": "NineLivesAudio.Services",
+        "interfaces": [{
+          "name": "ILoggingService",
+          "methods": [
+            {"name": "Log", "params": ["string message"], "returns": "void"},
+            {"name": "LogError", "params": ["string message", "Exception? ex=null"], "returns": "void"},
+            {"name": "LogWarning", "params": ["string message"], "returns": "void"},
+            {"name": "LogDebug", "params": ["string message"], "returns": "void"},
+            {"name": "FlushAsync", "params": [], "returns": "Task"}
+          ]
+        }],
+        "enums": [{
+          "name": "LogLevel",
+          "values": ["Debug", "Info", "Warning", "Error"]
+        }],
+        "classes": [{
+          "name": "LoggingService",
+          "implements": ["ILoggingService", "IDisposable"],
+          "log_directory": "%LOCALAPPDATA%/AudioBookshelfApp/Logs/",
+          "log_file_pattern": "app_{yyyy-MM-dd}.log",
+          "flush_strategy": "Immediate write + timer-based queue flush (causes duplicate entries - known bug)"
+        }]
+      }
+    ],
+    "data": [
+      {
+        "path": "Data/ILocalDatabase.cs",
+        "namespace": "NineLivesAudio.Data",
+        "interfaces": [{
+          "name": "ILocalDatabase",
+          "methods": [
+            {"name": "InitializeAsync", "returns": "Task"},
+            {"name": "GetAllAudioBooksAsync", "returns": "Task<List<AudioBook>>"},
+            {"name": "GetAudioBookAsync", "params": ["string id"], "returns": "Task<AudioBook?>"},
+            {"name": "SaveAudioBookAsync", "params": ["AudioBook audioBook"], "returns": "Task"},
+            {"name": "UpdateAudioBookAsync", "params": ["AudioBook audioBook"], "returns": "Task"},
+            {"name": "DeleteAudioBookAsync", "params": ["string id"], "returns": "Task"},
+            {"name": "GetAllLibrariesAsync", "returns": "Task<List<Library>>"},
+            {"name": "GetLibraryAsync", "params": ["string id"], "returns": "Task<Library?>"},
+            {"name": "SaveLibraryAsync", "params": ["Library library"], "returns": "Task"},
+            {"name": "UpdateLibraryAsync", "params": ["Library library"], "returns": "Task"},
+            {"name": "DeleteLibraryAsync", "params": ["string id"], "returns": "Task"},
+            {"name": "GetAllDownloadItemsAsync", "returns": "Task<List<DownloadItem>>"},
+            {"name": "GetDownloadItemAsync", "params": ["string id"], "returns": "Task<DownloadItem?>"},
+            {"name": "SaveDownloadItemAsync", "params": ["DownloadItem downloadItem"], "returns": "Task"},
+            {"name": "UpdateDownloadItemAsync", "params": ["DownloadItem downloadItem"], "returns": "Task"},
+            {"name": "DeleteDownloadItemAsync", "params": ["string id"], "returns": "Task"},
+            {"name": "SavePlaybackProgressAsync", "params": ["string audioBookId", "TimeSpan position", "bool isFinished"], "returns": "Task"},
+            {"name": "GetPlaybackProgressAsync", "params": ["string audioBookId"], "returns": "Task<(TimeSpan position, bool isFinished)?>"},
+            {"name": "SaveAudioBooksAsync", "params": ["IEnumerable<AudioBook> audioBooks"], "returns": "Task"},
+            {"name": "SaveLibrariesAsync", "params": ["IEnumerable<Library> libraries"], "returns": "Task"},
+            {"name": "ClearAllDataAsync", "returns": "Task"}
+          ]
+        }]
+      },
+      {
+        "path": "Data/LocalDatabase.cs",
+        "namespace": "NineLivesAudio.Data",
+        "classes": [{
+          "name": "LocalDatabase",
+          "implements": ["ILocalDatabase", "IDisposable"],
+          "db_path": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
+          "db_engine": "SQLite via Microsoft.Data.Sqlite"
+        }]
+      }
+    ],
+    "viewmodels": [
+      {
+        "path": "ViewModels/MainViewModel.cs",
+        "namespace": "NineLivesAudio.ViewModels",
+        "classes": [{
+          "name": "MainViewModel",
+          "extends": "ObservableObject (partial)",
+          "observable_properties": ["IsPlaying", "IsMiniPlayerVisible", "CurrentAudioBook", "CurrentPosition", "Duration", "Progress", "IsAuthenticated", "IsSyncing"],
+          "commands": ["PlayPauseCommand", "SkipForwardCommand", "SkipBackwardCommand", "SyncCommand"]
+        }]
+      },
+      {
+        "path": "ViewModels/LibraryViewModel.cs",
+        "namespace": "NineLivesAudio.ViewModels",
+        "enums": [{"name": "ViewMode", "values": ["All", "Series", "Author", "Genre"]}],
+        "classes": [{
+          "name": "LibraryViewModel",
+          "extends": "ObservableObject (partial)",
+          "observable_properties": ["IsLoading", "IsRefreshing", "SearchQuery", "SelectedLibrary", "SelectedAudioBook", "ErrorMessage", "HasError", "ShowEmptyState", "CurrentViewMode", "SelectedGroupFilter"],
+          "collections": ["Libraries", "AudioBooks", "FilteredAudioBooks", "AvailableGroups"],
+          "commands": ["LoadLibrariesCommand", "LoadAudioBooksCommand", "RefreshCommand", "PlayAudioBookCommand", "DownloadAudioBookCommand", "SetViewModeCommand"]
+        }]
+      },
+      {
+        "path": "ViewModels/PlayerViewModel.cs",
+        "namespace": "NineLivesAudio.ViewModels",
+        "classes": [{
+          "name": "PlayerViewModel",
+          "extends": "ObservableObject (partial)",
+          "observable_properties": ["CurrentAudioBook", "IsPlaying", "IsLoading", "CurrentPosition", "Duration", "Progress", "Volume", "PlaybackSpeed", "CurrentPositionText", "DurationText", "RemainingTimeText", "SleepTimerMinutes", "SleepTimerText"],
+          "commands": ["PlayPauseCommand", "StopCommand", "SkipForwardCommand", "SkipBackwardCommand", "SeekCommand", "SetVolumeCommand", "SetPlaybackSpeedCommand", "SetSleepTimerCommand", "CancelSleepTimerCommand"]
+        }]
+      },
+      {
+        "path": "ViewModels/DownloadsViewModel.cs",
+        "namespace": "NineLivesAudio.ViewModels",
+        "classes": [{
+          "name": "DownloadsViewModel",
+          "extends": "ObservableObject (partial)",
+          "observable_properties": ["IsLoading", "ErrorMessage", "HasError"],
+          "collections": ["ActiveDownloads", "CompletedDownloads"],
+          "commands": ["LoadDownloadsCommand", "PauseDownloadCommand", "ResumeDownloadCommand", "CancelDownloadCommand", "DeleteDownloadCommand", "ClearCompletedCommand"]
+        }]
+      },
+      {
+        "path": "ViewModels/SettingsViewModel.cs",
+        "namespace": "NineLivesAudio.ViewModels",
+        "classes": [{
+          "name": "SettingsViewModel",
+          "extends": "ObservableObject (partial)",
+          "observable_properties": ["ServerUrl", "Username", "Password", "IsConnected", "IsConnecting", "ConnectionStatus", "DownloadPath", "AutoDownloadCovers", "PlaybackSpeed", "AutoSyncProgress", "SyncIntervalMinutes", "StartMinimized", "MinimizeToTray", "Volume", "Theme", "ErrorMessage", "HasError", "SuccessMessage", "HasSuccess"],
+          "commands": ["ConnectCommand", "DisconnectCommand", "TestConnectionCommand", "SaveSettingsCommand", "BrowseDownloadPathCommand", "ClearCacheCommand", "DismissErrorCommand", "DismissSuccessCommand"]
+        }]
+      }
+    ],
+    "views": [
+      {
+        "path": "Views/LibraryPage.xaml",
+        "x_class": "NineLivesAudio.Views.LibraryPage",
+        "root_element": "Page",
+        "code_behind": "Views/LibraryPage.xaml.cs",
+        "viewmodel": "LibraryViewModel",
+        "nested_classes": ["GroupItem"],
+        "features": ["Grid view of book cards", "View mode switching (All/Series/Author/Genre)", "Group drill-down with dynamic DataTemplate", "Search filtering", "Pull-to-refresh", "Navigation to BookDetailPage"]
+      },
+      {
+        "path": "Views/PlayerPage.xaml",
+        "x_class": "NineLivesAudio.Views.PlayerPage",
+        "root_element": "Page",
+        "code_behind": "Views/PlayerPage.xaml.cs",
+        "viewmodel": "PlayerViewModel",
+        "ui_update_strategy": "Named controls (x:Name) updated via code-behind PropertyChanged and event handlers using DispatcherQueue.TryEnqueue for thread safety",
+        "features": ["Cover art display", "Title/author text", "Progress slider with seek", "Play/pause/skip controls", "Speed control flyout (0.5x-3.0x)", "Sleep timer flyout (5-120 min)", "Volume flyout with slider", "Loading overlay", "Empty state panel"]
+      },
+      {
+        "path": "Views/DownloadsPage.xaml",
+        "x_class": "NineLivesAudio.Views.DownloadsPage",
+        "root_element": "Page",
+        "code_behind": "Views/DownloadsPage.xaml.cs",
+        "viewmodel": "DownloadsViewModel",
+        "features": ["Active downloads list with progress", "Completed downloads list", "Pause/resume/cancel actions", "Delete downloaded files", "Empty state"]
+      },
+      {
+        "path": "Views/SettingsPage.xaml",
+        "x_class": "NineLivesAudio.Views.SettingsPage",
+        "root_element": "Page",
+        "code_behind": "Views/SettingsPage.xaml.cs",
+        "viewmodel": "SettingsViewModel",
+        "features": ["Server URL input", "Username/password fields", "Connect/disconnect buttons", "Connection status indicator", "Download path browser", "Playback speed setting", "Sync interval setting", "Theme selection (System/Light/Dark)", "Start minimized toggle", "Minimize to tray toggle", "Clear cache button"]
+      },
+      {
+        "path": "Views/BookDetailPage.xaml",
+        "x_class": "NineLivesAudio.Views.BookDetailPage",
+        "root_element": "Page",
+        "code_behind": "Views/BookDetailPage.xaml.cs",
+        "nested_classes": ["TrackItem"],
+        "features": ["Cover art (large)", "Title/author/narrator metadata", "Description text", "Series info", "Genre/tag display", "Track listing with durations", "Play button with loading state", "Download button with progress percentage", "Navigation parameter: AudioBook object"]
+      }
+    ],
+    "controls": [
+      {
+        "path": "Controls/BookCard.xaml",
+        "x_class": "NineLivesAudio.Controls.BookCard",
+        "root_element": "UserControl",
+        "code_behind": "Controls/BookCard.xaml.cs",
+        "events": ["PlayRequested", "DownloadRequested"],
+        "properties": ["AudioBook"],
+        "features": ["Cover art thumbnail", "Title/author text", "Progress indicator", "Click to navigate to BookDetailPage"]
+      },
+      {
+        "path": "Controls/MiniPlayer.xaml",
+        "x_class": "NineLivesAudio.Controls.MiniPlayer",
+        "root_element": "UserControl",
+        "code_behind": "Controls/MiniPlayer.xaml.cs",
+        "features": ["Compact playback controls for bottom bar"]
+      }
+    ],
+    "helpers": [
+      {
+        "path": "Helpers/Converters.cs",
+        "namespace": "NineLivesAudio.Helpers",
+        "classes": [
+          {"name": "BoolToVisibilityConverter", "implements": "IValueConverter"},
+          {"name": "BoolToVisibilityInverseConverter", "implements": "IValueConverter"},
+          {"name": "BoolToInverseConverter", "implements": "IValueConverter"},
+          {"name": "ProgressToVisibilityConverter", "implements": "IValueConverter"},
+          {"name": "TimeSpanToStringConverter", "implements": "IValueConverter"},
+          {"name": "NullToVisibilityConverter", "implements": "IValueConverter"},
+          {"name": "NullToVisibilityInverseConverter", "implements": "IValueConverter"},
+          {"name": "DownloadStatusToGlyphConverter", "implements": "IValueConverter"},
+          {"name": "StringToImageSourceConverter", "implements": "IValueConverter"}
+        ]
+      }
+    ],
+    "resources": [
+      {"path": "Resources/Converters.xaml", "type": "ResourceDictionary", "purpose": "XAML converter resource registrations"},
+      {"path": "Resources/Styles.xaml", "type": "ResourceDictionary", "purpose": "Global style definitions (e.g. TransparentButtonStyle)"}
+    ]
+  },
+  "database_schema": {
+    "engine": "SQLite",
+    "file_path": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
+    "tables": [
+      {
+        "name": "Libraries",
+        "columns": [
+          {"name": "Id", "type": "TEXT", "constraints": "PRIMARY KEY"},
+          {"name": "Name", "type": "TEXT", "constraints": "NOT NULL"},
+          {"name": "DisplayOrder", "type": "INTEGER", "default": 0},
+          {"name": "Icon", "type": "TEXT", "default": "'audiobook'"},
+          {"name": "MediaType", "type": "TEXT", "default": "'book'"},
+          {"name": "FoldersJson", "type": "TEXT", "serialization": "JSON array of Folder objects"}
+        ]
+      },
+      {
+        "name": "AudioBooks",
+        "columns": [
+          {"name": "Id", "type": "TEXT", "constraints": "PRIMARY KEY"},
+          {"name": "LibraryId", "type": "TEXT"},
+          {"name": "Title", "type": "TEXT", "constraints": "NOT NULL"},
+          {"name": "Author", "type": "TEXT"},
+          {"name": "Narrator", "type": "TEXT"},
+          {"name": "Description", "type": "TEXT"},
+          {"name": "CoverPath", "type": "TEXT"},
+          {"name": "DurationSeconds", "type": "REAL", "default": 0},
+          {"name": "AddedAt", "type": "TEXT", "format": "ISO 8601"},
+          {"name": "AudioFilesJson", "type": "TEXT", "serialization": "JSON array of AudioFile objects"},
+          {"name": "CurrentTimeSeconds", "type": "REAL", "default": 0},
+          {"name": "Progress", "type": "REAL", "default": 0},
+          {"name": "IsFinished", "type": "INTEGER", "default": 0, "encoding": "0=false, 1=true"},
+          {"name": "IsDownloaded", "type": "INTEGER", "default": 0, "encoding": "0=false, 1=true"},
+          {"name": "LocalPath", "type": "TEXT"},
+          {"name": "SeriesName", "type": "TEXT", "migration": "added via ALTER TABLE"},
+          {"name": "SeriesSequence", "type": "TEXT", "migration": "added via ALTER TABLE"},
+          {"name": "GenresJson", "type": "TEXT", "serialization": "JSON array of strings", "migration": "added via ALTER TABLE"},
+          {"name": "TagsJson", "type": "TEXT", "serialization": "JSON array of strings", "migration": "added via ALTER TABLE"}
+        ],
+        "indexes": [
+          {"name": "idx_audiobooks_library", "columns": ["LibraryId"]}
+        ]
+      },
+      {
+        "name": "DownloadItems",
+        "columns": [
+          {"name": "Id", "type": "TEXT", "constraints": "PRIMARY KEY"},
+          {"name": "AudioBookId", "type": "TEXT", "constraints": "NOT NULL"},
+          {"name": "Title", "type": "TEXT", "constraints": "NOT NULL"},
+          {"name": "Status", "type": "INTEGER", "default": 0, "encoding": "DownloadStatus enum ordinal"},
+          {"name": "TotalBytes", "type": "INTEGER", "default": 0},
+          {"name": "DownloadedBytes", "type": "INTEGER", "default": 0},
+          {"name": "StartedAt", "type": "TEXT", "format": "ISO 8601"},
+          {"name": "CompletedAt", "type": "TEXT", "format": "ISO 8601"},
+          {"name": "ErrorMessage", "type": "TEXT"},
+          {"name": "FilesToDownloadJson", "type": "TEXT", "serialization": "JSON array of strings"}
+        ],
+        "indexes": [
+          {"name": "idx_downloads_audiobook", "columns": ["AudioBookId"]}
+        ]
+      },
+      {
+        "name": "PlaybackProgress",
+        "columns": [
+          {"name": "AudioBookId", "type": "TEXT", "constraints": "PRIMARY KEY"},
+          {"name": "PositionSeconds", "type": "REAL", "default": 0},
+          {"name": "IsFinished", "type": "INTEGER", "default": 0, "encoding": "0=false, 1=true"},
+          {"name": "UpdatedAt", "type": "TEXT", "format": "ISO 8601 UTC"}
+        ]
+      }
+    ]
+  },
+  "api_integration": {
+    "server": "AudioBookshelf (self-hosted)",
+    "authentication": {
+      "method": "JWT Bearer Token",
+      "login_endpoint": "POST /login",
+      "login_payload": {"username": "string", "password": "string"},
+      "login_response_token_path": "user.token",
+      "header": "Authorization: Bearer {token}",
+      "validation_endpoint": "GET /api/me",
+      "token_storage": "PasswordVault (primary) + file-based .auth_token (fallback)"
+    },
+    "endpoints": [
+      {"method": "POST", "path": "/login", "purpose": "Authenticate user", "returns": "LoginResponse with JWT token"},
+      {"method": "GET", "path": "/api/me", "purpose": "Validate token / get current user"},
+      {"method": "GET", "path": "/api/libraries", "purpose": "List all libraries"},
+      {"method": "GET", "path": "/api/libraries/{libraryId}/items?limit={n}&page={p}&minified=0", "purpose": "List library items (audiobooks)"},
+      {"method": "GET", "path": "/api/items/{itemId}?expanded=1", "purpose": "Get single audiobook with full metadata"},
+      {"method": "GET", "path": "/api/items/{itemId}/cover?token={token}&width={w}&height={h}", "purpose": "Get cover image (token as query param for img src)"},
+      {"method": "GET", "path": "/api/items/{itemId}/file/{fileIno}", "purpose": "Download individual audio file by Ino"},
+      {"method": "POST", "path": "/api/items/{itemId}/play", "purpose": "Start playback session, returns streaming URLs", "payload": {"deviceInfo": {"clientName": "string", "deviceId": "string"}, "supportedMimeTypes": ["string"]}},
+      {"method": "POST", "path": "/api/session/{sessionId}/sync", "purpose": "Sync playback position for active session"},
+      {"method": "POST", "path": "/api/session/{sessionId}/close", "purpose": "Close playback session"},
+      {"method": "PATCH", "path": "/api/me/progress/{itemId}", "purpose": "Update user progress for an item"},
+      {"method": "GET", "path": "/api/me/progress/{itemId}", "purpose": "Get user progress for an item"},
+      {"method": "GET", "path": "/api/me/items-in-progress", "purpose": "Get all items with progress"}
+    ],
+    "http_config": {
+      "default_timeout": "30 seconds",
+      "download_timeout": "30 minutes",
+      "ssl_validation": "disabled (ServerCertificateCustomValidationCallback returns true)",
+      "ssl_reason": "Support self-signed certs for local/development AudioBookshelf servers"
+    }
+  },
+  "storage_locations": {
+    "app_data_root": "%LOCALAPPDATA%/AudioBookshelfApp/",
+    "settings_file": "%LOCALAPPDATA%/AudioBookshelfApp/settings.json",
+    "auth_token_file": "%LOCALAPPDATA%/AudioBookshelfApp/.auth_token",
+    "database_file": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
+    "log_directory": "%LOCALAPPDATA%/AudioBookshelfApp/Logs/",
+    "temp_stream_files": "%TEMP%/AudioBookshelfApp/abs_stream_{bookId}.tmp",
+    "download_directory": "User-configurable via Settings (AppSettings.DownloadPath)"
+  },
+  "known_issues": [
+    {
+      "id": "ISSUE-001",
+      "severity": "high",
+      "title": "Playback not verified end-to-end",
+      "description": "AudioPlaybackService was rewritten to fix streaming but has not been tested against a live server. The service downloads the entire audio file to a temp directory before playing, which may cause long delays for large files.",
+      "status": "unverified"
+    },
+    {
+      "id": "ISSUE-002",
+      "severity": "high",
+      "title": "Download not verified end-to-end",
+      "description": "DownloadService uses GetAudioFileStreamAsync with file Ino values. Logging was added but actual download flow has not been tested against a live server.",
+      "status": "unverified"
+    },
+    {
+      "id": "ISSUE-003",
+      "severity": "high",
+      "title": "Settings/token not persisting across restarts",
+      "description": "SettingsService was rewritten to use file-based storage at %LOCALAPPDATA%/AudioBookshelfApp/ with PasswordVault+file fallback for auth tokens. The settings.json currently has empty ServerUrl and Username, requiring re-login.",
+      "status": "partially_fixed"
+    },
+    {
+      "id": "ISSUE-004",
+      "severity": "medium",
+      "title": "Possible app crash-looping on startup",
+      "description": "Log file shows multiple rapid 'Application Started' entries within seconds (00:21:11, 00:21:26, 00:21:30, 00:21:31) all stopping at 'Loading settings...'. May indicate crash during SettingsService.LoadSettingsAsync or logger not flushing past that point.",
+      "status": "uninvestigated"
+    },
+    {
+      "id": "ISSUE-005",
+      "severity": "low",
+      "title": "Duplicate log entries",
+      "description": "LoggingService uses both immediate file write and timer-based queue flush, causing every log entry to appear twice in the log file.",
+      "status": "known"
+    },
+    {
+      "id": "ISSUE-006",
+      "severity": "medium",
+      "title": "PlayerPage x:Bind removed in favor of code-behind",
+      "description": "PlayerPage.xaml was rewritten to use named controls updated via code-behind with DispatcherQueue.TryEnqueue instead of x:Bind. This is functional but deviates from standard WinUI MVVM patterns.",
+      "status": "workaround"
+    },
+    {
+      "id": "ISSUE-007",
+      "severity": "low",
+      "title": "SSL certificate validation disabled globally",
+      "description": "HttpClientHandler.ServerCertificateCustomValidationCallback always returns true for both API and download clients. This is intentional for self-hosted servers with self-signed certs but disables all SSL verification.",
+      "status": "by_design"
+    },
+    {
+      "id": "ISSUE-008",
+      "severity": "medium",
+      "title": "MiniPlayer not connected to playback service",
+      "description": "MiniPlayer control exists in MainWindow.xaml but its visibility is Collapsed and it does not appear to be wired to the AudioPlaybackService events.",
+      "status": "unimplemented"
+    }
+  ],
+  "file_count_summary": {
+    "cs_files": 36,
+    "xaml_files": 11,
+    "config_script_files": 7,
+    "total_source_files": 54
+  }
+}

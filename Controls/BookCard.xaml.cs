@@ -1,11 +1,11 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace AudioBookshelfApp.Controls;
+namespace NineLivesAudio.Controls;
 
 public sealed partial class BookCard : UserControl
 {

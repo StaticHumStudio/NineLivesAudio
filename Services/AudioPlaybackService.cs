@@ -1,7 +1,7 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using NAudio.Wave;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 {
@@ -366,7 +366,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
     private async Task<bool> LoadTempDownloadAsync(string url, AudioBook audioBook, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "AudioBookshelfApp");
+        var tempDir = Path.Combine(Path.GetTempPath(), "AudioBookshelfApp"); // Legacy folder name for backward compatibility
         Directory.CreateDirectory(tempDir);
         var tempPath = Path.Combine(tempDir, $"abs_stream_{audioBook.Id}.tmp");
 

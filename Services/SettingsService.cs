@@ -1,14 +1,14 @@
-using AudioBookshelfApp.Models;
+using NineLivesAudio.Models;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Windows.Security.Credentials;
 
-namespace AudioBookshelfApp.Services;
+namespace NineLivesAudio.Services;
 
 public class SettingsService : ISettingsService
 {
-    private const string VaultResource = "AudioBookshelfApp.AuthToken";
+    private const string VaultResource = "AudioBookshelfApp.AuthToken"; // Legacy vault key for backward compatibility
     private const string VaultUser = "default";
     private const string SettingsFile = "settings.json";
     private const string MigratedFlag = "migrated.flag";
@@ -31,7 +31,7 @@ public class SettingsService : ISettingsService
     public SettingsService()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _appFolder = Path.Combine(localAppData, "AudioBookshelfApp");
+        _appFolder = Path.Combine(localAppData, "AudioBookshelfApp"); // Legacy folder name for backward compatibility
         Directory.CreateDirectory(_appFolder);
 
         _settingsPath = Path.Combine(_appFolder, SettingsFile);

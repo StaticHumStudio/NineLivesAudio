@@ -1,4 +1,4 @@
-namespace AudioBookshelfApp.Models;
+namespace NineLivesAudio.Models;
 
 public class UserProgress
 {
