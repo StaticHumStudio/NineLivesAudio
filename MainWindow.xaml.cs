@@ -174,23 +174,27 @@ namespace AudioBookshelfApp
 
         private void UpdateConnectivityUI(bool isOnline, bool isServerReachable)
         {
+            // Always use a solid circle dot — color indicates status
+            ConnectivityIcon.Glyph = "\u25CF"; // ● solid circle
+            ConnectivityIcon.Opacity = 1.0;
+
             if (!isOnline)
             {
-                ConnectivityIcon.Glyph = "\uF384"; // Wifi off
+                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualErrorBrush"];
                 ConnectivityText.Text = "Offline";
-                ConnectivityIcon.Opacity = 0.5;
+                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
             }
             else if (!isServerReachable)
             {
-                ConnectivityIcon.Glyph = "\uE783"; // Warning
+                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualWarningBrush"];
                 ConnectivityText.Text = "Server unreachable";
-                ConnectivityIcon.Opacity = 0.7;
+                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
             }
             else
             {
-                ConnectivityIcon.Glyph = "\uE701"; // Wifi
+                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualSuccessBrush"];
                 ConnectivityText.Text = "Connected";
-                ConnectivityIcon.Opacity = 0.6;
+                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
             }
         }
 

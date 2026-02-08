@@ -20,11 +20,18 @@ public sealed partial class HomePage : Page
     private object? _pointerPressedTag;
     private const double TapDistanceThreshold = 12.0;
 
+    // Hover brush cache
+    private static readonly SolidColorBrush HoverBrush =
+        new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)); // subtle white overlay
+
     public HomePage()
     {
         ViewModel = App.Services.GetRequiredService<HomeViewModel>();
         this.InitializeComponent();
         this.Loaded += OnLoaded;
+
+        // Load the logo from app assets
+        LoadLogo();
 
         // Update ShowGrid when relevant properties change
         ViewModel.PropertyChanged += (s, e) =>
@@ -34,61 +41,38 @@ public sealed partial class HomePage : Page
                 Bindings.Update();
             }
         };
+    }
 
-        // When Lives collection changes (e.g. after sync reload), refresh cover images
-        ViewModel.Lives.CollectionChanged += (s, e) =>
+    private void LoadLogo()
+    {
+        try
         {
-            // Small delay to let ItemsRepeater realize elements
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, LoadCoverImages);
-        };
+            var logoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "nine-lives-logo.png");
+            if (System.IO.File.Exists(logoPath))
+            {
+                LogoImage.Source = new BitmapImage(new Uri(logoPath));
+            }
+        }
+        catch
+        {
+            // Logo load failure is non-fatal
+        }
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         await ViewModel.LoadAsync();
-        LoadCoverImages();
-    }
-
-    private void LoadCoverImages()
-    {
-        // Load cover images for each item in the grid
-        for (int i = 0; i < ViewModel.Lives.Count; i++)
-        {
-            var item = ViewModel.Lives[i];
-            var coverPath = item.AudioBook.CoverPath;
-            if (string.IsNullOrEmpty(coverPath)) continue;
-
-            try
-            {
-                var element = LivesGrid.TryGetElement(i);
-                if (element is Grid grid)
-                {
-                    // Find the Image element inside the cover art grid
-                    var coverGrid = grid.Children[0] as Grid;
-                    if (coverGrid == null) continue;
-
-                    foreach (var child in coverGrid.Children)
-                    {
-                        if (child is Image img)
-                        {
-                            img.Source = new BitmapImage(new Uri(coverPath));
-                            break;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Cover load failure is non-fatal
-            }
-        }
     }
 
     private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (sender is Grid grid)
         {
-            grid.Scale = new System.Numerics.Vector3(1.015f, 1.015f, 1f);
+            var isMostRecent = (grid.Tag as NineLivesItem)?.IsMostRecent ?? false;
+            if (!isMostRecent)
+            {
+                grid.Background = HoverBrush;
+            }
         }
     }
 
@@ -96,7 +80,19 @@ public sealed partial class HomePage : Page
     {
         if (sender is Grid grid)
         {
-            grid.Scale = new System.Numerics.Vector3(1f, 1f, 1f);
+            var item = grid.Tag as NineLivesItem;
+            var isMostRecent = item?.IsMostRecent ?? false;
+            if (isMostRecent)
+            {
+                // Restore VoidSurface highlight
+                grid.Background = new SolidColorBrush(
+                    Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
+            }
+            else
+            {
+                grid.Background = new SolidColorBrush(
+                    Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
+            }
         }
     }
 

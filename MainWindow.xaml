@@ -78,8 +78,8 @@
                                         SelectsOnInvoked="False"
                                         IsEnabled="False">
                         <NavigationViewItem.Icon>
-                            <FontIcon x:Name="ConnectivityIcon" Glyph="&#xE701;" FontSize="12"
-                                      Opacity="0.5"/>
+                            <FontIcon x:Name="ConnectivityIcon" Glyph="&#x25CF;" FontSize="16"
+                                      Foreground="{StaticResource RitualSuccessBrush}"/>
                         </NavigationViewItem.Icon>
                         <NavigationViewItem.Content>
                             <TextBlock x:Name="ConnectivityText" Text="Connected"

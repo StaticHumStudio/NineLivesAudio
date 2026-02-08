@@ -33,21 +33,36 @@
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Narrow: < 600px — fewer columns, stacked search -->
+                <!-- Narrow: < 600px — stacked controls, tighter spacing -->
                 <VisualState x:Name="LibraryNarrowState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="BooksGridLayout.MinItemWidth" Value="140"/>
-                        <Setter Target="LibraryComboBox.MinWidth" Value="120"/>
-                        <Setter Target="SearchBox.Margin" Value="8,0"/>
+                        <!-- Tighter page padding -->
+                        <Setter Target="LibraryRootGrid.Padding" Value="12,16,12,16"/>
+                        <!-- Tighter grid -->
+                        <Setter Target="BooksGridLayout.MinItemWidth" Value="130"/>
+                        <Setter Target="BooksGridLayout.MinColumnSpacing" Value="8"/>
+                        <Setter Target="BooksGridLayout.MinRowSpacing" Value="8"/>
+                        <!-- Smaller combobox -->
+                        <Setter Target="LibraryComboBox.MinWidth" Value="0"/>
+                        <!-- Swap wide/narrow control rows -->
+                        <Setter Target="ControlsRowWide.Visibility" Value="Collapsed"/>
+                        <Setter Target="ControlsRowNarrow.Visibility" Value="Visible"/>
+                        <!-- Tighter view mode buttons -->
+                        <Setter Target="ViewModePanel.Spacing" Value="4"/>
+                        <Setter Target="ViewModeAllButton.Padding" Value="10,5"/>
+                        <Setter Target="ViewModeSeriesButton.Padding" Value="10,5"/>
+                        <Setter Target="ViewModeAuthorButton.Padding" Value="10,5"/>
+                        <Setter Target="ViewModeGenreButton.Padding" Value="10,5"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -75,8 +90,8 @@
             </Border>
         </Grid>
 
-        <!-- Library Selector and Search -->
-        <Grid Grid.Row="1" Margin="0,0,0,12">
+        <!-- Wide: Library Selector and Search (3-column row) -->
+        <Grid x:Name="ControlsRowWide" Grid.Row="1" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -111,8 +126,45 @@
             </Button>
         </Grid>
 
+        <!-- Narrow: Library Selector and Search (stacked vertically) -->
+        <StackPanel x:Name="ControlsRowNarrow" Grid.Row="1" Spacing="8" Margin="0,0,0,12"
+                    Visibility="Collapsed">
+            <!-- Row 1: ComboBox + Refresh -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ComboBox x:Name="LibraryComboBoxNarrow"
+                          Grid.Column="0"
+                          HorizontalAlignment="Stretch"
+                          ItemsSource="{x:Bind ViewModel.Libraries}"
+                          SelectedItem="{x:Bind ViewModel.SelectedLibrary, Mode=TwoWay}"
+                          DisplayMemberPath="Name"
+                          PlaceholderText="Select Library"/>
+
+                <Button Grid.Column="1"
+                        Style="{StaticResource IconButtonStyle}"
+                        Command="{x:Bind ViewModel.RefreshCommand}"
+                        ToolTipService.ToolTip="Refresh library"
+                        Margin="8,0,0,0">
+                    <StackPanel>
+                        <FontIcon Glyph="&#xE72C;" FontSize="16"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Row 2: Search box (full width) -->
+            <AutoSuggestBox x:Name="SearchBoxNarrow"
+                            HorizontalAlignment="Stretch"
+                            PlaceholderText="Search books..."
+                            QueryIcon="Find"
+                            Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        </StackPanel>
+
         <!-- View Mode Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,16">
+        <StackPanel x:Name="ViewModePanel" Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,16">
             <Button Content="All" Click="ViewModeAll_Click" x:Name="ViewModeAllButton"
                     Style="{StaticResource CircularButtonStyle}" Width="Auto" Padding="16,8" CornerRadius="16"/>
             <Button Content="Series" Click="ViewModeSeries_Click" x:Name="ViewModeSeriesButton"
@@ -143,7 +195,7 @@
         </Border>
 
         <!-- Loading Indicator -->
-        <Grid Grid.Row="4"
+        <Grid Grid.Row="5"
               Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
                 <ProgressRing IsActive="True" Width="48" Height="48"
@@ -153,7 +205,7 @@
         </Grid>
 
         <!-- Main Content Area -->
-        <Grid Grid.Row="4" x:Name="ContentArea"
+        <Grid Grid.Row="5" x:Name="ContentArea"
               Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}">
 
             <!-- ALL: Audiobooks Grid -->
@@ -306,7 +358,7 @@
         </Grid>
 
         <!-- Empty State -->
-        <StackPanel Grid.Row="4"
+        <StackPanel Grid.Row="5"
                     Style="{StaticResource EmptyStateContainerStyle}"
                     Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
             <FontIcon Glyph="&#xE8F1;" Style="{StaticResource EmptyStateIconStyle}"/>

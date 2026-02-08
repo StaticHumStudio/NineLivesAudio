@@ -77,6 +77,7 @@ public partial class HomeViewModel : ObservableObject
                     ProgressPercent = book.ProgressPercent,
                     IsMostRecent = isFirst,
                     IsDownloaded = book.IsDownloaded,
+                    CoverPath = book.CoverPath,
                     LifeIndex = idx,
                     LifeLabel = $"LIFE {ToRoman(idx + 1)}",
                     Weight = book.Duration.TotalHours < 4 ? "LIGHT"
@@ -145,6 +146,7 @@ public class NineLivesItem
     public bool IsMostRecent { get; set; }
     public bool IsDownloaded { get; set; }
     public double HoursListened { get; set; }
+    public string? CoverPath { get; set; }
 
     // Altar properties
     public int LifeIndex { get; set; }

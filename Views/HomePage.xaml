@@ -10,42 +10,41 @@
     <Grid x:Name="HomeRootGrid" Padding="24,32,24,32" Background="{StaticResource VoidDeepBrush}">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="AltarLayoutStates">
-                <!-- Wide: > 900px — 3-col, larger cards -->
+                <!-- Wide: > 900px — centered list with generous padding -->
                 <VisualState x:Name="AltarWideState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="900"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="32,32,32,32"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="200"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="280"/>
-                        <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="3"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="48,32,48,32"/>
+                        <Setter Target="LivesContainer.MaxWidth" Value="800"/>
+                        <Setter Target="LogoImage.Width" Value="88"/>
+                        <Setter Target="LogoImage.Height" Value="88"/>
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Medium: 600–900px — 3-col grid -->
+                <!-- Medium: 600-900px -->
                 <VisualState x:Name="AltarMediumState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="600"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="24,32,24,32"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="160"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="240"/>
-                        <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="3"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="24,24,24,24"/>
+                        <Setter Target="LivesContainer.MaxWidth" Value="700"/>
+                        <Setter Target="LogoImage.Width" Value="80"/>
+                        <Setter Target="LogoImage.Height" Value="80"/>
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Narrow: < 600px — 2-col grid, tighter spacing -->
+                <!-- Narrow: < 600px — tighter spacing, smaller logo/covers -->
                 <VisualState x:Name="AltarNarrowState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="HomeRootGrid.Padding" Value="12,24,12,16"/>
-                        <Setter Target="LivesGridLayout.MinItemWidth" Value="140"/>
-                        <Setter Target="LivesGridLayout.MinItemHeight" Value="220"/>
-                        <Setter Target="LivesGridLayout.MaximumRowsOrColumns" Value="2"/>
+                        <Setter Target="HomeRootGrid.Padding" Value="8,16,8,16"/>
+                        <Setter Target="LogoImage.Width" Value="56"/>
+                        <Setter Target="LogoImage.Height" Value="56"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -56,14 +55,20 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Ritual Header — centered -->
-        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,24">
-            <TextBlock Text="THE ALTAR"
-                       Style="{StaticResource RitualDisplayStyle}"
-                       HorizontalAlignment="Center"/>
-            <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
+        <!-- Logo Header -->
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Spacing="4" Margin="0,0,0,20">
+            <Image x:Name="LogoImage"
+                   Width="80" Height="80"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,4"/>
+            <TextBlock Text="NINE LIVES"
                        Style="{StaticResource RitualLabelStyle}"
-                       HorizontalAlignment="Center" Opacity="0.4"
+                       HorizontalAlignment="Center"
+                       Foreground="{StaticResource SigilGoldDimBrush}"/>
+            <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
+                       Style="{StaticResource CaptionStyle}"
+                       HorizontalAlignment="Center"
+                       Opacity="0.5"
                        Visibility="{x:Bind ShowGrid, Mode=OneWay}"/>
         </StackPanel>
 
@@ -79,7 +84,7 @@
         <StackPanel Grid.Row="1"
                     Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay}"
                     VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-            <TextBlock Text="THE ALTAR AWAITS"
+            <TextBlock Text="NINE LIVES AWAIT"
                        Style="{StaticResource RitualTitleStyle}"
                        HorizontalAlignment="Center"/>
             <TextBlock Text="Begin listening to summon your nine lives."
@@ -89,104 +94,129 @@
                        TextAlignment="Center"/>
             <Button Content="Go to Library"
                     Style="{ThemeResource AccentButtonStyle}"
+                    Background="{StaticResource SigilGoldBrush}"
+                    Foreground="{StaticResource VoidDeepBrush}"
                     Margin="0,16,0,0"
                     HorizontalAlignment="Center"
                     Click="GoToLibrary_Click"/>
         </StackPanel>
 
-        <!-- Nine Lives Grid — The Altar -->
+        <!-- Nine Lives List -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       Visibility="{x:Bind ShowGrid, Mode=OneWay}">
-            <ItemsRepeater x:Name="LivesGrid"
-                           ItemsSource="{x:Bind ViewModel.Lives, Mode=OneWay}">
-                <ItemsRepeater.Layout>
-                    <UniformGridLayout x:Name="LivesGridLayout"
-                                       MinItemWidth="160"
-                                       MinItemHeight="240"
-                                       MinColumnSpacing="12"
-                                       MinRowSpacing="12"
-                                       MaximumRowsOrColumns="3"
-                                       ItemsStretch="Fill"/>
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <DataTemplate>
-                        <Grid CornerRadius="8"
-                              Padding="0"
-                              Background="{StaticResource VoidSurfaceBrush}"
-                              BorderBrush="{StaticResource DustBrush}"
-                              BorderThickness="1"
-                              PointerEntered="Card_PointerEntered"
-                              PointerExited="Card_PointerExited"
-                              PointerPressed="Card_PointerPressed"
-                              PointerMoved="Card_PointerMoved"
-                              PointerReleased="Card_PointerReleased"
-                              Tag="{Binding}">
+            <StackPanel x:Name="LivesContainer" MaxWidth="800" HorizontalAlignment="Center">
+                <ItemsRepeater x:Name="LivesGrid"
+                               ItemsSource="{x:Bind ViewModel.Lives, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="2"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Row Container -->
+                            <Grid Background="{Binding IsMostRecent,
+                                      Converter={StaticResource BoolToHighlightBrushConverter}}"
+                                  Padding="12,10"
+                                  CornerRadius="8"
+                                  PointerEntered="Card_PointerEntered"
+                                  PointerExited="Card_PointerExited"
+                                  PointerPressed="Card_PointerPressed"
+                                  PointerMoved="Card_PointerMoved"
+                                  PointerReleased="Card_PointerReleased"
+                                  Tag="{Binding}">
 
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Cover Art -->
-                            <Grid Grid.Row="0" CornerRadius="8,8,0,0">
-                                <Border Background="{StaticResource VoidElevatedBrush}"
-                                        CornerRadius="8,8,0,0">
-                                    <FontIcon Glyph="&#xE8F1;" FontSize="32" Opacity="0.15"
-                                              Foreground="{StaticResource MistFaintBrush}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <Image Stretch="UniformToFill"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                                <!-- Gold accent bar for most recent -->
+                                <Border Width="3"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Stretch"
+                                        CornerRadius="2"
+                                        Background="{StaticResource SigilGoldBrush}"
+                                        Margin="-12,4,0,4"
+                                        Visibility="{Binding IsMostRecent,
+                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                                <!-- Progress Ring Overlay (bottom-right) -->
-                                <ProgressRing IsIndeterminate="False"
-                                              Value="{Binding ProgressPercent}"
-                                              Width="28" Height="28"
-                                              Foreground="{StaticResource SigilGoldBrush}"
-                                              Background="{StaticResource DustBrush}"
-                                              HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                              Margin="0,0,8,8"/>
+                                <!-- LEFT: Cover Art with Cosmic Energy Border -->
+                                <Grid Grid.Column="0" Margin="0,0,14,0">
+                                    <Border Width="64" Height="64"
+                                            CornerRadius="6"
+                                            BorderThickness="2"
+                                            BorderBrush="{Binding HoursListened,
+                                                Converter={StaticResource HoursToCosmicBrushConverter}}">
+                                        <Grid>
+                                            <Border CornerRadius="4"
+                                                    Background="{StaticResource VoidElevatedBrush}">
+                                                <FontIcon Glyph="&#xE8F1;" FontSize="20" Opacity="0.15"
+                                                          Foreground="{StaticResource MistFaintBrush}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                            </Border>
+                                            <Image Source="{Binding CoverPath,
+                                                       Converter={StaticResource StringToImageSourceConverter}}"
+                                                   Stretch="UniformToFill"/>
+                                        </Grid>
+                                    </Border>
 
-                                <!-- LIFE Label Overlay (top-left) -->
-                                <TextBlock Text="{Binding LifeLabel}"
-                                           Style="{StaticResource RitualLabelStyle}"
-                                           Opacity="0.35"
-                                           HorizontalAlignment="Left" VerticalAlignment="Top"
-                                           Margin="8,8,0,0"/>
-                            </Grid>
-
-                            <!-- Info Panel -->
-                            <StackPanel Grid.Row="1" Padding="8,6,8,8" Spacing="2">
-                                <TextBlock Text="{Binding DisplayTitle}"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           MaxLines="2"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- Weight label -->
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding Weight}"
-                                               Style="{StaticResource RitualLabelStyle}"
-                                               Foreground="{Binding Weight, Converter={StaticResource WeightToBrushConverter}}"
-                                               VerticalAlignment="Center"/>
-
-                                    <!-- Time Given -->
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding TimeGiven}"
-                                               Style="{StaticResource CaptionStyle}"
-                                               VerticalAlignment="Center"/>
+                                    <!-- Downloaded indicator dot -->
+                                    <Ellipse Width="10" Height="10"
+                                             Fill="{StaticResource RitualSuccessBrush}"
+                                             HorizontalAlignment="Right"
+                                             VerticalAlignment="Bottom"
+                                             Margin="0,0,-2,-2"
+                                             Visibility="{Binding IsDownloaded,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
                                 </Grid>
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
+
+                                <!-- CENTER: Book Info -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{Binding DisplayTitle}"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               MaxLines="1"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding DisplayAuthor}"
+                                               Style="{StaticResource SubtitleStyle}"
+                                               MaxLines="1"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding LifeLabel}"
+                                                   Style="{StaticResource RitualLabelStyle}"
+                                                   Foreground="{StaticResource SigilGoldDimBrush}"
+                                                   Opacity="0.7"/>
+                                        <TextBlock Text="·"
+                                                   Style="{StaticResource RitualLabelStyle}"
+                                                   Foreground="{StaticResource DustBrush}"/>
+                                        <TextBlock Text="{Binding Weight}"
+                                                   Style="{StaticResource RitualLabelStyle}"
+                                                   Foreground="{Binding Weight,
+                                                       Converter={StaticResource WeightToBrushConverter}}"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- RIGHT: Progress + Time -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                            HorizontalAlignment="Right" Spacing="4"
+                                            Margin="12,0,0,0" MinWidth="56">
+                                    <ProgressRing IsIndeterminate="False"
+                                                  Value="{Binding ProgressPercent}"
+                                                  Width="32" Height="32"
+                                                  Foreground="{Binding HoursListened,
+                                                      Converter={StaticResource HoursToCosmicBrushConverter}}"
+                                                  Background="{StaticResource DustBrush}"
+                                                  HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TimeGiven}"
+                                               Style="{StaticResource CaptionStyle}"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </Page>
