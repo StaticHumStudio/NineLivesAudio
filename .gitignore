@@ -2,6 +2,7 @@
 bin/
 obj/
 binpublish/
+installer_output/
 
 # User-specific files
 *.user

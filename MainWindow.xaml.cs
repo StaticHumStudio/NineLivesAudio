@@ -42,6 +42,25 @@ namespace NineLivesAudio
             _appWindow?.Resize(new Windows.Graphics.SizeInt32(550, 660)); // 10% larger than minimum
             _appWindow?.SetIcon("Assets\\app-icon.ico"); // Taskbar + title bar icon
 
+            // Color title bar to match dark void theme
+            if (_appWindow?.TitleBar is { } titleBar)
+            {
+                // Active window
+                titleBar.BackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10); // VoidDeep
+                titleBar.ForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8); // StarlightDim
+                titleBar.ButtonBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
+                titleBar.ButtonForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8);
+                titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27); // VoidSurface
+                titleBar.ButtonHoverForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+                titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x1A, 0x22, 0x36); // VoidElevated
+                titleBar.ButtonPressedForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+                // Inactive window
+                titleBar.InactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
+                titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80); // MistFaint
+                titleBar.ButtonInactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
+                titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80);
+            }
+
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
             SetMinimumWindowSize(hwnd, 500, 600);
 
