@@ -215,7 +215,8 @@ public class SyncService : ISyncService, IDisposable
                 await _database.SavePlaybackProgressAsync(
                     progress.LibraryItemId,
                     positionToSave,
-                    progress.IsFinished);
+                    progress.IsFinished,
+                    progress.LastUpdate); // Use server's timestamp for correct Nine Lives sorting
                 synced++;
             }
 

@@ -349,7 +349,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     }
 
     // Playback Progress
-    public async Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished)
+    public async Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null)
     {
         EnsureInitialized();
 
@@ -361,7 +361,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.Parameters.AddWithValue("@audioBookId", audioBookId);
         command.Parameters.AddWithValue("@positionSeconds", position.TotalSeconds);
         command.Parameters.AddWithValue("@isFinished", isFinished ? 1 : 0);
-        command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("@updatedAt", (updatedAt ?? DateTime.UtcNow).ToString("O"));
 
         await command.ExecuteNonQueryAsync();
     }

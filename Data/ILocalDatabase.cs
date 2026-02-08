@@ -28,7 +28,7 @@ public interface ILocalDatabase
     Task DeleteDownloadItemAsync(string id);
 
     // Playback Progress
-    Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished);
+    Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null);
     Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId);
 
     // Nine Lives (recently played)
