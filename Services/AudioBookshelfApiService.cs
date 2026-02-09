@@ -43,10 +43,10 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                 // Only bypass if user opted in AND this is the configured server
                 if (_settingsService.Settings.AllowSelfSignedCertificates
                     && !string.IsNullOrEmpty(_serverUrl)
-                    && message.RequestUri != null)
+                    && message.RequestUri != null
+                    && Uri.TryCreate(_serverUrl, UriKind.Absolute, out var configuredUri))
                 {
-                    var configuredHost = new Uri(_serverUrl).Host;
-                    return string.Equals(message.RequestUri.Host, configuredHost, StringComparison.OrdinalIgnoreCase);
+                    return string.Equals(message.RequestUri.Host, configuredUri.Host, StringComparison.OrdinalIgnoreCase);
                 }
 
                 return false; // Default: reject invalid certs
@@ -282,10 +282,10 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                         return true;
                     if (_settingsService.Settings.AllowSelfSignedCertificates
                         && !string.IsNullOrEmpty(_serverUrl)
-                        && message.RequestUri != null)
+                        && message.RequestUri != null
+                        && Uri.TryCreate(_serverUrl, UriKind.Absolute, out var configuredUri))
                     {
-                        var configuredHost = new Uri(_serverUrl).Host;
-                        return string.Equals(message.RequestUri.Host, configuredHost, StringComparison.OrdinalIgnoreCase);
+                        return string.Equals(message.RequestUri.Host, configuredUri.Host, StringComparison.OrdinalIgnoreCase);
                     }
                     return false;
                 }

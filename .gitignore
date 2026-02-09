@@ -25,3 +25,9 @@ Thumbs.db
 # Secrets
 *.env
 appsettings.Development.json
+
+# Private keys and certificates
+*.pfx
+*.pem
+*.key
+*.crt

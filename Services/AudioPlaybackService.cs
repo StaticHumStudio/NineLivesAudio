@@ -420,10 +420,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) =>
                 {
                     if (errors == System.Net.Security.SslPolicyErrors.None) return true;
-                    if (_settingsService.Settings.AllowSelfSignedCertificates && !string.IsNullOrEmpty(_apiService.ServerUrl))
+                    if (_settingsService.Settings.AllowSelfSignedCertificates
+                        && !string.IsNullOrEmpty(_apiService.ServerUrl)
+                        && msg.RequestUri != null
+                        && Uri.TryCreate(_apiService.ServerUrl, UriKind.Absolute, out var configuredUri))
                     {
-                        var host = new Uri(_apiService.ServerUrl).Host;
-                        return msg.RequestUri != null && string.Equals(msg.RequestUri.Host, host, StringComparison.OrdinalIgnoreCase);
+                        return string.Equals(msg.RequestUri.Host, configuredUri.Host, StringComparison.OrdinalIgnoreCase);
                     }
                     return false;
                 }
