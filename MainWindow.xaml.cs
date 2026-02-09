@@ -172,7 +172,7 @@ namespace NineLivesAudio
             {
                 var logDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
+                    "NineLivesAudio", "Logs");
                 Process.Start(new ProcessStartInfo { FileName = logDir, UseShellExecute = true });
             }
             catch (Exception ex)

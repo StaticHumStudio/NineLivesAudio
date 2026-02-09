@@ -31,3 +31,4 @@ appsettings.Development.json
 *.pem
 *.key
 *.crt
+*.cer

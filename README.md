@@ -141,6 +141,7 @@ NineLivesAudio/
   Helpers/
     Converters.cs            # XAML value converters
     DownloadPathHelper.cs    # Shared download path and filename sanitization
+    LegacyMigrationHelper.cs # One-time migration from legacy folder/vault names
   Models/
     AudioBook.cs             # Book model with chapters, audio files, progress
     DownloadItem.cs          # Download queue item with status and progress
@@ -189,4 +190,4 @@ Designed for [Audiobookshelf](https://www.audiobookshelf.org/) servers. Tested a
 
 ## License
 
-Private project.
+[MIT](LICENSE)

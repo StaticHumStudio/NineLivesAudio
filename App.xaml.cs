@@ -5,6 +5,7 @@ using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
 using NineLivesAudio.Views;
 using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
 
 namespace NineLivesAudio;
 
@@ -18,6 +19,9 @@ public partial class App : Application
     public App()
     {
         this.InitializeComponent();
+
+        // Migrate legacy "AudioBookshelfApp" folders/vault to "NineLivesAudio"
+        LegacyMigrationHelper.MigrateIfNeeded();
 
         // Build dependency injection container
         _host = Host.CreateDefaultBuilder()

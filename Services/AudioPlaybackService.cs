@@ -407,7 +407,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
     private async Task<bool> LoadTempDownloadAsync(string url, AudioBook audioBook, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "AudioBookshelfApp"); // Legacy folder name for backward compatibility
+        var tempDir = Path.Combine(Path.GetTempPath(), "NineLivesAudio");
         Directory.CreateDirectory(tempDir);
         var tempPath = Path.Combine(tempDir, $"abs_stream_{audioBook.Id}.tmp");
 
