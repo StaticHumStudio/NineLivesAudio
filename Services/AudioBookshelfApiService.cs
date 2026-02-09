@@ -85,13 +85,11 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
             var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
             System.Diagnostics.Debug.WriteLine($"Attempting login to: {_serverUrl}/login");
-            System.Diagnostics.Debug.WriteLine($"Request payload: {jsonPayload}");
 
             var response = await _httpClient.PostAsync($"{_serverUrl}/login", content);
 
             var responseContent = await response.Content.ReadAsStringAsync();
             System.Diagnostics.Debug.WriteLine($"Response status: {response.StatusCode}");
-            System.Diagnostics.Debug.WriteLine($"Response content: {responseContent}");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -104,7 +102,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
             if (loginResponse?.User?.Token == null)
             {
-                System.Diagnostics.Debug.WriteLine($"Login response missing token. Response: {responseContent}");
+                System.Diagnostics.Debug.WriteLine("Login response missing token");
                 LastError = "Server response did not contain authentication token";
                 return false;
             }
@@ -273,7 +271,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
         System.Diagnostics.Debug.WriteLine($"GetAudioFileStream: itemId={itemId}, fileIno={fileIno}");
 
-        // Lazy-init a shared download client with longer timeout and scoped SSL
+        // Thread-safe lazy-init of shared download client
         if (_downloadClient == null)
         {
             var handler = new HttpClientHandler
@@ -292,9 +290,10 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                     return false;
                 }
             };
-            _downloadClient = new HttpClient(handler);
-            _downloadClient.Timeout = TimeSpan.FromMinutes(30);
-            _downloadClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+            var client = new HttpClient(handler);
+            client.Timeout = TimeSpan.FromMinutes(30);
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+            Interlocked.CompareExchange(ref _downloadClient, client, null);
         }
 
         // Sync auth header from main client

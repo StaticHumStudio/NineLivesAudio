@@ -23,6 +23,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     // SMTC: background MediaPlayer used solely for SMTC registration when using NAudio
     private Windows.Media.Playback.MediaPlayer? _smtcPlayer;
 
+    // Shared HttpClient for temp downloads (avoid socket exhaustion)
+    private HttpClient? _tempDownloadClient;
+
     private System.Timers.Timer? _positionTimer;
     private AudioBook? _currentAudioBook;
     private PlaybackSessionInfo? _currentSession;
@@ -38,6 +41,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private CancellationTokenSource? _sessionSyncCts;
     private DateTime _sessionStartTime;
     private double _accumulatedListenTime;
+    private DateTime _lastSyncTickTime;
 
     // Multi-track state
     private List<string> _trackPaths = new();     // local file paths for multi-track
@@ -139,6 +143,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             _currentAudioBook = audioBook;
             _isLocalFile = false;
             _currentTrackIndex = 0;
+            _accumulatedListenTime = 0;
             _trackPaths.Clear();
             _streamTracks.Clear();
             _trackDurations.Clear();
@@ -408,23 +413,25 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
         _logger.Log($"[Playback] Temp download to: {tempPath}");
 
-        var handler = new HttpClientHandler
+        if (_tempDownloadClient == null)
         {
-            ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) =>
+            var handler = new HttpClientHandler
             {
-                if (errors == System.Net.Security.SslPolicyErrors.None) return true;
-                if (_settingsService.Settings.AllowSelfSignedCertificates && !string.IsNullOrEmpty(_apiService.ServerUrl))
+                ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) =>
                 {
-                    var host = new Uri(_apiService.ServerUrl).Host;
-                    return msg.RequestUri != null && string.Equals(msg.RequestUri.Host, host, StringComparison.OrdinalIgnoreCase);
+                    if (errors == System.Net.Security.SslPolicyErrors.None) return true;
+                    if (_settingsService.Settings.AllowSelfSignedCertificates && !string.IsNullOrEmpty(_apiService.ServerUrl))
+                    {
+                        var host = new Uri(_apiService.ServerUrl).Host;
+                        return msg.RequestUri != null && string.Equals(msg.RequestUri.Host, host, StringComparison.OrdinalIgnoreCase);
+                    }
+                    return false;
                 }
-                return false;
-            }
-        };
+            };
+            _tempDownloadClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
+        }
 
-        using var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
-
-        using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await _tempDownloadClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength;
@@ -450,7 +457,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         fileStream.Close();
         _logger.Log($"[Playback] Temp download complete: {downloaded / 1024}KB");
 
-        return await Task.FromResult(true).ContinueWith(_ => LoadLocalFileAsync(tempPath, audioBook, ct), ct).Unwrap();
+        return await LoadLocalFileAsync(tempPath, audioBook, ct);
     }
 
     public Task PlayAsync()
@@ -470,6 +477,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
         // Start session sync timer (12s interval)
         _sessionStartTime = DateTime.UtcNow;
+        _lastSyncTickTime = DateTime.UtcNow;
         StartSessionSyncTimer();
         UpdateSmtcPlaybackState(true);
 
@@ -807,8 +815,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         {
             try
             {
-                var elapsed = (DateTime.UtcNow - _sessionStartTime).TotalSeconds;
-                _accumulatedListenTime += 12; // approximate listen time since last sync
+                var now = DateTime.UtcNow;
+                var tickElapsed = (now - _lastSyncTickTime).TotalSeconds;
+                _lastSyncTickTime = now;
+                _accumulatedListenTime += tickElapsed * _playbackSpeed;
                 await _apiService.SyncSessionProgressAsync(
                     _currentSession.Id, currentTime, duration, _accumulatedListenTime);
                 _logger.LogDebug($"[Playback] Session sync: {currentTime:F1}s, listened: {_accumulatedListenTime:F0}s");
@@ -1052,5 +1062,6 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         _mediaPlayer?.Dispose();
         _smtcPlayer?.Dispose();
         _loadCts?.Dispose();
+        _tempDownloadClient?.Dispose();
     }
 }

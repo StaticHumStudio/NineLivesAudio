@@ -9,6 +9,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     private readonly string _dbPath;
     private SqliteConnection? _connection;
     private bool _initialized;
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     public LocalDatabase()
     {
@@ -135,6 +136,20 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             throw new InvalidOperationException("Database not initialized. Call InitializeAsync first.");
     }
 
+    private async Task<T> WithWriteLockAsync<T>(Func<Task<T>> action)
+    {
+        await _writeLock.WaitAsync();
+        try { return await action(); }
+        finally { _writeLock.Release(); }
+    }
+
+    private async Task WithWriteLockAsync(Func<Task> action)
+    {
+        await _writeLock.WaitAsync();
+        try { await action(); }
+        finally { _writeLock.Release(); }
+    }
+
     // AudioBooks
     public async Task<List<AudioBook>> GetAllAudioBooksAsync()
     {
@@ -170,7 +185,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return null;
     }
 
-    public async Task SaveAudioBookAsync(AudioBook audioBook)
+    public Task SaveAudioBookAsync(AudioBook audioBook) => WithWriteLockAsync(() => SaveAudioBookCoreAsync(audioBook));
+
+    private async Task SaveAudioBookCoreAsync(AudioBook audioBook)
     {
         EnsureInitialized();
 
@@ -194,7 +211,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         await SaveAudioBookAsync(audioBook);
     }
 
-    public async Task DeleteAudioBookAsync(string id)
+    public Task DeleteAudioBookAsync(string id) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -202,7 +219,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.CommandText = "DELETE FROM AudioBooks WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     // Libraries
     public async Task<List<Library>> GetAllLibrariesAsync()
@@ -239,7 +256,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return null;
     }
 
-    public async Task SaveLibraryAsync(Library library)
+    public Task SaveLibraryAsync(Library library) => WithWriteLockAsync(() => SaveLibraryCoreAsync(library));
+
+    private async Task SaveLibraryCoreAsync(Library library)
     {
         EnsureInitialized();
 
@@ -263,7 +282,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         await SaveLibraryAsync(library);
     }
 
-    public async Task DeleteLibraryAsync(string id)
+    public Task DeleteLibraryAsync(string id) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -271,7 +290,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.CommandText = "DELETE FROM Libraries WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     // Downloads
     public async Task<List<DownloadItem>> GetAllDownloadItemsAsync()
@@ -308,7 +327,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return null;
     }
 
-    public async Task SaveDownloadItemAsync(DownloadItem downloadItem)
+    public Task SaveDownloadItemAsync(DownloadItem downloadItem) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -331,14 +350,14 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.Parameters.AddWithValue("@filesToDownloadJson", JsonSerializer.Serialize(downloadItem.FilesToDownload));
 
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     public async Task UpdateDownloadItemAsync(DownloadItem downloadItem)
     {
         await SaveDownloadItemAsync(downloadItem);
     }
 
-    public async Task DeleteDownloadItemAsync(string id)
+    public Task DeleteDownloadItemAsync(string id) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -346,10 +365,10 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.CommandText = "DELETE FROM DownloadItems WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     // Playback Progress
-    public async Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null)
+    public Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -364,7 +383,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.Parameters.AddWithValue("@updatedAt", (updatedAt ?? DateTime.UtcNow).ToString("O"));
 
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     public async Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId)
     {
@@ -409,7 +428,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     }
 
     // Offline Progress Queue
-    public async Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished)
+    public Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
         var command = _connection!.CreateCommand();
@@ -421,7 +440,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         command.Parameters.AddWithValue("@isFinished", isFinished ? 1 : 0);
         command.Parameters.AddWithValue("@timestamp", DateTime.UtcNow.ToString("O"));
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     public async Task<List<PendingProgressEntry>> GetPendingProgressAsync()
     {
@@ -443,13 +462,31 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return entries;
     }
 
-    public async Task ClearPendingProgressAsync()
+    public Task ClearPendingProgressAsync() => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
         var command = _connection!.CreateCommand();
         command.CommandText = "DELETE FROM PendingProgressUpdates";
         await command.ExecuteNonQueryAsync();
-    }
+    });
+
+    public Task ClearPendingProgressForItemsAsync(IEnumerable<string> itemIds) => WithWriteLockAsync(async () =>
+    {
+        EnsureInitialized();
+        var ids = itemIds.ToList();
+        if (ids.Count == 0) return;
+
+        var command = _connection!.CreateCommand();
+        var paramNames = new List<string>();
+        for (int i = 0; i < ids.Count; i++)
+        {
+            var paramName = $"@id{i}";
+            paramNames.Add(paramName);
+            command.Parameters.AddWithValue(paramName, ids[i]);
+        }
+        command.CommandText = $"DELETE FROM PendingProgressUpdates WHERE ItemId IN ({string.Join(",", paramNames)})";
+        await command.ExecuteNonQueryAsync();
+    });
 
     public async Task<int> GetPendingProgressCountAsync()
     {
@@ -488,7 +525,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     }
 
     // Bulk operations
-    public async Task SaveAudioBooksAsync(IEnumerable<AudioBook> audioBooks)
+    public Task SaveAudioBooksAsync(IEnumerable<AudioBook> audioBooks) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -497,7 +534,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             foreach (var audioBook in audioBooks)
             {
-                await SaveAudioBookAsync(audioBook);
+                await SaveAudioBookCoreAsync(audioBook);
             }
             transaction.Commit();
         }
@@ -506,9 +543,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             transaction.Rollback();
             throw;
         }
-    }
+    });
 
-    public async Task SaveLibrariesAsync(IEnumerable<Library> libraries)
+    public Task SaveLibrariesAsync(IEnumerable<Library> libraries) => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -517,7 +554,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             foreach (var library in libraries)
             {
-                await SaveLibraryAsync(library);
+                await SaveLibraryCoreAsync(library);
             }
             transaction.Commit();
         }
@@ -526,9 +563,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             transaction.Rollback();
             throw;
         }
-    }
+    });
 
-    public async Task ClearAllDataAsync()
+    public Task ClearAllDataAsync() => WithWriteLockAsync(async () =>
     {
         EnsureInitialized();
 
@@ -540,7 +577,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             DELETE FROM PlaybackProgress;
         ";
         await command.ExecuteNonQueryAsync();
-    }
+    });
 
     // Helper methods
     private static string? GetNullableString(SqliteDataReader reader, string column)
@@ -644,5 +681,6 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     public void Dispose()
     {
         _connection?.Dispose();
+        _writeLock.Dispose();
     }
 }

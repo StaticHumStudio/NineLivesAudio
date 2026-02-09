@@ -1,4 +1,5 @@
 using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 using System.Collections.Concurrent;
 
@@ -341,39 +342,8 @@ public class DownloadService : IDownloadService
     }
 
     private string GetDownloadPath(AudioBook audioBook)
-    {
-        var basePath = GetBasePath();
-        var author = string.IsNullOrWhiteSpace(audioBook.Author) || audioBook.Author == "Unknown Author"
-            ? null : audioBook.Author;
-        var title = audioBook.Title;
-
-        string folderName;
-        if (author != null)
-            folderName = SanitizeFileName($"{author} - {title}");
-        else
-            folderName = SanitizeFileName(title);
-
-        if (string.IsNullOrWhiteSpace(folderName))
-            folderName = audioBook.Id;
-        return Path.Combine(basePath, folderName);
-    }
+        => DownloadPathHelper.GetDownloadPath(_settingsService.Settings.DownloadPath, audioBook.Title, audioBook.Author, audioBook.Id);
 
     private string GetLegacyDownloadPath(string audioBookId)
-    {
-        return Path.Combine(GetBasePath(), audioBookId);
-    }
-
-    private string GetBasePath()
-    {
-        var basePath = _settingsService.Settings.DownloadPath;
-        if (string.IsNullOrEmpty(basePath))
-            basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioBookshelf");
-        return basePath;
-    }
-
-    private static string SanitizeFileName(string name)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
-    }
+        => DownloadPathHelper.GetLegacyDownloadPath(_settingsService.Settings.DownloadPath, audioBookId);
 }

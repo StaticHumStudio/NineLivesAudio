@@ -58,12 +58,14 @@ public class OfflineProgressQueue : IOfflineProgressQueue
                 .ToList();
 
             int synced = 0;
+            var syncedItemIds = new List<string>();
             foreach (var entry in latest)
             {
                 try
                 {
                     await _apiService.UpdateProgressAsync(entry.ItemId, entry.CurrentTime, entry.IsFinished);
                     synced++;
+                    syncedItemIds.Add(entry.ItemId);
                 }
                 catch (Exception ex)
                 {
@@ -71,8 +73,12 @@ public class OfflineProgressQueue : IOfflineProgressQueue
                 }
             }
 
-            // Clear all pending entries that were processed
-            await _database.ClearPendingProgressAsync();
+            // Only clear entries that were successfully synced
+            if (syncedItemIds.Count == latest.Count)
+                await _database.ClearPendingProgressAsync();
+            else if (syncedItemIds.Count > 0)
+                await _database.ClearPendingProgressForItemsAsync(syncedItemIds);
+
             _logger.Log($"[OfflineQueue] Drained {synced}/{latest.Count} entries");
         }
         finally
