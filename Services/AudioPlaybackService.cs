@@ -149,23 +149,59 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             // === Use PlaybackSourceResolver for decision ===
             var source = _sourceResolver.ResolveSource(audioBook);
 
-            // Start a server session for all playback types (needed for sync)
+            // If the resolver recovered download state from disk (DB was stale),
+            // persist it immediately so future loads don't need to re-scan
+            if (source.WasRecoveredFromDisk)
+            {
+                _logger.Log($"[Playback] Persisting recovered download state for '{audioBook.Title}'");
+                try { await _database.UpdateAudioBookAsync(audioBook); }
+                catch (Exception ex) { _logger.LogDebug($"[Playback] Failed to persist recovered state: {ex.Message}"); }
+            }
+
+            // Start a server session — source-type-aware to avoid blocking local playback
             if (_apiService.IsAuthenticated)
             {
-                try
+                if (source.Type == PlaybackSourceType.LocalFile)
                 {
-                    _currentSession = await _apiService.StartPlaybackSessionAsync(audioBook.Id);
-                    if (_currentSession != null)
+                    // Fire-and-forget with 2s timeout — don't block local file playback
+                    _ = Task.Run(async () =>
                     {
-                        _logger.Log($"[Playback] Session started: {_currentSession.Id}");
-                        // Use session chapters if book had none
-                        if (_chapters.Count == 0 && _currentSession.Chapters.Count > 0)
-                            _chapters = _currentSession.Chapters.OrderBy(c => c.Start).ToList();
-                    }
+                        try
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                            var sessionTask = _apiService.StartPlaybackSessionAsync(audioBook.Id);
+                            var completed = await Task.WhenAny(sessionTask, Task.Delay(2000, cts.Token));
+                            if (completed == sessionTask && sessionTask.Result != null)
+                            {
+                                _currentSession = sessionTask.Result;
+                                _logger.Log($"[Playback] Session started (background): {_currentSession.Id}");
+                                if (_chapters.Count == 0 && _currentSession.Chapters.Count > 0)
+                                    _chapters = _currentSession.Chapters.OrderBy(c => c.Start).ToList();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug($"[Playback] Background session start failed (non-fatal): {ex.Message}");
+                        }
+                    });
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogDebug($"[Playback] Session start failed (non-fatal): {ex.Message}");
+                    // Blocking session start for streams — required for stream URLs
+                    try
+                    {
+                        _currentSession = await _apiService.StartPlaybackSessionAsync(audioBook.Id);
+                        if (_currentSession != null)
+                        {
+                            _logger.Log($"[Playback] Session started: {_currentSession.Id}");
+                            if (_chapters.Count == 0 && _currentSession.Chapters.Count > 0)
+                                _chapters = _currentSession.Chapters.OrderBy(c => c.Start).ToList();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug($"[Playback] Session start failed (non-fatal): {ex.Message}");
+                    }
                 }
             }
 
@@ -850,7 +886,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             if (string.IsNullOrEmpty(localPath))
             {
                 // Try to find file in the download directory
-                var candidate = Path.Combine(dir, af.Filename);
+                var candidate = Path.Combine(dir, Path.GetFileName(af.Filename));
                 if (File.Exists(candidate))
                     localPath = candidate;
             }

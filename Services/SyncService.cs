@@ -9,6 +9,8 @@ public class SyncService : ISyncService, IDisposable
     private readonly ILocalDatabase _database;
     private readonly ISettingsService _settingsService;
     private readonly ILoggingService _logger;
+    private readonly IConnectivityService _connectivity;
+    private readonly IOfflineProgressQueue _offlineQueue;
     private Timer? _syncTimer;
     private bool _isSyncing;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
@@ -32,12 +34,16 @@ public class SyncService : ISyncService, IDisposable
         IAudioBookshelfApiService apiService,
         ILocalDatabase database,
         ISettingsService settingsService,
-        ILoggingService loggingService)
+        ILoggingService loggingService,
+        IConnectivityService connectivity,
+        IOfflineProgressQueue offlineQueue)
     {
         _apiService = apiService;
         _database = database;
         _settingsService = settingsService;
         _logger = loggingService;
+        _connectivity = connectivity;
+        _offlineQueue = offlineQueue;
     }
 
     public Task StartAsync()
@@ -136,23 +142,48 @@ public class SyncService : ISyncService, IDisposable
                             item.IsFinished = existingItem.IsFinished;
                         }
 
-                        foreach (var audioFile in item.AudioFiles)
+                        // Library items endpoint doesn't return audioFiles — preserve from DB
+                        if (item.AudioFiles.Count == 0 && existingItem.AudioFiles.Count > 0)
                         {
-                            var existingFile = existingItem.AudioFiles.FirstOrDefault(f => f.Ino == audioFile.Ino);
-                            if (existingFile != null)
-                                audioFile.LocalPath = existingFile.LocalPath;
+                            item.AudioFiles = existingItem.AudioFiles;
+                            _logger.LogDebug($"[Sync] Preserved {existingItem.AudioFiles.Count} AudioFiles from DB for '{item.Title}' (server returned none)");
                         }
+                        else if (item.AudioFiles.Count > 0)
+                        {
+                            foreach (var audioFile in item.AudioFiles)
+                            {
+                                var existingFile = FindMatchingAudioFile(audioFile, existingItem.AudioFiles);
+                                if (existingFile != null && !string.IsNullOrEmpty(existingFile.LocalPath))
+                                    audioFile.LocalPath = existingFile.LocalPath;
+                            }
+
+                            var preservedCount = item.AudioFiles.Count(f => !string.IsNullOrEmpty(f.LocalPath));
+                            if (existingItem.IsDownloaded && preservedCount == 0)
+                                _logger.LogWarning($"[Sync] All LocalPaths lost for '{item.Title}' (server: {item.AudioFiles.Count}, db: {existingItem.AudioFiles.Count})");
+                        }
+                    }
+
+                    // If still not marked as downloaded, try to detect files on disk
+                    // (self-healing after cache clear or DB corruption)
+                    if (!item.IsDownloaded)
+                    {
+                        TryRecoverDownloadState(item);
                     }
                 }
 
                 await _database.SaveAudioBooksAsync(items);
 
-                // Seed PlaybackProgress table from server progress so Nine Lives works
+                // Seed PlaybackProgress table from cached library data so Nine Lives works
+                // Only seed if NO local progress exists yet — never overwrite existing entries
                 int seeded = 0;
                 foreach (var item in items)
                 {
                     if (item.CurrentTime.TotalSeconds <= 0 && item.Progress <= 0) continue;
                     if (_activeItemId != null && item.Id == _activeItemId) continue;
+
+                    // Don't overwrite existing progress entries — they have real timestamps
+                    var existing = await _database.GetPlaybackProgressAsync(item.Id);
+                    if (existing != null) continue;
 
                     // If CurrentTime is 0 but we have Progress, estimate position from duration
                     var position = item.CurrentTime;
@@ -168,7 +199,7 @@ public class SyncService : ISyncService, IDisposable
                     seeded++;
                 }
                 if (seeded > 0)
-                    _logger.Log($"[Sync] Seeded {seeded} PlaybackProgress entries from cached library data");
+                    _logger.Log($"[Sync] Seeded {seeded} new PlaybackProgress entries from cached library data");
             }
 
             _logger.Log($"[Sync] Synced {libraries.Count} libraries");
@@ -199,6 +230,9 @@ public class SyncService : ISyncService, IDisposable
                     continue;
                 }
 
+                // Server is the source of truth during pull-sync.
+                // Active playback pushes its own progress via ReportPlaybackPosition/Flush.
+                // Offline playback pushes via OfflineProgressQueue when connectivity returns.
                 audioBook.CurrentTime = progress.CurrentTime;
                 audioBook.Progress = progress.Progress;
                 audioBook.IsFinished = progress.IsFinished;
@@ -256,6 +290,19 @@ public class SyncService : ISyncService, IDisposable
         if (!_apiService.IsAuthenticated) return;
         if (string.IsNullOrEmpty(itemId)) return;
 
+        // Always save locally regardless of connectivity
+        try
+        {
+            await _database.SavePlaybackProgressAsync(
+                itemId,
+                TimeSpan.FromSeconds(currentTime),
+                isFinished);
+        }
+        catch { /* best effort local save */ }
+
+        // Skip network call if offline — no 30s hang
+        if (!_connectivity.IsServerReachable) return;
+
         var now = DateTime.UtcNow;
         var timeSinceLastSync = now - _lastSyncTimestamp;
         var positionDelta = Math.Abs(currentTime - _lastSyncedTime);
@@ -271,12 +318,6 @@ public class SyncService : ISyncService, IDisposable
         try
         {
             await _apiService.UpdateProgressAsync(itemId, currentTime, isFinished);
-
-            // Also save locally
-            await _database.SavePlaybackProgressAsync(
-                itemId,
-                TimeSpan.FromSeconds(currentTime),
-                isFinished);
 
             _lastSyncedTime = currentTime;
             _lastSyncTimestamp = now;
@@ -295,24 +336,171 @@ public class SyncService : ISyncService, IDisposable
     /// </summary>
     public async Task FlushPlaybackProgressAsync(string itemId, double currentTime, double duration, bool isFinished)
     {
-        if (!_apiService.IsAuthenticated) return;
-
+        // Always save locally first (crash safety)
         try
         {
-            await _apiService.UpdateProgressAsync(itemId, currentTime, isFinished);
             await _database.SavePlaybackProgressAsync(
                 itemId,
                 TimeSpan.FromSeconds(currentTime),
                 isFinished);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Sync] Local progress save failed: {ex.Message}");
+        }
 
+        if (!_apiService.IsAuthenticated || !_connectivity.IsServerReachable)
+        {
+            // Offline: enqueue for upload when connectivity returns
+            if (_apiService.IsAuthenticated)
+            {
+                try { await _offlineQueue.EnqueueAsync(itemId, currentTime, isFinished); }
+                catch { /* best effort */ }
+                _logger.LogDebug($"[Sync] Offline — enqueued progress for {itemId} @ {currentTime:F1}s");
+            }
+            SetActivePlaybackItem(null);
+            return;
+        }
+
+        try
+        {
+            await _apiService.UpdateProgressAsync(itemId, currentTime, isFinished);
             _logger.Log($"[Sync] Final progress flush: {itemId} @ {currentTime:F1}s (finished={isFinished})");
         }
         catch (Exception ex)
         {
             _logger.LogWarning($"[Sync] Final progress flush failed: {ex.Message}");
+            // Enqueue for retry when online
+            try { await _offlineQueue.EnqueueAsync(itemId, currentTime, isFinished); }
+            catch { /* best effort */ }
         }
 
         SetActivePlaybackItem(null);
+    }
+
+    /// <summary>
+    /// Checks if downloaded audio files exist on disk for a book that isn't marked as downloaded.
+    /// Recovers IsDownloaded, LocalPath, and AudioFile.LocalPath from the expected download directory.
+    /// </summary>
+    private void TryRecoverDownloadState(AudioBook item)
+    {
+        try
+        {
+            // Build expected download path (same logic as DownloadService.GetDownloadPath)
+            var basePath = _settingsService.Settings.DownloadPath;
+            if (string.IsNullOrEmpty(basePath))
+                basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioBookshelf");
+
+            var author = string.IsNullOrWhiteSpace(item.Author) || item.Author == "Unknown Author"
+                ? null : item.Author;
+            var folderName = author != null
+                ? SanitizeFileName($"{author} - {item.Title}")
+                : SanitizeFileName(item.Title);
+            if (string.IsNullOrWhiteSpace(folderName))
+                folderName = item.Id;
+
+            var downloadPath = Path.Combine(basePath, folderName);
+
+            // Also check legacy path (just the ID)
+            var legacyPath = Path.Combine(basePath, item.Id);
+
+            var actualPath = Directory.Exists(downloadPath) ? downloadPath
+                           : Directory.Exists(legacyPath) ? legacyPath
+                           : null;
+
+            if (actualPath == null)
+                return;
+
+            if (item.AudioFiles != null && item.AudioFiles.Count > 0)
+            {
+                // Try to match each audio file to a file on disk
+                int matched = 0;
+                foreach (var af in item.AudioFiles)
+                {
+                    var rawName = af.Filename ?? $"part_{af.Index + 1}.m4b";
+                    var fileName = Path.GetFileName(rawName);
+                    if (string.IsNullOrEmpty(fileName)) continue;
+
+                    var filePath = Path.Combine(actualPath, fileName);
+                    if (File.Exists(filePath))
+                    {
+                        af.LocalPath = filePath;
+                        matched++;
+                    }
+                }
+
+                if (matched > 0)
+                {
+                    item.IsDownloaded = true;
+                    item.LocalPath = actualPath;
+                    _logger.Log($"[Sync] Recovered download state for '{item.Title}': {matched}/{item.AudioFiles.Count} files on disk");
+                }
+            }
+            else
+            {
+                // No AudioFiles metadata — scan directory for audio files
+                var audioExtensions = new[] { ".m4b", ".m4a", ".mp3", ".ogg", ".opus", ".flac", ".wma", ".aac" };
+                var files = Directory.GetFiles(actualPath)
+                    .Where(f => audioExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                    .OrderBy(f => f)
+                    .ToList();
+
+                if (files.Count > 0)
+                {
+                    item.AudioFiles = files.Select((f, idx) => new AudioFile
+                    {
+                        Id = idx.ToString(),
+                        Ino = string.Empty,
+                        Index = idx,
+                        Filename = Path.GetFileName(f),
+                        LocalPath = f,
+                        Duration = TimeSpan.Zero
+                    }).ToList();
+
+                    item.IsDownloaded = true;
+                    item.LocalPath = actualPath;
+                    _logger.Log($"[Sync] Recovered download state for '{item.Title}': {files.Count} audio file(s) found on disk (no prior AudioFiles metadata)");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Sync] Download recovery check failed for '{item.Title}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Finds the best matching existing AudioFile from the DB version for a server AudioFile.
+    /// Priority: Ino match (if non-empty) > Filename match > Index match.
+    /// </summary>
+    private static AudioFile? FindMatchingAudioFile(AudioFile serverFile, List<AudioFile> existingFiles)
+    {
+        // Priority 1: Ino match (only if both are non-empty)
+        if (!string.IsNullOrEmpty(serverFile.Ino))
+        {
+            var inoMatch = existingFiles.FirstOrDefault(f =>
+                !string.IsNullOrEmpty(f.Ino) && f.Ino == serverFile.Ino);
+            if (inoMatch != null) return inoMatch;
+        }
+
+        // Priority 2: Filename match (compare just the file name portion)
+        if (!string.IsNullOrEmpty(serverFile.Filename))
+        {
+            var serverName = Path.GetFileName(serverFile.Filename);
+            var filenameMatch = existingFiles.FirstOrDefault(f =>
+                !string.IsNullOrEmpty(f.Filename) &&
+                string.Equals(Path.GetFileName(f.Filename), serverName, StringComparison.OrdinalIgnoreCase));
+            if (filenameMatch != null) return filenameMatch;
+        }
+
+        // Priority 3: Index match
+        return existingFiles.FirstOrDefault(f => f.Index == serverFile.Index);
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
     }
 
     public void Dispose()

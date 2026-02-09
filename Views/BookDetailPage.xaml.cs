@@ -1,3 +1,4 @@
+using NineLivesAudio.Data;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
@@ -520,8 +521,15 @@ public sealed partial class BookDetailPage : Page
             DownloadButtonNarrow.IsEnabled = false;
             PlayIcon.Glyph = "\uE916"; // Loading icon
             PlayIconNarrow.Glyph = "\uE916";
-            PlayButtonText.Text = "Loading stream...";
-            PlayButtonTextNarrow.Text = "Loading stream...";
+            PlayButtonText.Text = "Loading...";
+            PlayButtonTextNarrow.Text = "Loading...";
+
+            // Refresh audiobook from DB to ensure IsDownloaded + AudioFile.LocalPath are current
+            var freshBook = await App.Services.GetRequiredService<ILocalDatabase>().GetAudioBookAsync(_audioBook.Id);
+            if (freshBook != null)
+            {
+                _audioBook = freshBook;
+            }
 
             var loaded = await _playbackService.LoadAudioBookAsync(_audioBook);
             if (loaded)

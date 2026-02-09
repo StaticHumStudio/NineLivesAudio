@@ -42,6 +42,20 @@ namespace NineLivesAudio
             _appWindow?.Resize(new Windows.Graphics.SizeInt32(550, 660)); // 10% larger than minimum
             _appWindow?.SetIcon("Assets\\app-icon.ico"); // Taskbar + title bar icon
 
+            // Set title bar icon via Win32 (SetIcon doesn't reliably set the small icon)
+            try
+            {
+                var icoPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app-icon.ico");
+                if (File.Exists(icoPath))
+                {
+                    var smallIcon = LoadImage(IntPtr.Zero, icoPath, 1 /*IMAGE_ICON*/, 16, 16, 0x0010 /*LR_LOADFROMFILE*/);
+                    var largeIcon = LoadImage(IntPtr.Zero, icoPath, 1, 32, 32, 0x0010);
+                    if (smallIcon != IntPtr.Zero) SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_SMALL, smallIcon);
+                    if (largeIcon != IntPtr.Zero) SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_BIG, largeIcon);
+                }
+            }
+            catch { /* Non-fatal — icon is cosmetic */ }
+
             // Color title bar to match dark void theme
             if (_appWindow?.TitleBar is { } titleBar)
             {
@@ -214,7 +228,7 @@ namespace NineLivesAudio
             {
                 ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualSuccessBrush"];
                 ConnectivityText.Text = "Connected";
-                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
+                ConnectivityText.Foreground = (Brush)Application.Current.Resources["StarlightBrush"];
             }
         }
 
@@ -247,6 +261,18 @@ namespace NineLivesAudio
 
         [DllImport("user32.dll")]
         private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        // Title bar icon via Win32
+        private const int WM_SETICON = 0x0080;
+        private const int ICON_SMALL = 0;
+        private const int ICON_BIG = 1;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr LoadImage(IntPtr hInst, string lpszName, uint uType,
+            int cxDesired, int cyDesired, uint fuLoad);
 
         [DllImport("user32.dll")]
         private static extern uint GetDpiForWindow(IntPtr hwnd);

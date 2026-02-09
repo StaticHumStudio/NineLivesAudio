@@ -19,6 +19,7 @@ A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) b
 - "Downloaded" badge on books available offline
 - Quick-play overlay on hover
 - Connection status indicator (Connected / Offline)
+- Auto-fallback to downloaded-only mode when server is unreachable
 
 ### Book Details
 - Full metadata: title, author, narrator, series, duration, description
@@ -27,6 +28,7 @@ A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) b
 - Play / Resume and Download action buttons
 - Clickable author and series links to filter library
 - "Downloaded" badge for offline-ready books
+- Fresh DB reload before playback ensures local files are used when available
 
 ### Player
 - **Dual-mode playback** — local files via NAudio, streaming via Windows MediaPlayer
@@ -38,8 +40,18 @@ A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) b
 - **Volume control** with mute detection
 - **Bookmarks** — create, name, jump to, and delete bookmarks at any position
 - **Source badge** — shows "Playing from local file" or "Streaming from server"
+- **Pop-out mini player** — compact floating window with transport controls, progress slider, and always-on-top toggle
 - **SMTC integration** — Windows lock screen and media overlay controls
 - **Back navigation** — responsive back button on all pages (icon-only in narrow mode)
+
+### Pop-Out Mini Player
+- Compact 360x200 floating window with transport controls (skip back 10s, play/pause, skip forward 30s)
+- Progress slider with current time and remaining time labels
+- Always-on-top toggle pin to keep the player above other windows
+- Expand button to return to the full app
+- Auto-closes when playback stops
+- Dark themed title bar matching the main app
+- Singleton lifecycle — only one mini player open at a time
 
 ### Downloads
 - Queue-based downloads with 2 concurrent slots
@@ -58,7 +70,10 @@ A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) b
 - **Progress sync** — fetches user progress from the server and seeds local database
 - **Session sync** — 12-second heartbeat pushes playback position to the server during active listening
 - **Offline progress queue** — progress updates are queued locally when the server is unreachable and drained automatically when connectivity returns
-- **Download state preservation** — sync never overwrites local download flags or file paths
+- **Download state preservation** — sync preserves local AudioFiles and download paths even when the server returns incomplete metadata
+- **Disk recovery** — automatically scans download directories and reconstructs AudioFile metadata from files on disk when server data is missing
+- **Tiered file matching** — matches audio files across sync by inode, filename, then index (resilient to server metadata changes)
+- **Manual sync** — trigger a full sync from the Settings page at any time
 
 ### Settings
 - Server URL, username, and password configuration
@@ -69,12 +84,14 @@ A Windows desktop client for [Audiobookshelf](https://www.audiobookshelf.org/) b
 - Auto-download covers toggle
 - Start minimized / minimize to tray options
 - Self-signed certificate support
-- Diagnostics mode with logging
+- Manual "Sync Now" button for on-demand library and progress sync
+- Diagnostics mode with logging (exports to AppData, not Desktop)
 
 ### Responsive Layout
 - Three adaptive breakpoints: Narrow (<600px), Medium (600-900px), Wide (>900px)
 - Stacked vs. side-by-side layouts that adapt to window size
 - Mini player bar for persistent playback controls while browsing
+- Pop-out mini player window for always-on-top compact controls
 - Back button text collapses to icon-only in narrow mode
 
 ## Tech Stack
@@ -160,6 +177,7 @@ NineLivesAudio/
     LibraryPage.xaml(.cs)    # Book browsing grid/list
     BookDetailPage.xaml(.cs) # Book info, chapters, actions
     PlayerPage.xaml(.cs)     # Full player with controls
+    MiniPlayerWindow.xaml(.cs)  # Pop-out compact player window
     DownloadsPage.xaml(.cs)  # Download queue and completed list
     SettingsPage.xaml(.cs)   # App configuration
 ```

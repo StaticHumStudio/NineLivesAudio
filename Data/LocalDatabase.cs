@@ -385,6 +385,29 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return null;
     }
 
+    public async Task<(TimeSpan position, bool isFinished, DateTime updatedAt)?> GetPlaybackProgressWithTimestampAsync(string audioBookId)
+    {
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
+        command.CommandText = "SELECT PositionSeconds, IsFinished, UpdatedAt FROM PlaybackProgress WHERE AudioBookId = @audioBookId";
+        command.Parameters.AddWithValue("@audioBookId", audioBookId);
+
+        using var reader = await command.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+        {
+            var positionSeconds = reader.GetDouble(0);
+            var isFinished = reader.GetInt32(1) == 1;
+            var updatedAtStr = reader.GetString(2);
+            var updatedAt = DateTime.TryParse(updatedAtStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+                ? dt
+                : DateTime.MinValue;
+            return (TimeSpan.FromSeconds(positionSeconds), isFinished, updatedAt);
+        }
+
+        return null;
+    }
+
     // Offline Progress Queue
     public async Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished)
     {

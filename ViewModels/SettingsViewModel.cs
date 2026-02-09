@@ -12,6 +12,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IAudioBookshelfApiService _apiService;
     private readonly ILocalDatabase _database;
     private readonly ILoggingService _logger;
+    private readonly ISyncService _syncService;
 
     [ObservableProperty]
     private string _serverUrl = string.Empty;
@@ -102,12 +103,14 @@ public partial class SettingsViewModel : ObservableObject
         ISettingsService settingsService,
         IAudioBookshelfApiService apiService,
         ILocalDatabase database,
-        ILoggingService loggingService)
+        ILoggingService loggingService,
+        ISyncService syncService)
     {
         _settingsService = settingsService;
         _apiService = apiService;
         _database = database;
         _logger = loggingService;
+        _syncService = syncService;
     }
 
     public async Task InitializeAsync()
@@ -337,6 +340,36 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             ErrorMessage = $"Failed to clear cache: {ex.Message}";
+            HasError = true;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ManualSyncAsync()
+    {
+        try
+        {
+            HasError = false;
+            HasSuccess = false;
+
+            if (!_apiService.IsAuthenticated)
+            {
+                ErrorMessage = "Not connected to server. Connect first.";
+                HasError = true;
+                return;
+            }
+
+            SuccessMessage = "Syncing...";
+            HasSuccess = true;
+
+            await _syncService.SyncNowAsync();
+
+            SuccessMessage = "Sync completed successfully";
+            HasSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Sync failed: {ex.Message}";
             HasError = true;
         }
     }

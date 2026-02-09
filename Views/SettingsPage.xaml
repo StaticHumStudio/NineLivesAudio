@@ -249,6 +249,13 @@
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
+                        <Button Content="Sync Now"
+                                Command="{x:Bind ViewModel.ManualSyncCommand}"/>
+
+                        <TextBlock Text="Rebuild local cache by syncing libraries, progress, and metadata from the server."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource CaptionStyle}"/>
+
                         <Button Content="Clear Local Cache"
                                 Command="{x:Bind ViewModel.ClearCacheCommand}"/>
 

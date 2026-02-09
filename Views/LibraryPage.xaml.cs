@@ -36,10 +36,35 @@ public sealed partial class LibraryPage : Page
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _logger.Log("LibraryPage loaded, initializing ViewModel");
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         await ViewModel.InitializeAsync();
         _logger.Log("LibraryPage ViewModel initialized");
+        SyncTogglesToViewModel();
         UpdateViewDisplay();
         UpdateStatusPill();
+    }
+
+    private void Page_Unloaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModel.ShowDownloadedOnly))
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (DownloadedOnlyToggle.IsOn != ViewModel.ShowDownloadedOnly)
+                    DownloadedOnlyToggle.IsOn = ViewModel.ShowDownloadedOnly;
+            });
+        }
+    }
+
+    private void SyncTogglesToViewModel()
+    {
+        DownloadedOnlyToggle.IsOn = ViewModel.ShowDownloadedOnly;
+        HideFinishedToggle.IsOn = ViewModel.HideFinished;
     }
 
     private void UpdateStatusPill()

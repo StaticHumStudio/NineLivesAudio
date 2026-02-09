@@ -84,7 +84,7 @@
                         <NavigationViewItem.Content>
                             <TextBlock x:Name="ConnectivityText" Text="Connected"
                                        FontSize="11"
-                                       Foreground="{StaticResource MistFaintBrush}"/>
+                                       Foreground="{StaticResource StarlightBrush}"/>
                         </NavigationViewItem.Content>
                     </NavigationViewItem>
                 </NavigationView.FooterMenuItems>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
+using NineLivesAudio.Views;
 using NineLivesAudio.Data;
 
 namespace NineLivesAudio;
@@ -10,6 +11,7 @@ namespace NineLivesAudio;
 public partial class App : Application
 {
     private static IHost? _host;
+    private static MiniPlayerWindow? _miniPlayerWindow;
 
     public static IServiceProvider Services => _host!.Services;
 
@@ -108,5 +110,26 @@ public partial class App : Application
         logger?.LogError("UNOBSERVED TASK EXCEPTION", e.Exception);
         logger?.FlushAsync().GetAwaiter().GetResult();
         e.SetObserved();
+    }
+
+    // --- Mini Player Window Management ---
+
+    public static void OpenMiniPlayer()
+    {
+        if (_miniPlayerWindow != null)
+        {
+            _miniPlayerWindow.Activate();
+            return;
+        }
+
+        _miniPlayerWindow = new MiniPlayerWindow();
+        _miniPlayerWindow.Closed += (s, e) => _miniPlayerWindow = null;
+        _miniPlayerWindow.Activate();
+    }
+
+    public static void CloseMiniPlayer()
+    {
+        _miniPlayerWindow?.Close();
+        _miniPlayerWindow = null;
     }
 }

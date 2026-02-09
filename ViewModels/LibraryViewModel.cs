@@ -172,19 +172,27 @@ public partial class LibraryViewModel : ObservableObject
             // If online, refresh from server
             if (_apiService.IsAuthenticated)
             {
-                _logger.Log("Fetching libraries from server...");
-                var serverLibraries = await _apiService.GetLibrariesAsync();
-                _logger.Log($"Received {serverLibraries.Count} libraries from server");
-
-                if (serverLibraries.Any())
+                try
                 {
-                    await _database.SaveLibrariesAsync(serverLibraries);
+                    _logger.Log("Fetching libraries from server...");
+                    var serverLibraries = await _apiService.GetLibrariesAsync();
+                    _logger.Log($"Received {serverLibraries.Count} libraries from server");
 
-                    Libraries.Clear();
-                    foreach (var library in serverLibraries)
+                    if (serverLibraries.Any())
                     {
-                        Libraries.Add(library);
+                        await _database.SaveLibrariesAsync(serverLibraries);
+
+                        Libraries.Clear();
+                        foreach (var library in serverLibraries)
+                        {
+                            Libraries.Add(library);
+                        }
                     }
+                }
+                catch (Exception ex) when (ex is TaskCanceledException or HttpRequestException or OperationCanceledException)
+                {
+                    _logger.LogWarning($"[Library] Server unreachable, using cached libraries: {ex.Message}");
+                    // Continue with locally cached libraries already loaded above
                 }
             }
 
@@ -239,57 +247,28 @@ public partial class LibraryViewModel : ObservableObject
                 AudioBooks.Add(book);
             }
 
-            // If online, refresh from server
+            // If online, delegate to SyncService for server refresh + merge.
+            // SyncService handles LocalPath preservation with robust matching.
             if (_apiService.IsAuthenticated)
             {
-                _logger.Log($"Fetching audiobooks from server for library {SelectedLibrary.Id}...");
-                var serverBooks = await _apiService.GetLibraryItemsAsync(SelectedLibrary.Id);
-                _logger.Log($"Received {serverBooks.Count} audiobooks from server");
-
-                if (serverBooks.Any())
+                try
                 {
-                    // Preserve local state (download info + progress) from DB
-                    _logger.Log("Merging local state...");
-                    int progressMerged = 0;
-                    foreach (var serverBook in serverBooks)
-                    {
-                        var localBook = localBooks.FirstOrDefault(b => b.Id == serverBook.Id);
-                        if (localBook != null)
-                        {
-                            serverBook.IsDownloaded = localBook.IsDownloaded;
-                            serverBook.LocalPath = localBook.LocalPath;
+                    _logger.Log("Triggering SyncService for fresh server data...");
+                    await _syncService.SyncLibrariesAsync();
 
-                            // Preserve progress — server library endpoint doesn't include it
-                            if (localBook.Progress > 0 || localBook.CurrentTime.TotalSeconds > 0)
-                            {
-                                serverBook.CurrentTime = localBook.CurrentTime;
-                                serverBook.Progress = localBook.Progress;
-                                serverBook.IsFinished = localBook.IsFinished;
-                                progressMerged++;
-                            }
-
-                            foreach (var af in serverBook.AudioFiles)
-                            {
-                                var localFile = localBook.AudioFiles.FirstOrDefault(f => f.Ino == af.Ino);
-                                if (localFile != null)
-                                {
-                                    af.LocalPath = localFile.LocalPath;
-                                }
-                            }
-                        }
-                    }
-
-                    var booksWithProgress = serverBooks.Count(b => b.Progress > 0);
-                    _logger.Log($"Merged progress for {progressMerged} books ({booksWithProgress} have Progress>0)");
-                    _logger.Log("Saving audiobooks to database...");
-                    await _database.SaveAudioBooksAsync(serverBooks);
-
-                    _logger.Log("Updating UI with audiobooks...");
+                    // Reload from DB after sync (SyncService saved the merged data)
+                    var refreshedBooks = await _database.GetAllAudioBooksAsync();
                     AudioBooks.Clear();
-                    foreach (var book in serverBooks)
-                    {
+                    foreach (var book in refreshedBooks)
                         AudioBooks.Add(book);
-                    }
+                    _logger.Log($"Reloaded {AudioBooks.Count} audiobooks from database after sync");
+                }
+                catch (Exception ex) when (ex is TaskCanceledException or HttpRequestException or OperationCanceledException)
+                {
+                    _logger.LogWarning($"[Library] Server unreachable, using cached books: {ex.Message}");
+                    // Continue with locally cached books already loaded above
+                    ShowDownloadedOnly = true;
+                    _notifications.ShowInfo("Showing downloaded books only (server unreachable)");
                 }
             }
 

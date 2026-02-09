@@ -30,6 +30,7 @@ public interface ILocalDatabase
     // Playback Progress
     Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null);
     Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId);
+    Task<(TimeSpan position, bool isFinished, DateTime updatedAt)?> GetPlaybackProgressWithTimestampAsync(string audioBookId);
 
     // Nine Lives (recently played)
     Task<List<(AudioBook Book, DateTime LastPlayedAt)>> GetRecentlyPlayedAsync(int limit = 9);

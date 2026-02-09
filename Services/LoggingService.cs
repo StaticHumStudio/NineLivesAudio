@@ -104,9 +104,7 @@ public class LoggingService : ILoggingService, IDisposable
         await FlushAsync();
 
         var logDir = Path.GetDirectoryName(_logPath)!;
-        var exportDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-            "NineLivesAudio_Logs");
+        var exportDir = Path.Combine(logDir, "Exports");
         Directory.CreateDirectory(exportDir);
 
         var zipPath = Path.Combine(exportDir, $"logs_{DateTime.Now:yyyyMMdd_HHmmss}.zip");

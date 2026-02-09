@@ -11,7 +11,7 @@
     <Grid x:Name="PlayerRootGrid" Padding="{StaticResource PagePadding}">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="PlayerLayoutStates">
-                <!-- Wide: > 900px — larger cover, more spacing -->
+                <!-- Wide: > 900px — generous spacing, large cover -->
                 <VisualState x:Name="PlayerWideState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="900"/>
@@ -21,33 +21,33 @@
                         <Setter Target="PlayerContentStack.Padding" Value="32"/>
                         <Setter Target="CoverArtBorder.Width" Value="320"/>
                         <Setter Target="CoverArtBorder.Height" Value="320"/>
+                        <Setter Target="CoverArtBorder.Margin" Value="0,0,0,24"/>
+                        <Setter Target="TitleText.FontSize" Value="28"/>
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Medium: 600–900px — standard player layout -->
+                <!-- Medium: 600–900px — standard layout -->
                 <VisualState x:Name="PlayerMediumState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="600"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="PlayerContentStack.MaxWidth" Value="500"/>
-                        <Setter Target="PlayerContentStack.Padding" Value="24"/>
-                        <Setter Target="CoverArtBorder.Width" Value="280"/>
-                        <Setter Target="CoverArtBorder.Height" Value="280"/>
+                        <Setter Target="PlayerContentStack.Padding" Value="20,16"/>
+                        <Setter Target="CoverArtBorder.Width" Value="240"/>
+                        <Setter Target="CoverArtBorder.Height" Value="240"/>
+                        <Setter Target="CoverArtBorder.Margin" Value="0,0,0,16"/>
                     </VisualState.Setters>
                 </VisualState>
 
-                <!-- Narrow: < 600px — smaller cover, tighter spacing -->
+                <!-- Narrow: < 600px — compact (base values, minimal overrides) -->
                 <VisualState x:Name="PlayerNarrowState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="PlayerContentStack.MaxWidth" Value="400"/>
-                        <Setter Target="PlayerContentStack.Padding" Value="12,16"/>
-                        <Setter Target="CoverArtBorder.Width" Value="200"/>
-                        <Setter Target="CoverArtBorder.Height" Value="200"/>
-                        <Setter Target="TitleText.FontSize" Value="20"/>
+                        <Setter Target="TitleText.FontSize" Value="18"/>
                         <Setter Target="PlayerBackButtonLabel.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
                 </VisualState>
@@ -59,15 +59,24 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Back Button -->
-        <Grid Grid.Row="0" Padding="8,4" HorizontalAlignment="Left">
+        <!-- Back Button + Pop-Out -->
+        <Grid Grid.Row="0" Padding="8,4">
             <Button x:Name="PlayerBackButton" Click="BackButton_Click"
+                    HorizontalAlignment="Left"
                     Background="Transparent" BorderThickness="0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="16" Foreground="{StaticResource MistFaintBrush}"/>
                     <TextBlock x:Name="PlayerBackButtonLabel" Text="Back" VerticalAlignment="Center"
                                Foreground="{StaticResource MistFaintBrush}"/>
                 </StackPanel>
+            </Button>
+
+            <Button x:Name="PopOutButton" Click="PopOut_Click"
+                    HorizontalAlignment="Right"
+                    Background="Transparent" BorderThickness="0"
+                    ToolTipService.ToolTip="Pop out mini player">
+                <FontIcon Glyph="&#xE8A7;" FontSize="16"
+                          Foreground="{StaticResource MistFaintBrush}"/>
             </Button>
         </Grid>
 
@@ -85,17 +94,17 @@
                     Style="{ThemeResource AccentButtonStyle}" Margin="0,16,0,0"/>
         </StackPanel>
 
-        <!-- Player Content -->
+        <!-- Player Content (compact-first base layout) -->
         <ScrollViewer x:Name="PlayerContent" Grid.Row="1" Visibility="Collapsed">
-            <StackPanel x:Name="PlayerContentStack" Padding="24" MaxWidth="500" HorizontalAlignment="Center">
+            <StackPanel x:Name="PlayerContentStack" Padding="12,8" HorizontalAlignment="Center">
 
-                <!-- Cover Art -->
+                <!-- Cover Art (compact base: 160x160) -->
                 <Border x:Name="CoverArtBorder"
-                        Width="280"
-                        Height="280"
+                        Width="160"
+                        Height="160"
                         CornerRadius="{StaticResource RadiusMD}"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,24"
+                        Margin="0,0,0,12"
                         Style="{StaticResource CoverImageBorderStyle}">
                     <Grid>
                         <FontIcon Glyph="&#xE8F1;" FontSize="64" Opacity="0.2"
@@ -107,7 +116,7 @@
                 <!-- Source Badge (Local/Streaming) -->
                 <Border x:Name="SourceBadge"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,16"
+                        Margin="0,0,0,8"
                         Visibility="Collapsed"
                         Padding="12,6"
                         CornerRadius="{StaticResource RadiusSM}">
@@ -128,7 +137,7 @@
                 <TextBlock x:Name="AuthorText"
                            Style="{StaticResource SubtitleStyle}"
                            TextAlignment="Center"
-                           Margin="0,8,0,0"/>
+                           Margin="0,4,0,0"/>
 
                 <!-- Series Info -->
                 <TextBlock x:Name="SeriesText"
@@ -156,7 +165,7 @@
                            Visibility="Collapsed"/>
 
                 <!-- Progress Slider -->
-                <Grid Margin="0,32,0,0">
+                <Grid Margin="0,12,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -183,7 +192,7 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             Spacing="8"
-                            Margin="0,8,0,0"
+                            Margin="0,4,0,0"
                             Visibility="Collapsed">
                     <TextBlock Text="Book"
                                Style="{StaticResource CaptionStyle}"
@@ -201,7 +210,7 @@
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             Spacing="12"
-                            Margin="0,24,0,0">
+                            Margin="0,12,0,0">
 
                     <!-- Previous Chapter -->
                     <Button x:Name="PrevChapterButton"
@@ -251,7 +260,7 @@
                 </StackPanel>
 
                 <!-- Secondary Controls -->
-                <Grid Margin="0,32,0,0">
+                <Grid Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
@@ -337,7 +346,7 @@
                         Background="{StaticResource VoidSurfaceBrush}"
                         CornerRadius="{StaticResource RadiusSM}"
                         Padding="12"
-                        Margin="0,24,0,0">
+                        Margin="0,12,0,0">
                     <Grid>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE708;" FontSize="16"

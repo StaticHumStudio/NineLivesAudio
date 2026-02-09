@@ -438,6 +438,11 @@ public sealed partial class PlayerPage : Page
             Frame.GoBack();
     }
 
+    private void PopOut_Click(object sender, RoutedEventArgs e)
+    {
+        App.OpenMiniPlayer();
+    }
+
     private void GoToLibrary_Click(object sender, RoutedEventArgs e)
     {
         // Navigate to library page
