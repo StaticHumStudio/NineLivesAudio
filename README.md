@@ -140,6 +140,7 @@ NineLivesAudio/
     ILocalDatabase.cs        # Database interface
   Helpers/
     Converters.cs            # XAML value converters
+    DownloadPathHelper.cs    # Shared download path and filename sanitization
   Models/
     AudioBook.cs             # Book model with chapters, audio files, progress
     DownloadItem.cs          # Download queue item with status and progress
