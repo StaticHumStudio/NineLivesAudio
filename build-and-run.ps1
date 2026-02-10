@@ -15,7 +15,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Sign
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=NineLivesAudio' } | Select-Object -First 1
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=Static Hum Studio' } | Select-Object -First 1
 if ($cert) {
     Write-Host "Signing assemblies..." -ForegroundColor Yellow
     $binPath = "bin\Debug\net10.0-windows10.0.22621.0\win-x64"

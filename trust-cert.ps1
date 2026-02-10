@@ -1,4 +1,4 @@
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=NineLivesAudio' } | Select-Object -First 1
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=Static Hum Studio' } | Select-Object -First 1
 if ($cert) {
     Write-Host "Found cert: $($cert.Thumbprint)"
 

@@ -22,7 +22,7 @@
     "build_command": "dotnet build -r win-x64 -c Debug",
     "code_signing_required": true,
     "code_signing_reason": "Windows Smart App Control blocks unsigned DLLs for unpackaged apps",
-    "code_signing_cert_subject": "CN=NineLivesAudio",
+    "code_signing_cert_subject": "CN=Static Hum Studio",
     "code_signing_type": "Self-signed (development)"
   },
   "dependencies": [
