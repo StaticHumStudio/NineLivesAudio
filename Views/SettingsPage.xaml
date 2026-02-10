@@ -427,7 +427,7 @@
                                                  Padding="0"
                                                  Foreground="{StaticResource SigilGoldDimBrush}"/>
                                 <HyperlinkButton Content="Source Code on GitHub"
-                                                 NavigateUri="https://github.com/jiffy1080/AudioBookshelfApp"
+                                                 NavigateUri="https://github.com/StaticHumStudio/NineLivesAudio"
                                                  FontSize="11"
                                                  Padding="0"
                                                  Margin="0,4,0,0"

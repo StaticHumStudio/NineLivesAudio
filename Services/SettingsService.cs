@@ -8,7 +8,7 @@ namespace NineLivesAudio.Services;
 
 public class SettingsService : ISettingsService
 {
-    private const string VaultResource = "AudioBookshelfApp.AuthToken"; // Legacy vault key for backward compatibility
+    private const string VaultResource = "NineLivesAudio.AuthToken";
     private const string VaultUser = "default";
     private const string SettingsFile = "settings.json";
     private const string MigratedFlag = "migrated.flag";
@@ -31,7 +31,7 @@ public class SettingsService : ISettingsService
     public SettingsService()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _appFolder = Path.Combine(localAppData, "AudioBookshelfApp"); // Legacy folder name for backward compatibility
+        _appFolder = Path.Combine(localAppData, "NineLivesAudio");
         Directory.CreateDirectory(_appFolder);
 
         _settingsPath = Path.Combine(_appFolder, SettingsFile);

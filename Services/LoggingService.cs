@@ -50,7 +50,7 @@ public class LoggingService : ILoggingService, IDisposable
         try
         {
             var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            logDir = Path.Combine(localFolder, "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
+            logDir = Path.Combine(localFolder, "NineLivesAudio", "Logs");
             Directory.CreateDirectory(logDir);
         }
         catch

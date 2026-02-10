@@ -4,8 +4,8 @@
 
 #define MyAppName "Nine Lives Audio"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "jiffy1080"
-#define MyAppURL "https://github.com/jiffy1080/AudioBookshelfApp"
+#define MyAppPublisher "Static Hum Studio"
+#define MyAppURL "https://github.com/StaticHumStudio/NineLivesAudio"
 #define MyAppExeName "NineLivesAudio.exe"
 #define MyAppSourceDir "binpublish"
 

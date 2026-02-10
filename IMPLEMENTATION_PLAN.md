@@ -135,7 +135,7 @@ public class NormalizedMetadata
 **Changes:**
 - Create `ICoverCacheService`:
   - `GetCoverAsync(itemId, coverUrl)` → local path or null
-  - Stores in `%LOCALAPPDATA%/AudioBookshelfApp/Covers/`
+  - Stores in `%LOCALAPPDATA%/NineLivesAudio/Covers/`
   - LRU eviction when cache exceeds 100MB
 - Update image bindings to use cached path
 
@@ -241,3 +241,4 @@ public class NormalizedMetadata
 | Cover cache fills disk | LRU eviction at 100MB limit |
 | Acrylic causes GPU issues | Check for hardware acceleration, disable if not available |
 | Stream-to-local switch causes audio glitch | Save position with 500ms buffer, test extensively |
+

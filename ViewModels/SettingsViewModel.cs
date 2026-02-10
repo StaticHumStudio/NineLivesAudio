@@ -435,7 +435,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             var logDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AudioBookshelfApp", "Logs"); // Legacy folder name for backward compatibility
+                "NineLivesAudio", "Logs");
             Directory.CreateDirectory(logDir);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {

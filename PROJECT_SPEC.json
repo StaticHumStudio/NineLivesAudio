@@ -345,7 +345,7 @@
           "implements": ["IAudioPlaybackService", "IDisposable"],
           "dependencies": ["IAudioBookshelfApiService", "ISettingsService", "ILoggingService"],
           "playback_strategy": "Downloads entire audio file to temp directory before playback via NAudio AudioFileReader. Falls back to local file if available. Uses HttpCompletionOption.ResponseHeadersRead for streaming download with 80KB buffer.",
-          "temp_file_location": "%TEMP%/AudioBookshelfApp/abs_stream_{bookId}.tmp"
+          "temp_file_location": "%TEMP%/NineLivesAudio/abs_stream_{bookId}.tmp"
         }]
       },
       {
@@ -413,9 +413,9 @@
           "name": "SettingsService",
           "implements": ["ISettingsService"],
           "storage": {
-            "settings_file": "%LOCALAPPDATA%/AudioBookshelfApp/settings.json",
+            "settings_file": "%LOCALAPPDATA%/NineLivesAudio/settings.json",
             "auth_token_primary": "Windows.Security.Credentials.PasswordVault",
-            "auth_token_fallback": "%LOCALAPPDATA%/AudioBookshelfApp/.auth_token",
+            "auth_token_fallback": "%LOCALAPPDATA%/NineLivesAudio/.auth_token",
             "settings_fallback": "ApplicationData.Current.LocalFolder (legacy, migrated from)"
           }
         }]
@@ -472,7 +472,7 @@
         "classes": [{
           "name": "LoggingService",
           "implements": ["ILoggingService", "IDisposable"],
-          "log_directory": "%LOCALAPPDATA%/AudioBookshelfApp/Logs/",
+          "log_directory": "%LOCALAPPDATA%/NineLivesAudio/Logs/",
           "log_file_pattern": "app_{yyyy-MM-dd}.log",
           "flush_strategy": "Immediate write + timer-based queue flush (causes duplicate entries - known bug)"
         }]
@@ -515,7 +515,7 @@
         "classes": [{
           "name": "LocalDatabase",
           "implements": ["ILocalDatabase", "IDisposable"],
-          "db_path": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
+          "db_path": "%LOCALAPPDATA%/NineLivesAudio/audiobookshelf.db",
           "db_engine": "SQLite via Microsoft.Data.Sqlite"
         }]
       }
@@ -661,7 +661,7 @@
   },
   "database_schema": {
     "engine": "SQLite",
-    "file_path": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
+    "file_path": "%LOCALAPPDATA%/NineLivesAudio/audiobookshelf.db",
     "tables": [
       {
         "name": "Libraries",
@@ -764,12 +764,12 @@
     }
   },
   "storage_locations": {
-    "app_data_root": "%LOCALAPPDATA%/AudioBookshelfApp/",
-    "settings_file": "%LOCALAPPDATA%/AudioBookshelfApp/settings.json",
-    "auth_token_file": "%LOCALAPPDATA%/AudioBookshelfApp/.auth_token",
-    "database_file": "%LOCALAPPDATA%/AudioBookshelfApp/audiobookshelf.db",
-    "log_directory": "%LOCALAPPDATA%/AudioBookshelfApp/Logs/",
-    "temp_stream_files": "%TEMP%/AudioBookshelfApp/abs_stream_{bookId}.tmp",
+    "app_data_root": "%LOCALAPPDATA%/NineLivesAudio/",
+    "settings_file": "%LOCALAPPDATA%/NineLivesAudio/settings.json",
+    "auth_token_file": "%LOCALAPPDATA%/NineLivesAudio/.auth_token",
+    "database_file": "%LOCALAPPDATA%/NineLivesAudio/audiobookshelf.db",
+    "log_directory": "%LOCALAPPDATA%/NineLivesAudio/Logs/",
+    "temp_stream_files": "%TEMP%/NineLivesAudio/abs_stream_{bookId}.tmp",
     "download_directory": "User-configurable via Settings (AppSettings.DownloadPath)"
   },
   "known_issues": [
@@ -791,7 +791,7 @@
       "id": "ISSUE-003",
       "severity": "high",
       "title": "Settings/token not persisting across restarts",
-      "description": "SettingsService was rewritten to use file-based storage at %LOCALAPPDATA%/AudioBookshelfApp/ with PasswordVault+file fallback for auth tokens. The settings.json currently has empty ServerUrl and Username, requiring re-login.",
+      "description": "SettingsService was rewritten to use file-based storage at %LOCALAPPDATA%/NineLivesAudio/ with PasswordVault+file fallback for auth tokens. The settings.json currently has empty ServerUrl and Username, requiring re-login.",
       "status": "partially_fixed"
     },
     {
@@ -837,3 +837,4 @@
     "total_source_files": 54
   }
 }
+
