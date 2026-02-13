@@ -10,6 +10,7 @@ namespace NineLivesAudio.ViewModels;
 
 public partial class DownloadsViewModel : ObservableObject, IDisposable
 {
+    private bool _disposed;
     private readonly IDownloadService _downloadService;
     private readonly ILocalDatabase _database;
     private readonly DispatcherQueue _dispatcherQueue;
@@ -225,5 +226,14 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
                 active.ErrorMessage = download.ErrorMessage;
             }
         });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _downloadService.DownloadProgressChanged -= OnDownloadProgressChanged;
+        _downloadService.DownloadCompleted -= OnDownloadCompleted;
+        _downloadService.DownloadFailed -= OnDownloadFailed;
     }
 }

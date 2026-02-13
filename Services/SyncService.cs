@@ -1,4 +1,5 @@
 using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 
 namespace NineLivesAudio.Services;
@@ -121,6 +122,10 @@ public class SyncService : ISyncService, IDisposable
             var libraries = await _apiService.GetLibrariesAsync();
             await _database.SaveLibrariesAsync(libraries);
 
+            // Pre-load all existing books to avoid N+1 queries
+            var allExisting = await _database.GetAllAudioBooksAsync();
+            var existingLookup = allExisting.ToDictionary(b => b.Id);
+
             foreach (var library in libraries)
             {
                 var items = await _apiService.GetLibraryItemsAsync(library.Id);
@@ -128,7 +133,7 @@ public class SyncService : ISyncService, IDisposable
                 // Preserve local state (download info + progress) from existing DB records
                 foreach (var item in items)
                 {
-                    var existingItem = await _database.GetAudioBookAsync(item.Id);
+                    existingLookup.TryGetValue(item.Id, out var existingItem);
                     if (existingItem != null)
                     {
                         item.IsDownloaded = existingItem.IsDownloaded;
@@ -386,27 +391,8 @@ public class SyncService : ISyncService, IDisposable
     {
         try
         {
-            // Build expected download path (same logic as DownloadService.GetDownloadPath)
-            var basePath = _settingsService.Settings.DownloadPath;
-            if (string.IsNullOrEmpty(basePath))
-                basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioBookshelf");
-
-            var author = string.IsNullOrWhiteSpace(item.Author) || item.Author == "Unknown Author"
-                ? null : item.Author;
-            var folderName = author != null
-                ? SanitizeFileName($"{author} - {item.Title}")
-                : SanitizeFileName(item.Title);
-            if (string.IsNullOrWhiteSpace(folderName))
-                folderName = item.Id;
-
-            var downloadPath = Path.Combine(basePath, folderName);
-
-            // Also check legacy path (just the ID)
-            var legacyPath = Path.Combine(basePath, item.Id);
-
-            var actualPath = Directory.Exists(downloadPath) ? downloadPath
-                           : Directory.Exists(legacyPath) ? legacyPath
-                           : null;
+            var actualPath = DownloadPathHelper.ResolveExistingPath(
+                _settingsService.Settings.DownloadPath, item.Title, item.Author, item.Id);
 
             if (actualPath == null)
                 return;
@@ -495,12 +481,6 @@ public class SyncService : ISyncService, IDisposable
 
         // Priority 3: Index match
         return existingFiles.FirstOrDefault(f => f.Index == serverFile.Index);
-    }
-
-    private static string SanitizeFileName(string name)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
     }
 
     public void Dispose()

@@ -166,13 +166,58 @@ dotnet run -r win-x64
 
 ```
 NineLivesAudio/
-├── Controls/           # Reusable UI components
-├── Data/              # SQLite database layer
-├── Models/            # Data models (AudioBook, Library, etc.)
-├── Services/          # Business logic (API, Playback, Download, Sync)
-├── ViewModels/        # MVVM view models
-├── Views/             # XAML pages and windows
-└── Resources/         # Styles and themes
+  App.xaml(.cs)              # Application entry point and DI container
+  MainWindow.xaml(.cs)       # Shell window with navigation frame
+  Controls/
+    BookCard.xaml(.cs)       # Reusable book cover card with hover overlay
+    MiniPlayer.xaml(.cs)     # Compact playback bar (bottom of window)
+  Data/
+    LocalDatabase.cs         # SQLite persistence (books, progress, downloads)
+    ILocalDatabase.cs        # Database interface
+  Helpers/
+    Converters.cs            # XAML value converters
+    DownloadPathHelper.cs    # Shared download path and filename sanitization
+    LegacyMigrationHelper.cs # One-time migration from legacy folder/vault names
+  Models/
+    AudioBook.cs             # Book model with chapters, audio files, progress
+    DownloadItem.cs          # Download queue item with status and progress
+    AppSettings.cs           # User preferences
+    Library.cs               # Server library model
+    Bookmark.cs              # Bookmark with timestamp
+    ServerProfile.cs         # Server connection profile
+    UserProgress.cs          # Progress sync DTO
+  Resources/
+    Styles.xaml              # Global styles and design tokens
+    Converters.xaml          # XAML converter resources
+  Services/
+    AudioPlaybackService.cs  # NAudio + MediaPlayer dual-mode playback
+    AudioBookshelfApiService.cs  # Audiobookshelf REST API client
+    DownloadService.cs       # Queue-based file download engine
+    SyncService.cs           # Library and progress synchronization
+    PlaybackSourceResolver.cs    # Decides local vs. streaming playback
+    SettingsService.cs       # Persistent app settings
+    ConnectivityService.cs   # Network monitoring
+    NavigationService.cs     # Frame navigation
+    NotificationService.cs   # In-app toast notifications
+    MetadataNormalizer.cs    # Title/author display formatting
+    LoggingService.cs        # Diagnostic logging
+    OfflineProgressQueue.cs  # Queued progress for offline sync
+    AppInitializer.cs        # Startup orchestration
+  ViewModels/
+    HomeViewModel.cs         # Nine Lives data
+    LibraryViewModel.cs      # Library browsing and filtering
+    PlayerViewModel.cs       # Playback state and commands
+    DownloadsViewModel.cs    # Download queue management
+    MainViewModel.cs         # Shell and mini player state
+    SettingsViewModel.cs     # Settings page logic
+  Views/
+    HomePage.xaml(.cs)       # Nine Lives recently played
+    LibraryPage.xaml(.cs)    # Book browsing grid/list
+    BookDetailPage.xaml(.cs) # Book info, chapters, actions
+    PlayerPage.xaml(.cs)     # Full player with controls
+    MiniPlayerWindow.xaml(.cs)  # Pop-out compact player window
+    DownloadsPage.xaml(.cs)  # Download queue and completed list
+    SettingsPage.xaml(.cs)   # App configuration
 ```
 
 Clean MVVM architecture with dependency injection. Everything's wired up in `App.xaml.cs`.

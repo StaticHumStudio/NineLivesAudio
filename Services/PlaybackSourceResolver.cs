@@ -1,3 +1,4 @@
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 
 namespace NineLivesAudio.Services;
@@ -120,24 +121,8 @@ public class PlaybackSourceResolver : IPlaybackSourceResolver
     {
         try
         {
-            var basePath = _settingsService.Settings.DownloadPath;
-            if (string.IsNullOrEmpty(basePath))
-                basePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioBookshelf");
-
-            var author = string.IsNullOrWhiteSpace(audioBook.Author) || audioBook.Author == "Unknown Author"
-                ? null : audioBook.Author;
-            var folderName = author != null
-                ? SanitizeFileName($"{author} - {audioBook.Title}")
-                : SanitizeFileName(audioBook.Title);
-            if (string.IsNullOrWhiteSpace(folderName))
-                folderName = audioBook.Id;
-
-            var downloadPath = Path.Combine(basePath, folderName);
-            var legacyPath = Path.Combine(basePath, audioBook.Id);
-
-            var actualPath = Directory.Exists(downloadPath) ? downloadPath
-                           : Directory.Exists(legacyPath) ? legacyPath
-                           : null;
+            var actualPath = DownloadPathHelper.ResolveExistingPath(
+                _settingsService.Settings.DownloadPath, audioBook.Title, audioBook.Author, audioBook.Id);
 
             if (actualPath == null) return null;
 
@@ -217,9 +202,4 @@ public class PlaybackSourceResolver : IPlaybackSourceResolver
         return null;
     }
 
-    private static string SanitizeFileName(string name)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
-    }
 }

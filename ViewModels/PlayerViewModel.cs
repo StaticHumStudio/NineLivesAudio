@@ -2,6 +2,7 @@ using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
 
 namespace NineLivesAudio.ViewModels;
 
@@ -9,6 +10,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
 {
     private readonly IAudioPlaybackService _playbackService;
     private readonly ISettingsService _settingsService;
+    private readonly DispatcherQueue _dispatcherQueue;
 
     [ObservableProperty]
     private AudioBook? _currentAudioBook;
@@ -58,6 +60,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     {
         _playbackService = playbackService;
         _settingsService = settingsService;
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
         Volume = _playbackService.Volume;
         PlaybackSpeed = _playbackService.PlaybackSpeed;
@@ -78,21 +81,27 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
 
     private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
     {
-        IsPlaying = e.State == PlaybackState.Playing;
-        IsLoading = e.State == PlaybackState.Loading;
-        CurrentAudioBook = _playbackService.CurrentAudioBook;
-        Duration = _playbackService.Duration;
-        UpdateTimeTexts();
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            IsPlaying = e.State == PlaybackState.Playing;
+            IsLoading = e.State == PlaybackState.Loading;
+            CurrentAudioBook = _playbackService.CurrentAudioBook;
+            Duration = _playbackService.Duration;
+            UpdateTimeTexts();
+        });
     }
 
     private void OnPositionChanged(object? sender, TimeSpan position)
     {
-        CurrentPosition = position;
-        if (Duration.TotalSeconds > 0)
+        _dispatcherQueue.TryEnqueue(() =>
         {
-            Progress = position.TotalSeconds / Duration.TotalSeconds * 100;
-        }
-        UpdateTimeTexts();
+            CurrentPosition = position;
+            if (Duration.TotalSeconds > 0)
+            {
+                Progress = position.TotalSeconds / Duration.TotalSeconds * 100;
+            }
+            UpdateTimeTexts();
+        });
     }
 
     private void UpdateTimeTexts()
@@ -214,11 +223,11 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         {
             // Timer expired, pause playback
             _ = _playbackService.PauseAsync();
-            CancelSleepTimer();
+            _dispatcherQueue.TryEnqueue(CancelSleepTimer);
         }
         else
         {
-            UpdateSleepTimerText();
+            _dispatcherQueue.TryEnqueue(UpdateSleepTimerText);
         }
     }
 

@@ -39,6 +39,7 @@ public interface ILocalDatabase
     Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished);
     Task<List<PendingProgressEntry>> GetPendingProgressAsync();
     Task ClearPendingProgressAsync();
+    Task ClearPendingProgressForItemsAsync(IEnumerable<string> itemIds);
     Task<int> GetPendingProgressCountAsync();
 
     // Bulk operations
