@@ -7,9 +7,8 @@ namespace NineLivesAudio.Data;
 public class LocalDatabase : ILocalDatabase, IDisposable
 {
     private readonly string _dbPath;
-    private readonly string _connectionString;
+    private SqliteConnection? _connection;
     private bool _initialized;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
 
     public LocalDatabase()
     {
@@ -17,38 +16,21 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         var appFolder = Path.Combine(localFolder, "NineLivesAudio");
         Directory.CreateDirectory(appFolder);
         _dbPath = Path.Combine(appFolder, "audiobookshelf.db");
-        _connectionString = $"Data Source={_dbPath}";
     }
 
     public async Task InitializeAsync()
     {
         if (_initialized) return;
 
-        await _initLock.WaitAsync();
-        try
-        {
-            if (_initialized) return;
+        _connection = new SqliteConnection($"Data Source={_dbPath}");
+        await _connection.OpenAsync();
 
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
-
-            await CreateTablesAsync(connection);
-            await MigrateAsync(connection);
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        await CreateTablesAsync();
+        await MigrateAsync();
+        _initialized = true;
     }
 
-    private SqliteConnection CreateConnection()
-    {
-        EnsureInitialized();
-        return new SqliteConnection(_connectionString);
-    }
-
-    private async Task MigrateAsync(SqliteConnection connection)
+    private async Task MigrateAsync()
     {
         // Add new columns if they don't exist (for existing databases)
         var columnsToAdd = new[]
@@ -64,7 +46,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             try
             {
-                var cmd = connection.CreateCommand();
+                var cmd = _connection!.CreateCommand();
                 cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -75,9 +57,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         }
     }
 
-    private async Task CreateTablesAsync(SqliteConnection connection)
+    private async Task CreateTablesAsync()
     {
-        var command = connection.CreateCommand();
+        var command = _connection!.CreateCommand();
         command.CommandText = @"
             CREATE TABLE IF NOT EXISTS Libraries (
                 Id TEXT PRIMARY KEY,
@@ -156,11 +138,10 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     // AudioBooks
     public async Task<List<AudioBook>> GetAllAudioBooksAsync()
     {
+        EnsureInitialized();
         var audioBooks = new List<AudioBook>();
 
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        var command = _connection!.CreateCommand();
         command.CommandText = "SELECT * FROM AudioBooks ORDER BY Title";
 
         using var reader = await command.ExecuteReaderAsync();
@@ -174,9 +155,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     public async Task<AudioBook?> GetAudioBookAsync(string id)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
         command.CommandText = "SELECT * FROM AudioBooks WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
 
@@ -191,9 +172,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     public async Task SaveAudioBookAsync(AudioBook audioBook)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
         command.CommandText = @"
             INSERT OR REPLACE INTO AudioBooks
             (Id, Title, Author, Narrator, Description, CoverPath, DurationSeconds, AddedAt,
@@ -215,9 +196,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     public async Task DeleteAudioBookAsync(string id)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
         command.CommandText = "DELETE FROM AudioBooks WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
@@ -370,9 +351,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     // Playback Progress
     public async Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
         command.CommandText = @"
             INSERT OR REPLACE INTO PlaybackProgress (AudioBookId, PositionSeconds, IsFinished, UpdatedAt)
             VALUES (@audioBookId, @positionSeconds, @isFinished, @updatedAt)";
@@ -387,9 +368,9 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     public async Task<(TimeSpan position, bool isFinished)?> GetPlaybackProgressAsync(string audioBookId)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        EnsureInitialized();
+
+        var command = _connection!.CreateCommand();
         command.CommandText = "SELECT PositionSeconds, IsFinished FROM PlaybackProgress WHERE AudioBookId = @audioBookId";
         command.Parameters.AddWithValue("@audioBookId", audioBookId);
 
@@ -470,6 +451,22 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task ClearPendingProgressForItemsAsync(IEnumerable<string> itemIds)
+    {
+        EnsureInitialized();
+        var itemIdsList = itemIds.ToList();
+        if (!itemIdsList.Any()) return;
+
+        var command = _connection!.CreateCommand();
+        var placeholders = string.Join(",", itemIdsList.Select((_, i) => $"@id{i}"));
+        command.CommandText = $"DELETE FROM PendingProgressUpdates WHERE ItemId IN ({placeholders})";
+        for (int i = 0; i < itemIdsList.Count; i++)
+        {
+            command.Parameters.AddWithValue($"@id{i}", itemIdsList[i]);
+        }
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<int> GetPendingProgressCountAsync()
     {
         EnsureInitialized();
@@ -509,63 +506,40 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     // Bulk operations
     public async Task SaveAudioBooksAsync(IEnumerable<AudioBook> audioBooks)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        using var transaction = connection.BeginTransaction();
+        EnsureInitialized();
+
+        using var transaction = _connection!.BeginTransaction();
         try
         {
             foreach (var audioBook in audioBooks)
             {
-                var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = @"
-                    INSERT OR REPLACE INTO AudioBooks
-                    (Id, Title, Author, Narrator, Description, CoverPath, DurationSeconds, AddedAt,
-                     AudioFilesJson, CurrentTimeSeconds, Progress, IsFinished, IsDownloaded, LocalPath,
-                     SeriesName, SeriesSequence, GenresJson, TagsJson, ChaptersJson)
-                    VALUES
-                    (@id, @title, @author, @narrator, @description, @coverPath, @durationSeconds, @addedAt,
-                     @audioFilesJson, @currentTimeSeconds, @progress, @isFinished, @isDownloaded, @localPath,
-                     @seriesName, @seriesSequence, @genresJson, @tagsJson, @chaptersJson)";
-                AddAudioBookParameters(command, audioBook);
-                await command.ExecuteNonQueryAsync();
+                await SaveAudioBookAsync(audioBook);
             }
-            await transaction.CommitAsync();
+            transaction.Commit();
         }
         catch
         {
-            await transaction.RollbackAsync();
+            transaction.Rollback();
             throw;
         }
     }
 
     public async Task SaveLibrariesAsync(IEnumerable<Library> libraries)
     {
-        using var connection = CreateConnection();
-        await connection.OpenAsync();
-        using var transaction = connection.BeginTransaction();
+        EnsureInitialized();
+
+        using var transaction = _connection!.BeginTransaction();
         try
         {
             foreach (var library in libraries)
             {
-                var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = @"
-                    INSERT OR REPLACE INTO Libraries (Id, Name, DisplayOrder, Icon, MediaType, FoldersJson)
-                    VALUES (@id, @name, @displayOrder, @icon, @mediaType, @foldersJson)";
-                command.Parameters.AddWithValue("@id", library.Id);
-                command.Parameters.AddWithValue("@name", library.Name);
-                command.Parameters.AddWithValue("@displayOrder", library.DisplayOrder);
-                command.Parameters.AddWithValue("@icon", library.Icon ?? "audiobook");
-                command.Parameters.AddWithValue("@mediaType", library.MediaType ?? "book");
-                command.Parameters.AddWithValue("@foldersJson", JsonSerializer.Serialize(library.Folders));
-                await command.ExecuteNonQueryAsync();
+                await SaveLibraryAsync(library);
             }
-            await transaction.CommitAsync();
+            transaction.Commit();
         }
         catch
         {
-            await transaction.RollbackAsync();
+            transaction.Rollback();
             throw;
         }
     }
@@ -685,6 +659,6 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     public void Dispose()
     {
-        _initLock?.Dispose();
+        _connection?.Dispose();
     }
 }

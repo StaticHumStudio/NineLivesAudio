@@ -40,13 +40,6 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         _downloadService.DownloadFailed += OnDownloadFailed;
     }
 
-    public void Dispose()
-    {
-        _downloadService.DownloadProgressChanged -= OnDownloadProgressChanged;
-        _downloadService.DownloadCompleted -= OnDownloadCompleted;
-        _downloadService.DownloadFailed -= OnDownloadFailed;
-    }
-
     public async Task InitializeAsync()
     {
         await LoadDownloadsAsync();

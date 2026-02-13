@@ -287,6 +287,7 @@ public class DownloadService : IDownloadService
                 _activeDownloads.TryRemove(downloadItem.Id, out _);
                 _downloadCts.TryRemove(downloadItem.Id, out _);
             }
+            }
             catch (OperationCanceledException)
             {
                 if (downloadItem.Status != DownloadStatus.Cancelled)
