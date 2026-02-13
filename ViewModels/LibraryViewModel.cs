@@ -24,7 +24,7 @@ public enum SortMode
     RecentProgress
 }
 
-public partial class LibraryViewModel : ObservableObject
+public partial class LibraryViewModel : ObservableObject, IDisposable
 {
     private readonly IAudioBookshelfApiService _apiService;
     private readonly ILocalDatabase _database;
@@ -147,6 +147,16 @@ public partial class LibraryViewModel : ObservableObject
         }
 
         await LoadLibrariesAsync();
+    }
+
+    public void Dispose()
+    {
+        _searchDebounceToken?.Cancel();
+        _searchDebounceToken?.Dispose();
+        _searchDebounceToken = null;
+
+        _downloadService.DownloadCompleted -= OnDownloadCompleted;
+        _downloadService.DownloadFailed -= OnDownloadFailed;
     }
 
     [RelayCommand]

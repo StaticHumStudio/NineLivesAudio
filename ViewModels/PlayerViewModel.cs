@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace NineLivesAudio.ViewModels;
 
-public partial class PlayerViewModel : ObservableObject
+public partial class PlayerViewModel : ObservableObject, IDisposable
 {
     private readonly IAudioPlaybackService _playbackService;
     private readonly ISettingsService _settingsService;
@@ -239,6 +239,13 @@ public partial class PlayerViewModel : ObservableObject
     partial void OnVolumeChanged(float value)
     {
         _ = _playbackService.SetVolumeAsync(value);
+    }
+
+    public void Dispose()
+    {
+        CancelSleepTimer();
+        _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
+        _playbackService.PositionChanged -= OnPositionChanged;
     }
 
     partial void OnPlaybackSpeedChanged(float value)

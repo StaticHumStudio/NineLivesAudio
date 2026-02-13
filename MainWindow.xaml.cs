@@ -86,6 +86,7 @@ namespace NineLivesAudio
             _connectivity = App.Services.GetRequiredService<IConnectivityService>();
             _navigationService = App.Services.GetRequiredService<INavigationService>();
             _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
+            this.Closed += MainWindow_Closed;
 
             // Wire MiniPlayer to playback events
             _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
@@ -467,6 +468,20 @@ namespace NineLivesAudio
         private void AppNotification_Closed(InfoBar sender, InfoBarClosedEventArgs args)
         {
             // Auto-closed or user closed
+        }
+
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
+        {
+            _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
+            _playbackService.PositionChanged -= OnPositionChanged;
+            _notifications.NotificationRequested -= OnNotificationRequested;
+            _connectivity.ConnectivityChanged -= OnConnectivityChanged;
+            this.Closed -= MainWindow_Closed;
+
+            if (_mainViewModel is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
     }
 }

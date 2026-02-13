@@ -47,6 +47,11 @@ public sealed partial class LibraryPage : Page
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+
+        if (ViewModel is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

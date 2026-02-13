@@ -8,7 +8,7 @@ using System.Collections.ObjectModel;
 
 namespace NineLivesAudio.ViewModels;
 
-public partial class HomeViewModel : ObservableObject
+public partial class HomeViewModel : ObservableObject, IDisposable
 {
     private readonly ILocalDatabase _database;
     private readonly IAudioPlaybackService _playbackService;
@@ -49,6 +49,11 @@ public partial class HomeViewModel : ObservableObject
     {
         _logger.Log("[Home] Sync completed, reloading Nine Lives...");
         _dispatcherQueue?.TryEnqueue(() => _ = LoadAsync());
+    }
+
+    public void Dispose()
+    {
+        _syncService.SyncCompleted -= OnSyncCompleted;
     }
 
     public async Task LoadAsync()

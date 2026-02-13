@@ -29,18 +29,33 @@ public sealed partial class HomePage : Page
         ViewModel = App.Services.GetRequiredService<HomeViewModel>();
         this.InitializeComponent();
         this.Loaded += OnLoaded;
+        this.Unloaded += OnUnloaded;
 
         // Load the logo from app assets
         LoadLogo();
 
         // Update ShowGrid when relevant properties change
-        ViewModel.PropertyChanged += (s, e) =>
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.ShowEmptyState))
         {
-            if (e.PropertyName is nameof(ViewModel.IsLoading) or nameof(ViewModel.ShowEmptyState))
-            {
-                Bindings.Update();
-            }
-        };
+            Bindings.Update();
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        this.Loaded -= OnLoaded;
+        this.Unloaded -= OnUnloaded;
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+
+        if (ViewModel is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
     }
 
     private void LoadLogo()

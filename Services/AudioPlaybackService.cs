@@ -32,6 +32,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private bool _isStreaming; // true = MediaPlayer, false = NAudio local
     private bool _isLocalFile; // true if playing from downloaded file
     private CancellationTokenSource? _loadCts;
+    private bool _allowNearZeroProgressSync;
+    private const double ProgressSyncGuardSeconds = 5.0;
+    private StartupProgressStatus _startupProgressStatus = StartupProgressStatus.Unknown;
 
     // Session sync timer (12-second interval for progress sync to server)
     private PeriodicTimer? _sessionSyncTimer;
@@ -49,6 +52,14 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     // Chapter state
     private List<Chapter> _chapters = new();
     private int _currentChapterIndex = -1;
+
+    private enum StartupProgressStatus
+    {
+        Unknown,
+        Resolved,
+        TimedOut,
+        Failed
+    }
 
     public event EventHandler<PlaybackStateChangedEventArgs>? PlaybackStateChanged;
     public event EventHandler<TimeSpan>? PositionChanged;
@@ -145,6 +156,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             _autoAdvancing = false;
             _chapters = audioBook.Chapters.OrderBy(c => c.Start).ToList();
             _currentChapterIndex = -1;
+            _startupProgressStatus = StartupProgressStatus.Unknown;
+
+            var progressResolved = await ResolveInitialProgressAsync(audioBook, ct);
+            _allowNearZeroProgressSync = progressResolved || audioBook.CurrentTime.TotalSeconds >= ProgressSyncGuardSeconds;
 
             // === Use PlaybackSourceResolver for decision ===
             var source = _sourceResolver.ResolveSource(audioBook);
@@ -345,6 +360,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             ct.ThrowIfCancellationRequested();
             _isStreaming = true;
 
+            _mediaPlayer?.Dispose();
+            _mediaPlayer = null;
+
             _mediaPlayer = new Windows.Media.Playback.MediaPlayer();
             _mediaPlayer.Volume = _volume;
             _mediaPlayer.PlaybackSession.PlaybackRate = _playbackSpeed;
@@ -507,11 +525,19 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         // Flush final progress before stopping
         if (_currentAudioBook != null)
         {
-            await _syncService.FlushPlaybackProgressAsync(
-                _currentAudioBook.Id,
-                Position.TotalSeconds,
-                Duration.TotalSeconds,
-                isFinished: false);
+            var finalPosition = Position.TotalSeconds;
+            if (!ShouldBlockNearZeroSync(finalPosition, isFinished: false))
+            {
+                await _syncService.FlushPlaybackProgressAsync(
+                    _currentAudioBook.Id,
+                    finalPosition,
+                    Duration.TotalSeconds,
+                    isFinished: false);
+            }
+            else
+            {
+                _logger.LogDebug($"[Playback] Suppressed final near-zero flush at {finalPosition:F1}s");
+            }
         }
 
         if (_isStreaming && _mediaPlayer != null)
@@ -789,6 +815,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         var currentTime = Position.TotalSeconds;
         var duration = Duration.TotalSeconds;
 
+        if (ShouldBlockNearZeroSync(currentTime, isFinished: false))
+        {
+            _logger.LogDebug($"[Playback] Skipping near-zero sync ({currentTime:F1}s) until startup position is verified");
+            return;
+        }
+
         // Save to local DB first (crash safety)
         try
         {
@@ -1041,6 +1073,91 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
         }
         catch { /* non-fatal */ }
+    }
+
+    private async Task<bool> ResolveInitialProgressAsync(AudioBook audioBook, CancellationToken ct)
+    {
+        var originalPosition = audioBook.CurrentTime;
+        var bestPosition = originalPosition;
+        DateTime? bestTimestamp = null;
+        bool authoritativeResolved = false;
+
+        try
+        {
+            var local = await _database.GetPlaybackProgressWithTimestampAsync(audioBook.Id);
+            if (local.HasValue)
+            {
+                bestPosition = local.Value.position;
+                bestTimestamp = local.Value.updatedAt;
+                authoritativeResolved = true;
+                _startupProgressStatus = StartupProgressStatus.Resolved;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Playback] Local startup progress lookup failed: {ex.Message}");
+        }
+
+        if (_apiService.IsAuthenticated)
+        {
+            try
+            {
+                var progressTask = _apiService.GetUserProgressAsync(audioBook.Id);
+                var completed = await Task.WhenAny(progressTask, Task.Delay(TimeSpan.FromSeconds(4), ct));
+                if (completed == progressTask)
+                {
+                    var server = await progressTask;
+                    if (server != null)
+                    {
+                        if (!bestTimestamp.HasValue || server.LastUpdate >= bestTimestamp.Value)
+                        {
+                            bestPosition = server.CurrentTime;
+                            bestTimestamp = server.LastUpdate;
+                        }
+
+                        authoritativeResolved = true;
+                        _startupProgressStatus = StartupProgressStatus.Resolved;
+                    }
+                }
+                else
+                {
+                    _startupProgressStatus = StartupProgressStatus.TimedOut;
+                    _logger.LogWarning("[Playback] Startup progress fetch timed out (4s); blocking near-zero uploads until playback advances");
+                }
+            }
+            catch (Exception ex)
+            {
+                _startupProgressStatus = StartupProgressStatus.Failed;
+                _logger.LogDebug($"[Playback] Startup progress fetch failed: {ex.Message}");
+            }
+        }
+
+        if (bestPosition != originalPosition)
+        {
+            _logger.Log($"[Playback] Startup progress applied: {bestPosition} (was {originalPosition})");
+            audioBook.CurrentTime = bestPosition;
+        }
+
+        return authoritativeResolved;
+    }
+
+    private bool ShouldBlockNearZeroSync(double currentTime, bool isFinished)
+    {
+        if (isFinished) return false;
+        if (_startupProgressStatus == StartupProgressStatus.Resolved) return false;
+
+        if (!_allowNearZeroProgressSync)
+        {
+            if (currentTime >= ProgressSyncGuardSeconds)
+            {
+                _allowNearZeroProgressSync = true;
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public void Dispose()
