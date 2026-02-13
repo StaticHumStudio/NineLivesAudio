@@ -384,7 +384,14 @@ namespace NineLivesAudio
 
                     if (!string.IsNullOrEmpty(book.CoverPath))
                     {
-                        try { MiniPlayerArt.Source = new BitmapImage(new Uri(book.CoverPath)); }
+                        try
+                        {
+                            // Request thumbnail size (100x100) to reduce memory usage
+                            var coverUri = book.CoverPath.Contains("?")
+                                ? $"{book.CoverPath}&width=100&height=100"
+                                : $"{book.CoverPath}?width=100&height=100";
+                            MiniPlayerArt.Source = new BitmapImage(new Uri(coverUri));
+                        }
                         catch { MiniPlayerArt.Source = null; }
                     }
                 }

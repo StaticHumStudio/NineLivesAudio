@@ -137,12 +137,13 @@ public class DownloadService : IDownloadService
 
     private async Task ProcessDownloadAsync(DownloadItem downloadItem, AudioBook audioBook, CancellationToken ct)
     {
-        await _downloadSemaphore.WaitAsync(ct);
-
         try
         {
-            downloadItem.Status = DownloadStatus.Downloading;
-            _logger.Log($"[Download] Starting: {audioBook.Title}");
+            await _downloadSemaphore.WaitAsync(ct);
+            try
+            {
+                downloadItem.Status = DownloadStatus.Downloading;
+                _logger.Log($"[Download] Starting: {audioBook.Title}");
 
             var downloadPath = GetDownloadPath(audioBook);
             Directory.CreateDirectory(downloadPath);
@@ -285,24 +286,31 @@ public class DownloadService : IDownloadService
                 _activeDownloads.TryRemove(downloadItem.Id, out _);
                 _downloadCts.TryRemove(downloadItem.Id, out _);
             }
+            catch (OperationCanceledException)
+            {
+                if (downloadItem.Status != DownloadStatus.Cancelled)
+                    downloadItem.Status = DownloadStatus.Paused;
+                await _database.UpdateDownloadItemAsync(downloadItem);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[Download] Process failed: {audioBook.Title}", ex);
+                downloadItem.Status = DownloadStatus.Failed;
+                downloadItem.ErrorMessage = ex.Message;
+                await _database.UpdateDownloadItemAsync(downloadItem);
+                DownloadFailed?.Invoke(this, downloadItem);
+            }
+            finally
+            {
+                _downloadSemaphore.Release();
+            }
         }
         catch (OperationCanceledException)
         {
+            // Cancelled before semaphore acquired
             if (downloadItem.Status != DownloadStatus.Cancelled)
                 downloadItem.Status = DownloadStatus.Paused;
             await _database.UpdateDownloadItemAsync(downloadItem);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"[Download] Process failed: {audioBook.Title}", ex);
-            downloadItem.Status = DownloadStatus.Failed;
-            downloadItem.ErrorMessage = ex.Message;
-            await _database.UpdateDownloadItemAsync(downloadItem);
-            DownloadFailed?.Invoke(this, downloadItem);
-        }
-        finally
-        {
-            _downloadSemaphore.Release();
         }
     }
 
@@ -310,7 +318,8 @@ public class DownloadService : IDownloadService
     {
         try
         {
-            var coverData = await _apiService.GetCoverImageAsync(audioBookId);
+            // Request reasonable size cover (400x400) instead of full resolution
+            var coverData = await _apiService.GetCoverImageAsync(audioBookId, width: 400, height: 400);
             if (coverData != null)
                 await File.WriteAllBytesAsync(Path.Combine(downloadPath, "cover.jpg"), coverData);
         }

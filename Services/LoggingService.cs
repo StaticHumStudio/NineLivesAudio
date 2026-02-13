@@ -39,8 +39,8 @@ public class LoggingService : ILoggingService, IDisposable
 
     public LoggingService()
     {
-        // Bounded channel: if we somehow produce 10k lines before consuming, start dropping old
-        _channel = Channel.CreateBounded<string>(new BoundedChannelOptions(10_000)
+        // Bounded channel: 500 entries is sufficient for normal operation, reduces memory footprint
+        _channel = Channel.CreateBounded<string>(new BoundedChannelOptions(500)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true

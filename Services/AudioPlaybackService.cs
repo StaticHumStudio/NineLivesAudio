@@ -136,8 +136,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
     public async Task<bool> LoadAudioBookAsync(AudioBook audioBook)
     {
-        // Cancel any previous load
+        // Cancel any previous load and dispose old CTS
         _loadCts?.Cancel();
+        _loadCts?.Dispose();
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
 
@@ -540,24 +541,49 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
         }
 
+        // Properly dispose streaming MediaPlayer
         if (_isStreaming && _mediaPlayer != null)
         {
-            _mediaPlayer.Pause();
-            _mediaPlayer.Source = null;
-            _mediaPlayer.Dispose();
-            _mediaPlayer = null;
-            _isStreaming = false;
+            try
+            {
+                _mediaPlayer.Pause();
+                _mediaPlayer.Source = null;
+            }
+            catch { /* best effort */ }
+            finally
+            {
+                _mediaPlayer.Dispose();
+                _mediaPlayer = null;
+                _isStreaming = false;
+            }
         }
 
-        _outputDevice?.Stop();
-        _outputDevice?.Dispose();
-        _outputDevice = null;
+        // Dispose NAudio resources
+        if (_outputDevice != null)
+        {
+            try { _outputDevice.Stop(); } catch { }
+            _outputDevice.Dispose();
+            _outputDevice = null;
+        }
 
         _audioFileReader?.Dispose();
         _audioFileReader = null;
 
-        _smtcPlayer?.Dispose();
-        _smtcPlayer = null;
+        // Dispose SMTC player (important for memory)
+        if (_smtcPlayer != null)
+        {
+            try
+            {
+                _smtcPlayer.Pause();
+                _smtcPlayer.Source = null;
+            }
+            catch { }
+            finally
+            {
+                _smtcPlayer.Dispose();
+                _smtcPlayer = null;
+            }
+        }
 
         if (_currentSession != null)
             _ = CloseSessionAsync();
@@ -1163,11 +1189,52 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     public void Dispose()
     {
         StopSessionSyncTimer();
-        _positionTimer?.Dispose();
-        _outputDevice?.Dispose();
+
+        // Stop and dispose timer
+        if (_positionTimer != null)
+        {
+            _positionTimer.Stop();
+            _positionTimer.Dispose();
+            _positionTimer = null;
+        }
+
+        // Dispose NAudio
+        if (_outputDevice != null)
+        {
+            try { _outputDevice.Stop(); } catch { }
+            _outputDevice.Dispose();
+            _outputDevice = null;
+        }
         _audioFileReader?.Dispose();
-        _mediaPlayer?.Dispose();
-        _smtcPlayer?.Dispose();
+        _audioFileReader = null;
+
+        // Dispose MediaPlayers
+        if (_mediaPlayer != null)
+        {
+            try
+            {
+                _mediaPlayer.Pause();
+                _mediaPlayer.Source = null;
+            }
+            catch { }
+            _mediaPlayer.Dispose();
+            _mediaPlayer = null;
+        }
+
+        if (_smtcPlayer != null)
+        {
+            try
+            {
+                _smtcPlayer.Pause();
+                _smtcPlayer.Source = null;
+            }
+            catch { }
+            _smtcPlayer.Dispose();
+            _smtcPlayer = null;
+        }
+
+        // Dispose cancellation token source
         _loadCts?.Dispose();
+        _loadCts = null;
     }
 }

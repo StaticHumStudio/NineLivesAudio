@@ -10,7 +10,6 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 {
     private readonly ISettingsService _settingsService;
     private readonly HttpClient _httpClient;
-    private HttpClient? _downloadClient;
     private string? _authToken;
     private string? _serverUrl;
 
@@ -55,7 +54,9 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
         _httpClient = new HttpClient(handler);
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+        // Use 5-minute timeout for downloads, individual operations can override with CancellationToken
+        _httpClient.Timeout = TimeSpan.FromMinutes(5);
     }
 
     private async Task InitializeFromSettingsAsync()
@@ -273,37 +274,11 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
         System.Diagnostics.Debug.WriteLine($"GetAudioFileStream: itemId={itemId}, fileIno={fileIno}");
 
-        // Lazy-init a shared download client with longer timeout and scoped SSL
-        if (_downloadClient == null)
-        {
-            var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (message, cert, chain, sslPolicyErrors) =>
-                {
-                    if (sslPolicyErrors == System.Net.Security.SslPolicyErrors.None)
-                        return true;
-                    if (_settingsService.Settings.AllowSelfSignedCertificates
-                        && !string.IsNullOrEmpty(_serverUrl)
-                        && message.RequestUri != null)
-                    {
-                        var configuredHost = new Uri(_serverUrl).Host;
-                        return string.Equals(message.RequestUri.Host, configuredHost, StringComparison.OrdinalIgnoreCase);
-                    }
-                    return false;
-                }
-            };
-            _downloadClient = new HttpClient(handler);
-            _downloadClient.Timeout = TimeSpan.FromMinutes(30);
-            _downloadClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
-        }
-
-        // Sync auth header from main client
-        _downloadClient.DefaultRequestHeaders.Authorization = _httpClient.DefaultRequestHeaders.Authorization;
-
         var url = $"{_serverUrl}/api/items/{itemId}/file/{fileIno}";
         System.Diagnostics.Debug.WriteLine($"Download URL: {url}");
 
-        var response = await _downloadClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        // Use the single shared HttpClient with ResponseHeadersRead for streaming
+        var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         System.Diagnostics.Debug.WriteLine($"Download response: {response.StatusCode}, ContentLength: {response.Content.Headers.ContentLength}");
@@ -765,7 +740,6 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
     public void Dispose()
     {
         _httpClient.Dispose();
-        _downloadClient?.Dispose();
     }
 
     // API Response DTOs
