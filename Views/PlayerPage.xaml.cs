@@ -62,6 +62,11 @@ public sealed partial class PlayerPage : Page
         _playbackService.PlaybackStateChanged -= PlaybackService_StateChanged;
         _playbackService.TrackChanged -= PlaybackService_TrackChanged;
         _playbackService.ChapterChanged -= PlaybackService_ChapterChanged;
+
+        if (ViewModel is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

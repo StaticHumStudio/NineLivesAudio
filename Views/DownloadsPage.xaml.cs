@@ -22,10 +22,22 @@ public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
     {
         ViewModel = App.Services.GetRequiredService<DownloadsViewModel>();
         this.InitializeComponent();
+        this.Unloaded += Page_Unloaded;
 
         // Subscribe to collection changes so visibility bindings update
         ViewModel.ActiveDownloads.CollectionChanged += OnCollectionChanged;
         ViewModel.CompletedDownloads.CollectionChanged += OnCollectionChanged;
+    }
+
+    private void Page_Unloaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.ActiveDownloads.CollectionChanged -= OnCollectionChanged;
+        ViewModel.CompletedDownloads.CollectionChanged -= OnCollectionChanged;
+
+        if (ViewModel is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)

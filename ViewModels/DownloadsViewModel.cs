@@ -8,7 +8,7 @@ using System.Collections.ObjectModel;
 
 namespace NineLivesAudio.ViewModels;
 
-public partial class DownloadsViewModel : ObservableObject
+public partial class DownloadsViewModel : ObservableObject, IDisposable
 {
     private readonly IDownloadService _downloadService;
     private readonly ILocalDatabase _database;
@@ -37,6 +37,13 @@ public partial class DownloadsViewModel : ObservableObject
         _downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
         _downloadService.DownloadCompleted += OnDownloadCompleted;
         _downloadService.DownloadFailed += OnDownloadFailed;
+    }
+
+    public void Dispose()
+    {
+        _downloadService.DownloadProgressChanged -= OnDownloadProgressChanged;
+        _downloadService.DownloadCompleted -= OnDownloadCompleted;
+        _downloadService.DownloadFailed -= OnDownloadFailed;
     }
 
     public async Task InitializeAsync()

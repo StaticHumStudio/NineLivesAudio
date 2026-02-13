@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace NineLivesAudio.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly IAudioPlaybackService _playbackService;
     private readonly IAudioBookshelfApiService _apiService;
@@ -50,9 +50,9 @@ public partial class MainViewModel : ObservableObject
         // Subscribe to playback events
         _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
         _playbackService.PositionChanged += OnPositionChanged;
-        _syncService.SyncStarted += (s, e) => IsSyncing = true;
-        _syncService.SyncCompleted += (s, e) => IsSyncing = false;
-        _syncService.SyncFailed += (s, e) => IsSyncing = false;
+        _syncService.SyncStarted += OnSyncStarted;
+        _syncService.SyncCompleted += OnSyncCompleted;
+        _syncService.SyncFailed += OnSyncFailed;
 
         IsAuthenticated = _apiService.IsAuthenticated;
     }
@@ -72,6 +72,19 @@ public partial class MainViewModel : ObservableObject
         {
             Progress = position.TotalSeconds / Duration.TotalSeconds * 100;
         }
+    }
+
+    private void OnSyncStarted(object? sender, SyncEventArgs e) => IsSyncing = true;
+    private void OnSyncCompleted(object? sender, SyncEventArgs e) => IsSyncing = false;
+    private void OnSyncFailed(object? sender, SyncErrorEventArgs e) => IsSyncing = false;
+
+    public void Dispose()
+    {
+        _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
+        _playbackService.PositionChanged -= OnPositionChanged;
+        _syncService.SyncStarted -= OnSyncStarted;
+        _syncService.SyncCompleted -= OnSyncCompleted;
+        _syncService.SyncFailed -= OnSyncFailed;
     }
 
     [RelayCommand]
