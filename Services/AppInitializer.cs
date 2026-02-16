@@ -46,28 +46,47 @@ public class AppInitializer : IAppInitializer
             SetState(InitState.Initializing);
             _logger.Log("AppInitializer: starting initialization");
 
-            // 1. Database
-            _logger.Log("AppInitializer: initializing database...");
-            await _database.InitializeAsync();
-            _logger.Log("AppInitializer: database ready");
+            // Stage 1: Database + Settings in parallel (independent of each other)
+            _logger.Log("AppInitializer: initializing database + loading settings (parallel)...");
+            var dbTask = _database.InitializeAsync();
+            var settingsTask = _settingsService.LoadSettingsAsync();
+            await Task.WhenAll(dbTask, settingsTask);
+            _logger.Log($"AppInitializer: database + settings ready (server={_settingsService.Settings.ServerUrl})");
 
-            // 2. Settings
-            _logger.Log("AppInitializer: loading settings...");
-            await _settingsService.LoadSettingsAsync();
-            _logger.Log($"AppInitializer: settings loaded (server={_settingsService.Settings.ServerUrl})");
-
-            // 3. Validate token if we have one
+            // Stage 2: Validate token with timeout — transition to Ready quickly
             if (!string.IsNullOrEmpty(_settingsService.Settings.ServerUrl))
             {
-                _logger.Log("AppInitializer: validating auth token...");
-                var valid = await _apiService.ValidateTokenAsync();
-                _logger.Log($"AppInitializer: token valid={valid}");
+                _logger.Log("AppInitializer: validating auth token (3s timeout)...");
+                bool valid = false;
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    var validateTask = _apiService.ValidateTokenAsync();
+                    var completed = await Task.WhenAny(validateTask, Task.Delay(Timeout.Infinite, cts.Token));
+                    if (completed == validateTask)
+                    {
+                        valid = await validateTask;
+                        _logger.Log($"AppInitializer: token valid={valid}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("AppInitializer: token validation timed out (3s), continuing startup");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("AppInitializer: token validation timed out, continuing startup");
+                }
 
-                // 4. Start sync if authenticated
+                // Stage 3: Fire-and-forget sync start — don't block Ready
                 if (valid && _settingsService.Settings.AutoSyncProgress)
                 {
-                    _logger.Log("AppInitializer: starting sync service");
-                    await _syncService.StartAsync();
+                    _logger.Log("AppInitializer: starting sync service (background)");
+                    _ = Task.Run(async () =>
+                    {
+                        try { await _syncService.StartAsync(); }
+                        catch (Exception ex) { _logger.LogDebug($"AppInitializer: background sync start failed: {ex.Message}"); }
+                    });
                 }
             }
 

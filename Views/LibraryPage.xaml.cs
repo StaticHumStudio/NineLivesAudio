@@ -1,3 +1,4 @@
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
@@ -15,13 +16,10 @@ public sealed partial class LibraryPage : Page
     public LibraryViewModel ViewModel { get; }
     private readonly ILoggingService _logger;
     private readonly IAudioBookshelfApiService _apiService;
-    private List<GroupItem> _currentGroups = new();
+    private List<LibraryGroupItem> _currentGroups = new();
     private string? _selectedGroup;
 
-    // Touch scroll vs tap discrimination
-    private Windows.Foundation.Point? _pointerPressedPosition;
-    private object? _pointerPressedTag;
-    private const double TapDistanceThreshold = 12.0;
+    private readonly TapHelper _tapHelper = new();
 
     public LibraryPage()
     {
@@ -117,44 +115,27 @@ public sealed partial class LibraryPage : Page
         if (sender is FrameworkElement element && element.Tag is AudioBook audioBook)
         {
             var point = e.GetCurrentPoint(element);
-
             if (point.Properties.IsRightButtonPressed)
-            {
                 ShowBookContextMenu(element, audioBook, point.Position);
-            }
-            else if (point.Properties.IsLeftButtonPressed)
-            {
-                _pointerPressedPosition = point.Position;
-                _pointerPressedTag = audioBook;
-            }
+            else
+                _tapHelper.OnPointerPressed(e, element, audioBook);
         }
     }
 
     private void BookCard_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition == null) return;
         if (sender is FrameworkElement element)
-        {
-            var point = e.GetCurrentPoint(element);
-            var dx = point.Position.X - _pointerPressedPosition.Value.X;
-            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
-            {
-                _pointerPressedPosition = null;
-                _pointerPressedTag = null;
-            }
-        }
+            _tapHelper.OnPointerMoved(e, element);
     }
 
     private void BookCard_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition != null && _pointerPressedTag is AudioBook audioBook)
+        var audioBook = _tapHelper.OnPointerReleased<AudioBook>();
+        if (audioBook != null)
         {
             _logger.Log($"Opening book details: {audioBook.Title}");
             NavigateToBookDetail(audioBook);
         }
-        _pointerPressedPosition = null;
-        _pointerPressedTag = null;
     }
 
     private void NavigateToBookDetail(AudioBook audioBook)
@@ -319,66 +300,12 @@ public sealed partial class LibraryPage : Page
 
     private void LoadGroups()
     {
-        _currentGroups = ViewModel.CurrentViewMode switch
-        {
-            ViewMode.Series => CreateSeriesGroups(),
-            ViewMode.Author => CreateAuthorGroups(),
-            ViewMode.Genre => CreateGenreGroups(),
-            _ => new List<GroupItem>()
-        };
+        _currentGroups = ViewModel.CreateGroups().ToList();
 
         _logger.Log($"Loaded {_currentGroups.Count} groups for {ViewModel.CurrentViewMode}");
 
         GroupsRepeater.ItemTemplate = CreateGroupCardTemplate();
         GroupsRepeater.ItemsSource = _currentGroups;
-    }
-
-    private List<GroupItem> CreateSeriesGroups()
-    {
-        return ViewModel.AudioBooks
-            .Where(b => !string.IsNullOrEmpty(b.SeriesName))
-            .GroupBy(b => b.SeriesName!)
-            .Select(g => new GroupItem
-            {
-                Name = g.Key,
-                BookCount = g.Count(),
-                CoverUrl = g.OrderBy(b => ParseSequence(b.SeriesSequence)).FirstOrDefault()?.CoverPath,
-                Icon = "\uE8F1"
-            })
-            .OrderBy(g => g.Name)
-            .ToList();
-    }
-
-    private List<GroupItem> CreateAuthorGroups()
-    {
-        return ViewModel.AudioBooks
-            .Where(b => !string.IsNullOrEmpty(b.Author))
-            .GroupBy(b => b.Author)
-            .Select(g => new GroupItem
-            {
-                Name = g.Key,
-                BookCount = g.Count(),
-                CoverUrl = g.FirstOrDefault()?.CoverPath,
-                Icon = "\uE77B"
-            })
-            .OrderBy(g => g.Name)
-            .ToList();
-    }
-
-    private List<GroupItem> CreateGenreGroups()
-    {
-        return ViewModel.AudioBooks
-            .SelectMany(b => b.Genres.Select(g => new { Genre = g, Book = b }))
-            .GroupBy(x => x.Genre)
-            .Select(g => new GroupItem
-            {
-                Name = g.Key,
-                BookCount = g.Count(),
-                CoverUrl = g.FirstOrDefault()?.Book.CoverPath,
-                Icon = "\uE8D6"
-            })
-            .OrderBy(g => g.Name)
-            .ToList();
     }
 
     private DataTemplate CreateGroupCardTemplate()
@@ -450,43 +377,25 @@ public sealed partial class LibraryPage : Page
 
     private void GroupCard_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is FrameworkElement element && element.DataContext is GroupItem group)
-        {
-            var point = e.GetCurrentPoint(element);
-            if (point.Properties.IsLeftButtonPressed)
-            {
-                _pointerPressedPosition = point.Position;
-                _pointerPressedTag = group;
-            }
-        }
+        if (sender is FrameworkElement element && element.DataContext is LibraryGroupItem group)
+            _tapHelper.OnPointerPressed(e, element, group);
     }
 
     private void GroupCard_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition == null) return;
         if (sender is FrameworkElement element)
-        {
-            var point = e.GetCurrentPoint(element);
-            var dx = point.Position.X - _pointerPressedPosition.Value.X;
-            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
-            {
-                _pointerPressedPosition = null;
-                _pointerPressedTag = null;
-            }
-        }
+            _tapHelper.OnPointerMoved(e, element);
     }
 
     private void GroupCard_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition != null && _pointerPressedTag is GroupItem group)
+        var group = _tapHelper.OnPointerReleased<LibraryGroupItem>();
+        if (group != null)
         {
             _logger.Log($"Selected group: {group.Name}");
             _selectedGroup = group.Name;
             UpdateViewDisplay();
         }
-        _pointerPressedPosition = null;
-        _pointerPressedTag = null;
     }
 
     private void LoadGroupDetail()
@@ -495,22 +404,7 @@ public sealed partial class LibraryPage : Page
 
         GroupDetailTitle.Text = _selectedGroup;
 
-        var books = ViewModel.CurrentViewMode switch
-        {
-            ViewMode.Series => ViewModel.AudioBooks
-                .Where(b => b.SeriesName == _selectedGroup)
-                .OrderBy(b => ParseSequence(b.SeriesSequence))
-                .ToList(),
-            ViewMode.Author => ViewModel.AudioBooks
-                .Where(b => b.Author == _selectedGroup)
-                .OrderBy(b => b.Title)
-                .ToList(),
-            ViewMode.Genre => ViewModel.AudioBooks
-                .Where(b => b.Genres.Contains(_selectedGroup))
-                .OrderBy(b => b.Title)
-                .ToList(),
-            _ => new List<AudioBook>()
-        };
+        var books = ViewModel.GetBooksForGroup(_selectedGroup);
 
         _logger.Log($"Group '{_selectedGroup}' has {books.Count} books");
 
@@ -541,42 +435,26 @@ public sealed partial class LibraryPage : Page
         {
             var point = e.GetCurrentPoint(element);
             if (point.Properties.IsRightButtonPressed)
-            {
                 ShowBookContextMenu(element, audioBook, point.Position);
-            }
-            else if (point.Properties.IsLeftButtonPressed)
-            {
-                _pointerPressedPosition = point.Position;
-                _pointerPressedTag = audioBook;
-            }
+            else
+                _tapHelper.OnPointerPressed(e, element, audioBook);
         }
     }
 
     private void DetailBookCard_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition == null) return;
         if (sender is FrameworkElement element)
-        {
-            var point = e.GetCurrentPoint(element);
-            var dx = point.Position.X - _pointerPressedPosition.Value.X;
-            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
-            {
-                _pointerPressedPosition = null;
-                _pointerPressedTag = null;
-            }
-        }
+            _tapHelper.OnPointerMoved(e, element);
     }
 
     private void DetailBookCard_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition != null && _pointerPressedTag is AudioBook audioBook)
+        var audioBook = _tapHelper.OnPointerReleased<AudioBook>();
+        if (audioBook != null)
         {
             _logger.Log($"Opening book from group: {audioBook.Title}");
             NavigateToBookDetail(audioBook);
         }
-        _pointerPressedPosition = null;
-        _pointerPressedTag = null;
     }
 
     private DataTemplate CreateBookCardTemplate()
@@ -634,19 +512,4 @@ public sealed partial class LibraryPage : Page
         return template;
     }
 
-    private static double ParseSequence(string? sequence)
-    {
-        if (string.IsNullOrEmpty(sequence)) return double.MaxValue;
-        if (double.TryParse(sequence, out var num)) return num;
-        return double.MaxValue;
-    }
-
-    public class GroupItem
-    {
-        public string Name { get; set; } = string.Empty;
-        public int BookCount { get; set; }
-        public string? CoverUrl { get; set; }
-        public string Icon { get; set; } = "\uE8F1";
-        public string BookCountText => BookCount == 1 ? "1 book" : $"{BookCount} books";
-    }
 }

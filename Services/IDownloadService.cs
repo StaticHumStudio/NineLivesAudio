@@ -4,10 +4,6 @@ namespace NineLivesAudio.Services;
 
 public interface IDownloadService
 {
-    event EventHandler<DownloadProgressEventArgs>? DownloadProgressChanged;
-    event EventHandler<DownloadItem>? DownloadCompleted;
-    event EventHandler<DownloadItem>? DownloadFailed;
-    
     Task<DownloadItem> QueueDownloadAsync(AudioBook audioBook);
     Task PauseDownloadAsync(string downloadId);
     Task ResumeDownloadAsync(string downloadId);

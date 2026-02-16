@@ -1,5 +1,7 @@
+using CommunityToolkit.Mvvm.Messaging;
 using NineLivesAudio.Data;
 using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 
 namespace NineLivesAudio.Services;
@@ -26,10 +28,6 @@ public class SyncService : ISyncService, IDisposable
 
     public bool IsSyncing => _isSyncing;
     public DateTime? LastSyncTime { get; private set; }
-
-    public event EventHandler<SyncEventArgs>? SyncStarted;
-    public event EventHandler<SyncEventArgs>? SyncCompleted;
-    public event EventHandler<SyncErrorEventArgs>? SyncFailed;
 
     public SyncService(
         IAudioBookshelfApiService apiService,
@@ -89,24 +87,24 @@ public class SyncService : ISyncService, IDisposable
         try
         {
             _isSyncing = true;
-            SyncStarted?.Invoke(this, new SyncEventArgs());
+            WeakReferenceMessenger.Default.Send(new SyncStartedMessage(new SyncEventArgs()));
 
             await SyncLibrariesAsync();
             await SyncProgressAsync();
 
             LastSyncTime = DateTime.Now;
-            SyncCompleted?.Invoke(this, new SyncEventArgs());
+            WeakReferenceMessenger.Default.Send(new SyncCompletedMessage(new SyncEventArgs()));
 
             _logger.Log($"[Sync] Complete at {LastSyncTime:HH:mm:ss}");
         }
         catch (Exception ex)
         {
             _logger.LogError("[Sync] Failed", ex);
-            SyncFailed?.Invoke(this, new SyncErrorEventArgs
+            WeakReferenceMessenger.Default.Send(new SyncFailedMessage(new SyncErrorEventArgs
             {
                 ErrorMessage = ex.Message,
                 Exception = ex
-            });
+            }));
         }
         finally
         {
@@ -235,27 +233,42 @@ public class SyncService : ISyncService, IDisposable
                     continue;
                 }
 
-                // Server is the source of truth during pull-sync.
-                // Active playback pushes its own progress via ReportPlaybackPosition/Flush.
-                // Offline playback pushes via OfflineProgressQueue when connectivity returns.
-                audioBook.CurrentTime = progress.CurrentTime;
+                // Always update display-only fields (progress %, isFinished)
                 audioBook.Progress = progress.Progress;
                 audioBook.IsFinished = progress.IsFinished;
 
-                await _database.UpdateAudioBookAsync(audioBook);
+                // Only update position if server is strictly newer than local — newest wins
+                var localProgress = await _database.GetPlaybackProgressWithTimestampAsync(progress.LibraryItemId);
+                var localTimestamp = localProgress?.updatedAt ?? DateTime.MinValue;
 
-                // Use estimated position from progress*duration if currentTime is 0
-                var positionToSave = progress.CurrentTime;
-                if (positionToSave.TotalSeconds <= 0 && progress.Progress > 0 && audioBook.Duration.TotalSeconds > 0)
+                if (progress.LastUpdate > localTimestamp)
                 {
-                    positionToSave = TimeSpan.FromSeconds(progress.Progress * audioBook.Duration.TotalSeconds);
+                    var oldPosition = audioBook.CurrentTime;
+                    audioBook.CurrentTime = progress.CurrentTime;
+                    _logger.Log($"[Sync] POSITION CHANGE '{audioBook.Title}': {oldPosition} → {progress.CurrentTime} (server is newer: {progress.LastUpdate:O} > {localTimestamp:O})");
+
+                    await _database.UpdateAudioBookAsync(audioBook);
+
+                    // Use estimated position from progress*duration if currentTime is 0
+                    var positionToSave = progress.CurrentTime;
+                    if (positionToSave.TotalSeconds <= 0 && progress.Progress > 0 && audioBook.Duration.TotalSeconds > 0)
+                    {
+                        positionToSave = TimeSpan.FromSeconds(progress.Progress * audioBook.Duration.TotalSeconds);
+                    }
+
+                    await _database.SavePlaybackProgressAsync(
+                        progress.LibraryItemId,
+                        positionToSave,
+                        progress.IsFinished,
+                        progress.LastUpdate); // Use server's timestamp for correct Nine Lives sorting
+                }
+                else
+                {
+                    // Position stays local — only persist display fields
+                    await _database.UpdateAudioBookAsync(audioBook);
+                    _logger.LogDebug($"[Sync] Kept local position for '{audioBook.Title}': local is newer or same ({localTimestamp:O} >= {progress.LastUpdate:O})");
                 }
 
-                await _database.SavePlaybackProgressAsync(
-                    progress.LibraryItemId,
-                    positionToSave,
-                    progress.IsFinished,
-                    progress.LastUpdate); // Use server's timestamp for correct Nine Lives sorting
                 synced++;
             }
 

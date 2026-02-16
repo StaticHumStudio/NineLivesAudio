@@ -1,9 +1,8 @@
-using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -15,19 +14,16 @@ namespace NineLivesAudio.Views;
 public sealed partial class BookDetailPage : Page
 {
     private AudioBook? _audioBook;
-    private bool _showChapterProgress;
     private bool _isUpdatingToggle;
+    private readonly BookDetailViewModel _viewModel;
     private readonly LibraryViewModel _libraryViewModel;
-    private readonly IAudioPlaybackService _playbackService;
-    private readonly IDownloadService _downloadService;
     private readonly ILoggingService _logger;
 
     public BookDetailPage()
     {
         this.InitializeComponent();
+        _viewModel = App.Services.GetRequiredService<BookDetailViewModel>();
         _libraryViewModel = App.Services.GetRequiredService<LibraryViewModel>();
-        _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();
-        _downloadService = App.Services.GetRequiredService<IDownloadService>();
         _logger = App.Services.GetRequiredService<ILoggingService>();
     }
 
@@ -38,6 +34,7 @@ public sealed partial class BookDetailPage : Page
         if (e.Parameter is AudioBook audioBook)
         {
             _audioBook = audioBook;
+            _viewModel.Initialize(audioBook);
             LoadBookDetails();
         }
     }
@@ -83,7 +80,7 @@ public sealed partial class BookDetailPage : Page
         }
 
         // Duration
-        var durationDisplay = FormatDuration(_audioBook.Duration);
+        var durationDisplay = _viewModel.FormattedDuration;
         DurationText.Text = durationDisplay;
         DurationTextNarrow.Text = durationDisplay;
 
@@ -98,19 +95,9 @@ public sealed partial class BookDetailPage : Page
         }
 
         // Cover image — set both wide and narrow images
-        if (!string.IsNullOrEmpty(_audioBook.CoverPath))
-        {
-            try
-            {
-                var coverBitmap = new BitmapImage(new Uri(_audioBook.CoverPath));
-                CoverImage.Source = coverBitmap;
-                CoverImageNarrow.Source = coverBitmap;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug($"Failed to load cover: {ex.Message}");
-            }
-        }
+        var coverBitmap = CoverImageService.LoadCover(_audioBook.CoverPath);
+        CoverImage.Source = coverBitmap;
+        CoverImageNarrow.Source = coverBitmap;
 
         // Show chapter toggle if chapters exist
         var hasChapters = _audioBook.Chapters.Count > 0;
@@ -162,7 +149,7 @@ public sealed partial class BookDetailPage : Page
         {
             // Sync both toggles
             var isOn = (sender as ToggleSwitch)?.IsOn ?? false;
-            _showChapterProgress = isOn;
+            _viewModel.ShowChapterProgress = isOn;
             if (ChapterToggle.IsOn != isOn) ChapterToggle.IsOn = isOn;
             if (ChapterToggleNarrow.IsOn != isOn) ChapterToggleNarrow.IsOn = isOn;
             UpdateProgressDisplay();
@@ -177,69 +164,29 @@ public sealed partial class BookDetailPage : Page
     {
         if (_audioBook == null) return;
 
-        var progressPercentValue = _audioBook.ProgressPercent;
+        var (progressText, progressPercent, chapterInfo) = _viewModel.GetProgressInfo();
 
-        if (_showChapterProgress && _audioBook.Chapters.Count > 0 && progressPercentValue > 0)
+        ProgressText.Text = progressText;
+        ProgressTextNarrow.Text = progressText;
+        ProgressBar.Value = progressPercent;
+        ProgressBarNarrow.Value = progressPercent;
+
+        if (chapterInfo != null)
         {
-            // Chapter progress mode
-            var chIdx = _audioBook.GetCurrentChapterIndex();
-            var chapter = _audioBook.GetCurrentChapter();
-            var chPct = _audioBook.CurrentChapterProgressPercent;
-
-            if (chapter != null && chIdx >= 0)
-            {
-                var chapterDisplay = $"Chapter {chIdx + 1}/{_audioBook.Chapters.Count}: {chapter.Title}";
-                ProgressText.Text = chapterDisplay;
-                ProgressTextNarrow.Text = chapterDisplay;
-                ProgressBar.Value = chPct;
-                ProgressBarNarrow.Value = chPct;
-
-                var elapsed = FormatDuration(TimeSpan.FromSeconds(_audioBook.CurrentTime.TotalSeconds - chapter.Start));
-                var chDur = FormatDuration(chapter.Duration);
-                var chInfo = $"{(int)chPct}% of chapter ({elapsed} / {chDur})";
-                ChapterInfoText.Text = chInfo;
-                ChapterInfoTextNarrow.Text = chInfo;
-                ChapterInfoText.Visibility = Visibility.Visible;
-                ChapterInfoTextNarrow.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                // Fallback to book progress
-                ShowBookProgress(progressPercentValue);
-            }
-
-            PlayButtonText.Text = "Continue";
-            PlayButtonTextNarrow.Text = "Continue";
-        }
-        else if (progressPercentValue > 0)
-        {
-            // Book progress mode
-            ShowBookProgress(progressPercentValue);
-            PlayButtonText.Text = "Continue";
-            PlayButtonTextNarrow.Text = "Continue";
+            ChapterInfoText.Text = chapterInfo;
+            ChapterInfoTextNarrow.Text = chapterInfo;
+            ChapterInfoText.Visibility = Visibility.Visible;
+            ChapterInfoTextNarrow.Visibility = Visibility.Visible;
         }
         else
         {
-            ProgressText.Text = "Not started";
-            ProgressTextNarrow.Text = "Not started";
-            ProgressBar.Value = 0;
-            ProgressBarNarrow.Value = 0;
             ChapterInfoText.Visibility = Visibility.Collapsed;
             ChapterInfoTextNarrow.Visibility = Visibility.Collapsed;
         }
-    }
 
-    private void ShowBookProgress(double progressPercentValue)
-    {
-        ProgressBar.Value = progressPercentValue;
-        ProgressBarNarrow.Value = progressPercentValue;
-        var currentPosition = FormatDuration(_audioBook!.CurrentTime);
-        var totalDuration = FormatDuration(_audioBook.Duration);
-        var progressDisplay = $"{(int)progressPercentValue}% complete ({currentPosition} / {totalDuration})";
-        ProgressText.Text = progressDisplay;
-        ProgressTextNarrow.Text = progressDisplay;
-        ChapterInfoText.Visibility = Visibility.Collapsed;
-        ChapterInfoTextNarrow.Visibility = Visibility.Collapsed;
+        var playLabel = _audioBook.ProgressPercent > 0 ? "Continue" : "Play";
+        PlayButtonText.Text = playLabel;
+        PlayButtonTextNarrow.Text = playLabel;
     }
 
     private void BuildMetadataPanel()
@@ -262,13 +209,13 @@ public sealed partial class BookDetailPage : Page
             AddMetadataRow("Series", seriesDisplay);
         }
 
-        AddMetadataRow("Duration", FormatDuration(_audioBook.Duration));
+        AddMetadataRow("Duration", TimeFormatHelper.FormatDuration(_audioBook.Duration));
 
         if (_audioBook.AudioFiles.Count > 0)
         {
             var totalSize = _audioBook.AudioFiles.Sum(f => f.Size);
             if (totalSize > 0)
-                AddMetadataRow("Size", FormatSize(totalSize));
+                AddMetadataRow("Size", TimeFormatHelper.FormatSize(totalSize));
             AddMetadataRow("Files", $"{_audioBook.AudioFiles.Count} audio file{(_audioBook.AudioFiles.Count > 1 ? "s" : "")}");
         }
 
@@ -311,49 +258,15 @@ public sealed partial class BookDetailPage : Page
 
     private void LoadChapters()
     {
-        if (_audioBook?.Chapters == null || _audioBook.Chapters.Count == 0)
+        var chapterItems = _viewModel.GetChapterDisplayItems();
+        if (chapterItems.Count == 0)
         {
             ChaptersPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var currentIdx = _audioBook.GetCurrentChapterIndex();
-        var currentTimeSeconds = _audioBook.CurrentTime.TotalSeconds;
-
-        ChaptersHeader.Text = $"Chapters ({_audioBook.Chapters.Count})";
+        ChaptersHeader.Text = $"Chapters ({chapterItems.Count})";
         ChaptersPanel.Visibility = Visibility.Visible;
-
-        var chapterItems = _audioBook.Chapters.Select((ch, idx) =>
-        {
-            // Determine chapter completion status
-            double progressPercent = 0;
-            string status;
-            if (currentTimeSeconds >= ch.End)
-            {
-                progressPercent = 100;
-                status = "done";
-            }
-            else if (idx == currentIdx && currentTimeSeconds >= ch.Start)
-            {
-                progressPercent = Math.Clamp((currentTimeSeconds - ch.Start) / (ch.End - ch.Start) * 100.0, 0, 100);
-                status = "current";
-            }
-            else
-            {
-                status = "upcoming";
-            }
-
-            return new ChapterDisplayItem
-            {
-                Index = idx + 1,
-                Title = ch.Title,
-                StartTime = FormatDuration(ch.StartTime),
-                Duration = FormatDuration(ch.Duration),
-                IsCurrent = idx == currentIdx,
-                ProgressPercent = progressPercent,
-                Status = status
-            };
-        }).ToList();
 
         ChaptersRepeater.ItemTemplate = CreateChapterTemplate();
         ChaptersRepeater.ItemsSource = chapterItems;
@@ -395,21 +308,14 @@ public sealed partial class BookDetailPage : Page
 
     private void LoadTracks()
     {
-        if (_audioBook?.AudioFiles == null || _audioBook.AudioFiles.Count == 0)
+        var trackItems = _viewModel.GetTrackDisplayItems();
+        if (trackItems.Count == 0)
         {
             TracksPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
-        TracksHeader.Text = $"Tracks ({_audioBook.AudioFiles.Count})";
-
-        var trackItems = _audioBook.AudioFiles.Select((af, idx) => new TrackItem
-        {
-            Index = idx + 1,
-            Title = af.Filename,
-            Duration = FormatDuration(af.Duration),
-            IsDownloaded = !string.IsNullOrEmpty(af.LocalPath)
-        }).ToList();
+        TracksHeader.Text = $"Tracks ({trackItems.Count})";
 
         TracksRepeater.ItemTemplate = CreateTrackTemplate();
         TracksRepeater.ItemsSource = trackItems;
@@ -440,40 +346,16 @@ public sealed partial class BookDetailPage : Page
     {
         if (_audioBook == null) return;
 
-        if (_audioBook.IsDownloaded)
-        {
-            DownloadedBadge.Visibility = Visibility.Visible;
-            DownloadedBadgeNarrow.Visibility = Visibility.Visible;
-            DownloadIcon.Glyph = "\uE74D";
-            DownloadIconNarrow.Glyph = "\uE74D";
-            DownloadButtonText.Text = "Remove Download";
-            DownloadButtonTextNarrow.Text = "Remove Download";
-        }
-        else
-        {
-            DownloadedBadge.Visibility = Visibility.Collapsed;
-            DownloadedBadgeNarrow.Visibility = Visibility.Collapsed;
-            DownloadIcon.Glyph = "\uE896";
-            DownloadIconNarrow.Glyph = "\uE896";
-            DownloadButtonText.Text = "Download";
-            DownloadButtonTextNarrow.Text = "Download";
-        }
+        var isDownloaded = _viewModel.IsDownloaded;
+
+        DownloadedBadge.Visibility = isDownloaded ? Visibility.Visible : Visibility.Collapsed;
+        DownloadedBadgeNarrow.Visibility = isDownloaded ? Visibility.Visible : Visibility.Collapsed;
+        DownloadIcon.Glyph = isDownloaded ? "\uE74D" : "\uE896";
+        DownloadIconNarrow.Glyph = isDownloaded ? "\uE74D" : "\uE896";
+        DownloadButtonText.Text = _viewModel.DownloadButtonText;
+        DownloadButtonTextNarrow.Text = _viewModel.DownloadButtonText;
     }
 
-    private static string FormatDuration(TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours}h {ts.Minutes}m";
-        return $"{ts.Minutes}m {ts.Seconds}s";
-    }
-
-    private static string FormatSize(long bytes)
-    {
-        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:F1} GB";
-        if (bytes >= 1_048_576) return $"{bytes / 1_048_576.0:F1} MB";
-        if (bytes >= 1024) return $"{bytes / 1024.0:F1} KB";
-        return $"{bytes} bytes";
-    }
 
     private void BackButton_Click(object sender, RoutedEventArgs e)
     {
@@ -524,38 +406,13 @@ public sealed partial class BookDetailPage : Page
             PlayButtonText.Text = "Loading...";
             PlayButtonTextNarrow.Text = "Loading...";
 
-            // Refresh audiobook from DB to ensure IsDownloaded + AudioFile.LocalPath are current
-            var freshBook = await App.Services.GetRequiredService<ILocalDatabase>().GetAudioBookAsync(_audioBook.Id);
-            if (freshBook != null)
-            {
-                _audioBook = freshBook;
-            }
+            await _viewModel.PlayCommand.ExecuteAsync(null);
 
-            var loaded = await _playbackService.LoadAudioBookAsync(_audioBook);
-            if (loaded)
+            // Navigate to player if play succeeded (ViewModel loaded + started playback)
+            if (!_viewModel.IsPlayLoading)
             {
-                await _playbackService.PlayAsync();
-                _logger.Log("Playback started, navigating to player page");
                 Frame.Navigate(typeof(PlayerPage));
             }
-            else
-            {
-                _logger.LogWarning("Failed to load audiobook for playback");
-                PlayButtonText.Text = "Failed - try again";
-                PlayButtonTextNarrow.Text = "Failed - try again";
-                PlayIcon.Glyph = "\uE768";
-                PlayIconNarrow.Glyph = "\uE768";
-                await Task.Delay(3000);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("Error playing audiobook", ex);
-            PlayButtonText.Text = $"Error: {ex.Message}";
-            PlayButtonTextNarrow.Text = $"Error: {ex.Message}";
-            PlayIcon.Glyph = "\uE768";
-            PlayIconNarrow.Glyph = "\uE768";
-            await Task.Delay(3000);
         }
         finally
         {
@@ -565,12 +422,8 @@ public sealed partial class BookDetailPage : Page
             DownloadButtonNarrow.IsEnabled = true;
             PlayIcon.Glyph = "\uE768";
             PlayIconNarrow.Glyph = "\uE768";
-            if (_audioBook != null)
-            {
-                var label = _audioBook.ProgressPercent > 0 ? "Continue" : "Play";
-                PlayButtonText.Text = label;
-                PlayButtonTextNarrow.Text = label;
-            }
+            PlayButtonText.Text = _viewModel.PlayButtonText;
+            PlayButtonTextNarrow.Text = _viewModel.PlayButtonText;
         }
     }
 
@@ -583,33 +436,10 @@ public sealed partial class BookDetailPage : Page
             DownloadButton.IsEnabled = false;
             DownloadButtonNarrow.IsEnabled = false;
 
-            if (_audioBook.IsDownloaded)
-            {
-                DownloadButtonText.Text = "Removing...";
-                DownloadButtonTextNarrow.Text = "Removing...";
-                await _downloadService.DeleteDownloadAsync(_audioBook.Id);
-                _audioBook.IsDownloaded = false;
-                _audioBook.LocalPath = null;
-                foreach (var af in _audioBook.AudioFiles) af.LocalPath = null;
-                _logger.Log($"Removed download for: {_audioBook.Title}");
-            }
-            else
-            {
-                DownloadButtonText.Text = "Starting download...";
-                DownloadButtonTextNarrow.Text = "Starting download...";
-                _logger.Log($"Starting download for: {_audioBook.Title}, AudioFiles: {_audioBook.AudioFiles.Count}");
+            // Subscribe to ViewModel property changes for UI updates during download
+            _viewModel.PropertyChanged += ViewModel_DownloadPropertyChanged;
 
-                // Subscribe to download events
-                _downloadService.DownloadProgressChanged += OnDownloadProgress;
-                _downloadService.DownloadCompleted += OnDownloadCompleted;
-                _downloadService.DownloadFailed += OnDownloadFailed;
-
-                var downloadItem = await _downloadService.QueueDownloadAsync(_audioBook);
-                DownloadButtonText.Text = "Downloading...";
-                DownloadButtonTextNarrow.Text = "Downloading...";
-                _logger.Log($"Queued download for: {_audioBook.Title}, DownloadId: {downloadItem.Id}");
-            }
-
+            await _viewModel.ToggleDownloadCommand.ExecuteAsync(null);
             UpdateDownloadState();
         }
         catch (Exception ex)
@@ -627,77 +457,25 @@ public sealed partial class BookDetailPage : Page
         }
     }
 
-    private void OnDownloadProgress(object? sender, Services.DownloadProgressEventArgs e)
+    private void ViewModel_DownloadPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            var pct = Math.Min((int)e.Progress, 100); // e.Progress is already 0-100
-            DownloadButtonText.Text = $"Downloading... {pct}%";
-            DownloadButtonTextNarrow.Text = $"Downloading... {pct}%";
+            switch (e.PropertyName)
+            {
+                case nameof(BookDetailViewModel.DownloadButtonText):
+                    DownloadButtonText.Text = _viewModel.DownloadButtonText;
+                    DownloadButtonTextNarrow.Text = _viewModel.DownloadButtonText;
+                    break;
+                case nameof(BookDetailViewModel.IsDownloaded):
+                    UpdateDownloadState();
+                    break;
+                case nameof(BookDetailViewModel.IsDownloading):
+                    if (!_viewModel.IsDownloading)
+                        _viewModel.PropertyChanged -= ViewModel_DownloadPropertyChanged;
+                    break;
+            }
         });
     }
 
-    private void OnDownloadCompleted(object? sender, DownloadItem e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            _logger.Log($"Download completed for: {e.Title}");
-            if (_audioBook != null)
-                _audioBook.IsDownloaded = true;
-            UpdateDownloadState();
-
-            // Unsubscribe
-            _downloadService.DownloadProgressChanged -= OnDownloadProgress;
-            _downloadService.DownloadCompleted -= OnDownloadCompleted;
-            _downloadService.DownloadFailed -= OnDownloadFailed;
-        });
-    }
-
-    private void OnDownloadFailed(object? sender, DownloadItem e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            _logger.LogWarning($"Download failed for: {e.Title} - {e.ErrorMessage}");
-            DownloadButtonText.Text = $"Failed: {e.ErrorMessage}";
-            DownloadButtonTextNarrow.Text = $"Failed: {e.ErrorMessage}";
-
-            // Unsubscribe
-            _downloadService.DownloadProgressChanged -= OnDownloadProgress;
-            _downloadService.DownloadCompleted -= OnDownloadCompleted;
-            _downloadService.DownloadFailed -= OnDownloadFailed;
-        });
-    }
-
-    private class TrackItem
-    {
-        public int Index { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Duration { get; set; } = string.Empty;
-        public bool IsDownloaded { get; set; }
-    }
-
-    private class ChapterDisplayItem
-    {
-        public int Index { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string StartTime { get; set; } = string.Empty;
-        public string Duration { get; set; } = string.Empty;
-        public bool IsCurrent { get; set; }
-        public double ProgressPercent { get; set; }
-        public string Status { get; set; } = "upcoming"; // "done", "current", "upcoming"
-
-        public string StatusIcon => Status switch
-        {
-            "done" => "\u2713",     // checkmark
-            "current" => "\u25B6",  // play triangle
-            _ => ""
-        };
-
-        public string TitleWeight => IsCurrent ? "SemiBold" : "Normal";
-
-        public string ChapterBackground => IsCurrent ? "#1AC5A55A" : "Transparent";
-
-        public Microsoft.UI.Xaml.Visibility ProgressBarVisibility =>
-            Status == "current" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-    }
 }

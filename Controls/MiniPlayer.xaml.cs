@@ -1,9 +1,11 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Imaging;
+// BitmapImage via CoverImageService
 
 namespace NineLivesAudio.Controls;
 
@@ -18,13 +20,35 @@ public sealed partial class MiniPlayer : UserControl
 
         _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();
 
-        _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
-        _playbackService.PositionChanged += OnPositionChanged;
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
 
+        RegisterMessenger();
         UpdateUI();
     }
 
-    private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
+    private void RegisterMessenger()
+    {
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+            ((MiniPlayer)r).OnPlaybackStateChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+            ((MiniPlayer)r).OnPositionChanged(m.Value));
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // Re-subscribe in case the control was previously unloaded and re-added to visual tree
+        RegisterMessenger();
+        UpdateUI();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+    }
+
+    private void OnPlaybackStateChanged(PlaybackStateChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -33,7 +57,7 @@ public sealed partial class MiniPlayer : UserControl
         });
     }
 
-    private void OnPositionChanged(object? sender, TimeSpan position)
+    private void OnPositionChanged(TimeSpan position)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -54,21 +78,7 @@ public sealed partial class MiniPlayer : UserControl
             TitleText.Text = audioBook.Title;
             AuthorText.Text = audioBook.Author;
 
-            if (!string.IsNullOrEmpty(audioBook.CoverPath))
-            {
-                try
-                {
-                    CoverImage.Source = new BitmapImage(new Uri(audioBook.CoverPath));
-                }
-                catch
-                {
-                    CoverImage.Source = null;
-                }
-            }
-            else
-            {
-                CoverImage.Source = null;
-            }
+            CoverImage.Source = CoverImageService.LoadCover(audioBook.CoverPath);
         }
         else
         {

@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
+
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -88,15 +90,23 @@ namespace NineLivesAudio
             _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
             this.Closed += MainWindow_Closed;
 
-            // Wire MiniPlayer to playback events
-            _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
-            _playbackService.PositionChanged += OnPositionChanged;
+            // Wire MiniPlayer to playback events via Messenger
+            WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+                ((MainWindow)r).OnPlaybackStateChanged(m.Value));
+            WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+                ((MainWindow)r).OnPositionChanged(m.Value));
 
-            // Wire notification service
-            _notifications.NotificationRequested += OnNotificationRequested;
+            // Wire notification service via Messenger
+            WeakReferenceMessenger.Default.Register<NotificationRequestedMessage>(this, (r, m) =>
+            {
+                ((MainWindow)r).OnNotificationRequested(m.Value);
+            });
 
-            // Wire connectivity monitoring
-            _connectivity.ConnectivityChanged += OnConnectivityChanged;
+            // Wire connectivity monitoring via Messenger
+            WeakReferenceMessenger.Default.Register<ConnectivityChangedMessage>(this, (r, m) =>
+            {
+                ((MainWindow)r).OnConnectivityChanged(m.Value);
+            });
 
             // Kick off async init after the window content is loaded
             if (this.Content is FrameworkElement rootElement)
@@ -202,7 +212,7 @@ namespace NineLivesAudio
 
         // --- Connectivity ---
 
-        private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+        private void OnConnectivityChanged(ConnectivityChangedEventArgs e)
         {
             DispatcherQueue.TryEnqueue(() => UpdateConnectivityUI(e.IsOnline, e.IsServerReachable));
         }
@@ -360,7 +370,7 @@ namespace NineLivesAudio
 
         // --- MiniPlayer wiring ---
 
-        private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
+        private void OnPlaybackStateChanged(PlaybackStateChangedEventArgs e)
         {
             DispatcherQueue.TryEnqueue(() =>
             {
@@ -382,23 +392,12 @@ namespace NineLivesAudio
                         ? new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xC5, 0xA5, 0x5A)) // SigilGold
                         : new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8)); // StarlightDim
 
-                    if (!string.IsNullOrEmpty(book.CoverPath))
-                    {
-                        try
-                        {
-                            // Request thumbnail size (100x100) to reduce memory usage
-                            var coverUri = book.CoverPath.Contains("?")
-                                ? $"{book.CoverPath}&width=100&height=100"
-                                : $"{book.CoverPath}?width=100&height=100";
-                            MiniPlayerArt.Source = new BitmapImage(new Uri(coverUri));
-                        }
-                        catch { MiniPlayerArt.Source = null; }
-                    }
+                    MiniPlayerArt.Source = CoverImageService.LoadThumbnail(book.CoverPath);
                 }
             });
         }
 
-        private void OnPositionChanged(object? sender, TimeSpan position)
+        private void OnPositionChanged(TimeSpan position)
         {
             // Throttle mini player updates to ~4/sec
             var now = DateTime.UtcNow;
@@ -449,7 +448,7 @@ namespace NineLivesAudio
 
         // --- Notification handling ---
 
-        private void OnNotificationRequested(object? sender, NotificationEventArgs e)
+        private void OnNotificationRequested(NotificationEventArgs e)
         {
             DispatcherQueue.TryEnqueue(() =>
             {
@@ -479,10 +478,7 @@ namespace NineLivesAudio
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
-            _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
-            _playbackService.PositionChanged -= OnPositionChanged;
-            _notifications.NotificationRequested -= OnNotificationRequested;
-            _connectivity.ConnectivityChanged -= OnConnectivityChanged;
+            WeakReferenceMessenger.Default.UnregisterAll(this);
             this.Closed -= MainWindow_Closed;
 
             if (_mainViewModel is IDisposable disposable)

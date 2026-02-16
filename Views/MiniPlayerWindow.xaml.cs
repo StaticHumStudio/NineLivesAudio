@@ -1,3 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
@@ -65,9 +68,11 @@ public sealed partial class MiniPlayerWindow : Window
             titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80);
         }
 
-        // Subscribe to playback events
-        _playbackService.PositionChanged += PlaybackService_PositionChanged;
-        _playbackService.PlaybackStateChanged += PlaybackService_StateChanged;
+        // Subscribe to playback events via Messenger
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+            ((MiniPlayerWindow)r).PlaybackService_PositionChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+            ((MiniPlayerWindow)r).PlaybackService_StateChanged(m.Value));
 
         // Clean up on close
         this.Closed += OnClosed;
@@ -81,14 +86,13 @@ public sealed partial class MiniPlayerWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        _playbackService.PositionChanged -= PlaybackService_PositionChanged;
-        _playbackService.PlaybackStateChanged -= PlaybackService_StateChanged;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
         _logger.Log("[MiniPlayer] Window closed");
     }
 
     // --- Playback event handlers ---
 
-    private void PlaybackService_PositionChanged(object? sender, TimeSpan position)
+    private void PlaybackService_PositionChanged(TimeSpan position)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -100,14 +104,14 @@ public sealed partial class MiniPlayerWindow : Window
                 ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
             }
 
-            CurrentTimeText.Text = FormatTimeSpan(position);
+            CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
             var remaining = duration - position;
             if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-            RemainingTimeText.Text = $"-{FormatTimeSpan(remaining)}";
+            RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
         });
     }
 
-    private void PlaybackService_StateChanged(object? sender, PlaybackStateChangedEventArgs e)
+    private void PlaybackService_StateChanged(PlaybackStateChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -138,10 +142,10 @@ public sealed partial class MiniPlayerWindow : Window
             ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
         }
 
-        CurrentTimeText.Text = FormatTimeSpan(position);
+        CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
         var remaining = duration - position;
         if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-        RemainingTimeText.Text = $"-{FormatTimeSpan(remaining)}";
+        RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
     }
 
     // --- Button handlers ---
@@ -219,15 +223,6 @@ public sealed partial class MiniPlayerWindow : Window
         }
 
         this.Close();
-    }
-
-    // --- Helpers ---
-
-    private static string FormatTimeSpan(TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
     }
 
     // Win32 imports for title bar icon

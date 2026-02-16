@@ -1,3 +1,4 @@
+using NineLivesAudio.Helpers;
 using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -15,10 +16,7 @@ public sealed partial class HomePage : Page
     // Computed visibility: show grid when not loading and not empty
     public bool ShowGrid => !ViewModel.IsLoading && !ViewModel.ShowEmptyState;
 
-    // Touch scroll vs tap discrimination
-    private Windows.Foundation.Point? _pointerPressedPosition;
-    private object? _pointerPressedTag;
-    private const double TapDistanceThreshold = 12.0;
+    private readonly TapHelper _tapHelper = new();
 
     // Hover brush cache
     private static readonly SolidColorBrush HoverBrush =
@@ -113,41 +111,21 @@ public sealed partial class HomePage : Page
 
     private void Card_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is Grid grid && grid.Tag is NineLivesItem item)
-        {
-            var point = e.GetCurrentPoint(grid);
-            if (point.Properties.IsLeftButtonPressed)
-            {
-                _pointerPressedPosition = point.Position;
-                _pointerPressedTag = item;
-            }
-        }
+        if (sender is FrameworkElement element && element.Tag is NineLivesItem item)
+            _tapHelper.OnPointerPressed(e, element, item);
     }
 
     private void Card_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition == null) return;
-        if (sender is Grid grid)
-        {
-            var point = e.GetCurrentPoint(grid);
-            var dx = point.Position.X - _pointerPressedPosition.Value.X;
-            var dy = point.Position.Y - _pointerPressedPosition.Value.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) > TapDistanceThreshold)
-            {
-                _pointerPressedPosition = null;
-                _pointerPressedTag = null;
-            }
-        }
+        if (sender is FrameworkElement element)
+            _tapHelper.OnPointerMoved(e, element);
     }
 
     private void Card_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_pointerPressedPosition != null && _pointerPressedTag is NineLivesItem item)
-        {
+        var item = _tapHelper.OnPointerReleased<NineLivesItem>();
+        if (item != null)
             Frame.Navigate(typeof(BookDetailPage), item.AudioBook);
-        }
-        _pointerPressedPosition = null;
-        _pointerPressedTag = null;
     }
 
     private void GoToLibrary_Click(object sender, RoutedEventArgs e)

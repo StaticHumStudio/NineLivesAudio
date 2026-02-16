@@ -1,8 +1,11 @@
-using NineLivesAudio.Data;
-using NineLivesAudio.Models;
-using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using System.Collections.ObjectModel;
 
 namespace NineLivesAudio.ViewModels;
@@ -34,6 +37,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     private readonly ILoggingService _logger;
     private readonly INotificationService _notifications;
     private readonly IMetadataNormalizer _normalizer;
+    private readonly ILibraryFilterService _filterService;
 
     // Debounce timer for search
     private CancellationTokenSource? _searchDebounceToken;
@@ -41,6 +45,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
 
     // Cache for normalized metadata (avoid recomputing on every render)
     private readonly Dictionary<string, NormalizedMetadata> _normalizedCache = new();
+    private const int NormalizedCacheMaxSize = 500;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -100,7 +105,8 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         ISyncService syncService,
         ILoggingService logger,
         INotificationService notifications,
-        IMetadataNormalizer normalizer)
+        IMetadataNormalizer normalizer,
+        ILibraryFilterService filterService)
     {
         _apiService = apiService;
         _database = database;
@@ -110,10 +116,13 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         _logger = logger;
         _notifications = notifications;
         _normalizer = normalizer;
+        _filterService = filterService;
 
         // Subscribe to download events for toasts
-        _downloadService.DownloadCompleted += OnDownloadCompleted;
-        _downloadService.DownloadFailed += OnDownloadFailed;
+        WeakReferenceMessenger.Default.Register<DownloadCompletedMessage>(this, (r, m) =>
+            ((LibraryViewModel)r).OnDownloadCompleted(m.Value));
+        WeakReferenceMessenger.Default.Register<DownloadFailedMessage>(this, (r, m) =>
+            ((LibraryViewModel)r).OnDownloadFailed(m.Value));
     }
 
     /// <summary>
@@ -123,6 +132,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     {
         if (!_normalizedCache.TryGetValue(book.Id, out var cached))
         {
+            // Evict entire cache if it exceeds max size to prevent unbounded growth
+            if (_normalizedCache.Count >= NormalizedCacheMaxSize)
+                _normalizedCache.Clear();
+
             cached = _normalizer.Normalize(book);
             _normalizedCache[book.Id] = cached;
         }
@@ -155,8 +168,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         _searchDebounceToken?.Dispose();
         _searchDebounceToken = null;
 
-        _downloadService.DownloadCompleted -= OnDownloadCompleted;
-        _downloadService.DownloadFailed -= OnDownloadFailed;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     [RelayCommand]
@@ -374,7 +386,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnDownloadCompleted(object? sender, DownloadItem item)
+    private void OnDownloadCompleted(DownloadItem item)
     {
         _notifications.ShowSuccess($"Download complete: {item.Title}");
 
@@ -388,7 +400,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnDownloadFailed(object? sender, DownloadItem item)
+    private void OnDownloadFailed(DownloadItem item)
     {
         _notifications.ShowError($"{item.Title}: {item.ErrorMessage}", "Download Failed");
     }
@@ -459,28 +471,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     private void UpdateAvailableGroups()
     {
         AvailableGroups.Clear();
-
-        IEnumerable<string> groups = CurrentViewMode switch
-        {
-            ViewMode.Series => AudioBooks
-                .Select(b => GetNormalized(b).SeriesName)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Cast<string>()
-                .Distinct()
-                .OrderBy(s => s),
-            ViewMode.Author => AudioBooks
-                .Select(b => GetNormalized(b).DisplayAuthor)
-                .Where(a => !string.IsNullOrEmpty(a))
-                .Distinct()
-                .OrderBy(a => a),
-            ViewMode.Genre => AudioBooks
-                .SelectMany(b => b.Genres)
-                .Where(g => !string.IsNullOrEmpty(g))
-                .Distinct()
-                .OrderBy(g => g),
-            _ => Enumerable.Empty<string>()
-        };
-
+        var groups = _filterService.GetAvailableGroups(AudioBooks, CurrentViewMode, GetNormalized);
         foreach (var group in groups)
         {
             AvailableGroups.Add(group);
@@ -492,63 +483,19 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         try
         {
             _logger.LogDebug($"ApplyFilter called. SearchQuery: '{SearchQuery}', ViewMode: {CurrentViewMode}, AudioBooks count: {AudioBooks.Count}");
-            FilteredAudioBooks.Clear();
 
-            // Start with all audiobooks
-            var filtered = AudioBooks.AsEnumerable();
-
-            // Apply view mode filter (use normalized metadata)
-            if (CurrentViewMode != ViewMode.All && !string.IsNullOrEmpty(SelectedGroupFilter))
+            var options = new FilterOptions
             {
-                filtered = CurrentViewMode switch
-                {
-                    ViewMode.Series => filtered
-                        .Where(b => GetNormalized(b).SeriesName == SelectedGroupFilter)
-                        .OrderBy(b => GetNormalized(b).SeriesNumber ?? double.MaxValue),
-                    ViewMode.Author => filtered
-                        .Where(b => GetNormalized(b).DisplayAuthor == SelectedGroupFilter),
-                    ViewMode.Genre => filtered
-                        .Where(b => b.Genres.Contains(SelectedGroupFilter)),
-                    _ => filtered
-                };
-            }
-
-            // Apply hide-finished filter
-            if (HideFinished)
-            {
-                filtered = filtered.Where(b => !b.IsFinished && b.Progress < 1.0);
-            }
-
-            // Apply downloaded-only filter
-            if (ShowDownloadedOnly)
-            {
-                filtered = filtered.Where(b => b.IsDownloaded);
-            }
-
-            // Apply search filter (use normalized SearchText for efficiency)
-            if (!string.IsNullOrWhiteSpace(SearchQuery))
-            {
-                var searchLower = SearchQuery.ToLowerInvariant();
-                filtered = filtered.Where(b => GetNormalized(b).SearchText.Contains(searchLower));
-            }
-
-            // Apply sort
-            var sorted = CurrentSortMode switch
-            {
-                SortMode.Title => filtered.OrderBy(b => b.Title),
-                SortMode.Author => filtered.OrderBy(b => b.Author).ThenBy(b => b.Title),
-                SortMode.Progress => filtered.OrderByDescending(b => b.Progress).ThenBy(b => b.Title),
-                SortMode.RecentProgress => filtered
-                    .OrderByDescending(b => b.Progress > 0 ? 1 : 0)
-                    .ThenByDescending(b => b.CurrentTime.TotalSeconds)
-                    .ThenBy(b => b.Title),
-                _ => filtered // Default: server order
+                ViewMode = CurrentViewMode,
+                SortMode = CurrentSortMode,
+                SelectedGroupFilter = SelectedGroupFilter,
+                SearchQuery = SearchQuery,
+                HideFinished = HideFinished,
+                ShowDownloadedOnly = ShowDownloadedOnly
             };
 
-            foreach (var book in sorted.ToList())
-            {
-                FilteredAudioBooks.Add(book);
-            }
+            var results = _filterService.ApplyFilters(AudioBooks, options, GetNormalized);
+            ReplaceFilteredCollection(results);
 
             UpdateShowEmptyState();
             _logger.LogDebug($"ApplyFilter completed. Filtered count: {FilteredAudioBooks.Count}");
@@ -556,6 +503,34 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError("ApplyFilter failed", ex);
+        }
+    }
+
+    /// <summary>
+    /// Replaces the contents of FilteredAudioBooks with minimal notifications.
+    /// Avoids the N+1 notification storm of Clear + individual Add calls.
+    /// </summary>
+    private void ReplaceFilteredCollection(IReadOnlyList<AudioBook> newItems)
+    {
+        // Short-circuit: if contents are identical, skip entirely
+        if (FilteredAudioBooks.Count == newItems.Count)
+        {
+            bool same = true;
+            for (int i = 0; i < newItems.Count; i++)
+            {
+                if (!ReferenceEquals(FilteredAudioBooks[i], newItems[i]))
+                {
+                    same = false;
+                    break;
+                }
+            }
+            if (same) return;
+        }
+
+        FilteredAudioBooks.Clear();
+        foreach (var book in newItems)
+        {
+            FilteredAudioBooks.Add(book);
         }
     }
 
@@ -586,5 +561,92 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                 EmptyStateSubtitle = "Try changing your filters.";
             }
         }
+    }
+
+    // --- Grouping logic (extracted from LibraryPage code-behind) ---
+
+    /// <summary>
+    /// Creates group items for the current view mode (Series, Author, or Genre).
+    /// </summary>
+    public IReadOnlyList<LibraryGroupItem> CreateGroups()
+    {
+        return CurrentViewMode switch
+        {
+            ViewMode.Series => CreateSeriesGroups(),
+            ViewMode.Author => CreateAuthorGroups(),
+            ViewMode.Genre => CreateGenreGroups(),
+            _ => Array.Empty<LibraryGroupItem>()
+        };
+    }
+
+    /// <summary>
+    /// Gets the books belonging to a specific group, ordered appropriately.
+    /// </summary>
+    public IReadOnlyList<AudioBook> GetBooksForGroup(string groupName)
+    {
+        return CurrentViewMode switch
+        {
+            ViewMode.Series => AudioBooks
+                .Where(b => b.SeriesName == groupName)
+                .OrderBy(b => SeriesHelper.ParseSequence(b.SeriesSequence))
+                .ToList(),
+            ViewMode.Author => AudioBooks
+                .Where(b => b.Author == groupName)
+                .OrderBy(b => b.Title)
+                .ToList(),
+            ViewMode.Genre => AudioBooks
+                .Where(b => b.Genres.Contains(groupName))
+                .OrderBy(b => b.Title)
+                .ToList(),
+            _ => Array.Empty<AudioBook>()
+        };
+    }
+
+    private List<LibraryGroupItem> CreateSeriesGroups()
+    {
+        return AudioBooks
+            .Where(b => !string.IsNullOrEmpty(b.SeriesName))
+            .GroupBy(b => b.SeriesName!)
+            .Select(g => new LibraryGroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.OrderBy(b => SeriesHelper.ParseSequence(b.SeriesSequence)).FirstOrDefault()?.CoverPath,
+                Icon = "\uE8F1"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
+    }
+
+    private List<LibraryGroupItem> CreateAuthorGroups()
+    {
+        return AudioBooks
+            .Where(b => !string.IsNullOrEmpty(b.Author))
+            .GroupBy(b => b.Author)
+            .Select(g => new LibraryGroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.FirstOrDefault()?.CoverPath,
+                Icon = "\uE77B"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
+    }
+
+    private List<LibraryGroupItem> CreateGenreGroups()
+    {
+        return AudioBooks
+            .SelectMany(b => b.Genres.Select(g => new { Genre = g, Book = b }))
+            .GroupBy(x => x.Genre)
+            .Select(g => new LibraryGroupItem
+            {
+                Name = g.Key,
+                BookCount = g.Count(),
+                CoverUrl = g.FirstOrDefault()?.Book.CoverPath,
+                Icon = "\uE8D6"
+            })
+            .OrderBy(g => g.Name)
+            .ToList();
     }
 }

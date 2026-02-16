@@ -1,9 +1,11 @@
-using NineLivesAudio.Data;
-using NineLivesAudio.Helpers;
-using NineLivesAudio.Models;
-using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using System.Collections.ObjectModel;
 
 namespace NineLivesAudio.ViewModels;
@@ -42,18 +44,17 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _normalizer = normalizer;
 
         // Reload Nine Lives whenever a sync completes (progress data may have changed)
-        _syncService.SyncCompleted += OnSyncCompleted;
-    }
-
-    private void OnSyncCompleted(object? sender, SyncEventArgs e)
-    {
-        _logger.Log("[Home] Sync completed, reloading Nine Lives...");
-        _dispatcherQueue?.TryEnqueue(() => _ = LoadAsync());
+        WeakReferenceMessenger.Default.Register<SyncCompletedMessage>(this, (r, m) =>
+        {
+            var self = (HomeViewModel)r;
+            self._logger.Log("[Home] Sync completed, reloading Nine Lives...");
+            self._dispatcherQueue?.TryEnqueue(() => _ = self.LoadAsync());
+        });
     }
 
     public void Dispose()
     {
-        _syncService.SyncCompleted -= OnSyncCompleted;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     public async Task LoadAsync()

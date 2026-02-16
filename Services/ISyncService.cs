@@ -7,10 +7,6 @@ public interface ISyncService
     bool IsSyncing { get; }
     DateTime? LastSyncTime { get; }
 
-    event EventHandler<SyncEventArgs>? SyncStarted;
-    event EventHandler<SyncEventArgs>? SyncCompleted;
-    event EventHandler<SyncErrorEventArgs>? SyncFailed;
-
     Task StartAsync();
     Task StopAsync();
     Task SyncNowAsync();

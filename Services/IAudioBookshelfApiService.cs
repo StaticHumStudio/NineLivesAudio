@@ -37,8 +37,7 @@ public interface IAudioBookshelfApiService
     Task<bool> CreateBookmarkAsync(string itemId, string title, double time);
     Task<bool> DeleteBookmarkAsync(string itemId, double time);
 
-    // Reconnection
-    event EventHandler<ReconnectionEventArgs>? ReconnectionAttempted;
+    // Reconnection (event migrated to WeakReferenceMessenger: ReconnectionAttemptedMessage)
     Task<bool> TryReconnectAsync();
 }
 

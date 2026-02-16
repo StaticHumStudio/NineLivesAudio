@@ -1,6 +1,10 @@
 using NineLivesAudio.Models;
 using Microsoft.Data.Sqlite;
+using System.Globalization;
 using System.Text.Json;
+using T = NineLivesAudio.Data.Db.Tables;
+using PP = NineLivesAudio.Data.Db.Progress;
+using PPU = NineLivesAudio.Data.Db.PendingProgress;
 
 namespace NineLivesAudio.Data;
 
@@ -18,12 +22,24 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         _dbPath = Path.Combine(appFolder, "audiobookshelf.db");
     }
 
+    /// <summary>
+    /// Constructor for testing — accepts a pre-opened connection.
+    /// </summary>
+    internal LocalDatabase(SqliteConnection connection)
+    {
+        _dbPath = ":memory:";
+        _connection = connection;
+    }
+
     public async Task InitializeAsync()
     {
         if (_initialized) return;
 
-        _connection = new SqliteConnection($"Data Source={_dbPath}");
-        await _connection.OpenAsync();
+        if (_connection == null)
+        {
+            _connection = new SqliteConnection($"Data Source={_dbPath}");
+            await _connection.OpenAsync();
+        }
 
         await CreateTablesAsync();
         await MigrateAsync();
@@ -35,26 +51,44 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         // Add new columns if they don't exist (for existing databases)
         var columnsToAdd = new[]
         {
-            ("AudioBooks", "SeriesName", "TEXT"),
-            ("AudioBooks", "SeriesSequence", "TEXT"),
-            ("AudioBooks", "GenresJson", "TEXT"),
-            ("AudioBooks", "TagsJson", "TEXT"),
-            ("AudioBooks", "ChaptersJson", "TEXT"),
+            (T.AudioBooks, Db.AudioBook.SeriesName, "TEXT"),
+            (T.AudioBooks, Db.AudioBook.SeriesSequence, "TEXT"),
+            (T.AudioBooks, Db.AudioBook.GenresJson, "TEXT"),
+            (T.AudioBooks, Db.AudioBook.TagsJson, "TEXT"),
+            (T.AudioBooks, Db.AudioBook.ChaptersJson, "TEXT"),
         };
 
         foreach (var (table, column, type) in columnsToAdd)
         {
+            if (await ColumnExistsAsync(table, column))
+                continue;
+
             try
             {
                 var cmd = _connection!.CreateCommand();
+                // Table/column names come from compile-time constants above, not user input
                 cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
                 await cmd.ExecuteNonQueryAsync();
             }
-            catch (SqliteException)
+            catch (SqliteException ex)
             {
-                // Column already exists, ignore
+                // Log actual failures instead of silently swallowing
+                System.Diagnostics.Debug.WriteLine($"[DB Migration] Failed to add {table}.{column}: {ex.Message}");
             }
         }
+    }
+
+    private async Task<bool> ColumnExistsAsync(string table, string column)
+    {
+        var cmd = _connection!.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     private async Task CreateTablesAsync()
@@ -135,19 +169,20 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             throw new InvalidOperationException("Database not initialized. Call InitializeAsync first.");
     }
 
-    // AudioBooks
+    // ── AudioBooks ──────────────────────────────────────────────────────
+
     public async Task<List<AudioBook>> GetAllAudioBooksAsync()
     {
         EnsureInitialized();
         var audioBooks = new List<AudioBook>();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM AudioBooks ORDER BY Title";
+        command.CommandText = $"SELECT * FROM {T.AudioBooks} ORDER BY Title";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            audioBooks.Add(ReadAudioBook(reader));
+            audioBooks.Add(AudioBookMapper.Map((SqliteDataReader)reader));
         }
 
         return audioBooks;
@@ -158,13 +193,13 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM AudioBooks WHERE Id = @id";
+        command.CommandText = $"SELECT * FROM {T.AudioBooks} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
 
         using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            return ReadAudioBook(reader);
+            return AudioBookMapper.Map((SqliteDataReader)reader);
         }
 
         return null;
@@ -185,7 +220,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
              @audioFilesJson, @currentTimeSeconds, @progress, @isFinished, @isDownloaded, @localPath,
              @seriesName, @seriesSequence, @genresJson, @tagsJson, @chaptersJson)";
 
-        AddAudioBookParameters(command, audioBook);
+        AudioBookMapper.AddParameters(command, audioBook);
         await command.ExecuteNonQueryAsync();
     }
 
@@ -199,24 +234,25 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "DELETE FROM AudioBooks WHERE Id = @id";
+        command.CommandText = $"DELETE FROM {T.AudioBooks} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
     }
 
-    // Libraries
+    // ── Libraries ───────────────────────────────────────────────────────
+
     public async Task<List<Library>> GetAllLibrariesAsync()
     {
         EnsureInitialized();
         var libraries = new List<Library>();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM Libraries ORDER BY DisplayOrder";
+        command.CommandText = $"SELECT * FROM {T.Libraries} ORDER BY DisplayOrder";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            libraries.Add(ReadLibrary(reader));
+            libraries.Add(LibraryMapper.Map((SqliteDataReader)reader));
         }
 
         return libraries;
@@ -227,13 +263,13 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM Libraries WHERE Id = @id";
+        command.CommandText = $"SELECT * FROM {T.Libraries} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
 
         using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            return ReadLibrary(reader);
+            return LibraryMapper.Map((SqliteDataReader)reader);
         }
 
         return null;
@@ -244,8 +280,8 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            INSERT OR REPLACE INTO Libraries (Id, Name, DisplayOrder, Icon, MediaType, FoldersJson)
+        command.CommandText = $@"
+            INSERT OR REPLACE INTO {T.Libraries} (Id, Name, DisplayOrder, Icon, MediaType, FoldersJson)
             VALUES (@id, @name, @displayOrder, @icon, @mediaType, @foldersJson)";
 
         command.Parameters.AddWithValue("@id", library.Id);
@@ -268,24 +304,25 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "DELETE FROM Libraries WHERE Id = @id";
+        command.CommandText = $"DELETE FROM {T.Libraries} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
     }
 
-    // Downloads
+    // ── Downloads ────────────────────────────────────────────────────────
+
     public async Task<List<DownloadItem>> GetAllDownloadItemsAsync()
     {
         EnsureInitialized();
         var downloads = new List<DownloadItem>();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM DownloadItems ORDER BY StartedAt DESC";
+        command.CommandText = $"SELECT * FROM {T.DownloadItems} ORDER BY StartedAt DESC";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            downloads.Add(ReadDownloadItem(reader));
+            downloads.Add(DownloadItemMapper.Map((SqliteDataReader)reader));
         }
 
         return downloads;
@@ -296,13 +333,13 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT * FROM DownloadItems WHERE Id = @id";
+        command.CommandText = $"SELECT * FROM {T.DownloadItems} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
 
         using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            return ReadDownloadItem(reader);
+            return DownloadItemMapper.Map((SqliteDataReader)reader);
         }
 
         return null;
@@ -313,8 +350,8 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            INSERT OR REPLACE INTO DownloadItems
+        command.CommandText = $@"
+            INSERT OR REPLACE INTO {T.DownloadItems}
             (Id, AudioBookId, Title, Status, TotalBytes, DownloadedBytes, StartedAt, CompletedAt, ErrorMessage, FilesToDownloadJson)
             VALUES
             (@id, @audioBookId, @title, @status, @totalBytes, @downloadedBytes, @startedAt, @completedAt, @errorMessage, @filesToDownloadJson)";
@@ -343,19 +380,20 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "DELETE FROM DownloadItems WHERE Id = @id";
+        command.CommandText = $"DELETE FROM {T.DownloadItems} WHERE Id = @id";
         command.Parameters.AddWithValue("@id", id);
         await command.ExecuteNonQueryAsync();
     }
 
-    // Playback Progress
+    // ── Playback Progress ───────────────────────────────────────────────
+
     public async Task SavePlaybackProgressAsync(string audioBookId, TimeSpan position, bool isFinished, DateTime? updatedAt = null)
     {
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            INSERT OR REPLACE INTO PlaybackProgress (AudioBookId, PositionSeconds, IsFinished, UpdatedAt)
+        command.CommandText = $@"
+            INSERT OR REPLACE INTO {T.PlaybackProgress} ({PP.AudioBookId}, {PP.PositionSeconds}, {PP.IsFinished}, {PP.UpdatedAt})
             VALUES (@audioBookId, @positionSeconds, @isFinished, @updatedAt)";
 
         command.Parameters.AddWithValue("@audioBookId", audioBookId);
@@ -371,15 +409,15 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT PositionSeconds, IsFinished FROM PlaybackProgress WHERE AudioBookId = @audioBookId";
+        command.CommandText = $"SELECT {PP.PositionSeconds}, {PP.IsFinished} FROM {T.PlaybackProgress} WHERE {PP.AudioBookId} = @audioBookId";
         command.Parameters.AddWithValue("@audioBookId", audioBookId);
 
-        using var reader = await command.ExecuteReaderAsync();
+        using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            var positionSeconds = reader.GetDouble(0);
-            var isFinished = reader.GetInt32(1) == 1;
-            return (TimeSpan.FromSeconds(positionSeconds), isFinished);
+            var positionSeconds = reader.GetDoubleOrDefault(PP.PositionSeconds);
+            var finished = reader.GetBoolFromInt(PP.IsFinished);
+            return (TimeSpan.FromSeconds(positionSeconds), finished);
         }
 
         return null;
@@ -390,31 +428,29 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT PositionSeconds, IsFinished, UpdatedAt FROM PlaybackProgress WHERE AudioBookId = @audioBookId";
+        command.CommandText = $"SELECT {PP.PositionSeconds}, {PP.IsFinished}, {PP.UpdatedAt} FROM {T.PlaybackProgress} WHERE {PP.AudioBookId} = @audioBookId";
         command.Parameters.AddWithValue("@audioBookId", audioBookId);
 
-        using var reader = await command.ExecuteReaderAsync();
+        using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            var positionSeconds = reader.GetDouble(0);
-            var isFinished = reader.GetInt32(1) == 1;
-            var updatedAtStr = reader.GetString(2);
-            var updatedAt = DateTime.TryParse(updatedAtStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
-                ? dt
-                : DateTime.MinValue;
-            return (TimeSpan.FromSeconds(positionSeconds), isFinished, updatedAt);
+            var positionSeconds = reader.GetDoubleOrDefault(PP.PositionSeconds);
+            var finished = reader.GetBoolFromInt(PP.IsFinished);
+            var updatedAtDt = reader.GetNullableDateTime(PP.UpdatedAt) ?? DateTime.MinValue;
+            return (TimeSpan.FromSeconds(positionSeconds), finished, updatedAtDt);
         }
 
         return null;
     }
 
-    // Offline Progress Queue
+    // ── Offline Progress Queue ──────────────────────────────────────────
+
     public async Task EnqueuePendingProgressAsync(string itemId, double currentTime, bool isFinished)
     {
         EnsureInitialized();
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            INSERT INTO PendingProgressUpdates (ItemId, CurrentTime, IsFinished, Timestamp)
+        command.CommandText = $@"
+            INSERT INTO {T.PendingProgressUpdates} ({PPU.ItemId}, {PPU.CurrentTime}, {PPU.IsFinished}, {PPU.Timestamp})
             VALUES (@itemId, @currentTime, @isFinished, @timestamp)";
         command.Parameters.AddWithValue("@itemId", itemId);
         command.Parameters.AddWithValue("@currentTime", currentTime);
@@ -428,16 +464,16 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
         var entries = new List<PendingProgressEntry>();
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT ItemId, CurrentTime, IsFinished, Timestamp FROM PendingProgressUpdates ORDER BY Timestamp ASC";
-        using var reader = await command.ExecuteReaderAsync();
+        command.CommandText = $"SELECT {PPU.ItemId}, {PPU.CurrentTime}, {PPU.IsFinished}, {PPU.Timestamp} FROM {T.PendingProgressUpdates} ORDER BY {PPU.Timestamp} ASC";
+        using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
             entries.Add(new PendingProgressEntry
             {
-                ItemId = reader.GetString(0),
-                CurrentTime = reader.GetDouble(1),
-                IsFinished = reader.GetInt32(2) == 1,
-                Timestamp = DateTime.Parse(reader.GetString(3))
+                ItemId = reader.GetString(reader.GetOrdinal(PPU.ItemId)),
+                CurrentTime = reader.GetDoubleOrDefault(PPU.CurrentTime),
+                IsFinished = reader.GetBoolFromInt(PPU.IsFinished),
+                Timestamp = reader.GetNullableDateTime(PPU.Timestamp) ?? DateTime.MinValue
             });
         }
         return entries;
@@ -447,7 +483,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     {
         EnsureInitialized();
         var command = _connection!.CreateCommand();
-        command.CommandText = "DELETE FROM PendingProgressUpdates";
+        command.CommandText = $"DELETE FROM {T.PendingProgressUpdates}";
         await command.ExecuteNonQueryAsync();
     }
 
@@ -459,7 +495,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
         var command = _connection!.CreateCommand();
         var placeholders = string.Join(",", itemIdsList.Select((_, i) => $"@id{i}"));
-        command.CommandText = $"DELETE FROM PendingProgressUpdates WHERE ItemId IN ({placeholders})";
+        command.CommandText = $"DELETE FROM {T.PendingProgressUpdates} WHERE {PPU.ItemId} IN ({placeholders})";
         for (int i = 0; i < itemIdsList.Count; i++)
         {
             command.Parameters.AddWithValue($"@id{i}", itemIdsList[i]);
@@ -471,39 +507,38 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     {
         EnsureInitialized();
         var command = _connection!.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM PendingProgressUpdates";
+        command.CommandText = $"SELECT COUNT(*) FROM {T.PendingProgressUpdates}";
         return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
 
-    // Nine Lives (recently played)
+    // ── Nine Lives (recently played) ────────────────────────────────────
+
     public async Task<List<(AudioBook Book, DateTime LastPlayedAt)>> GetRecentlyPlayedAsync(int limit = 9)
     {
         EnsureInitialized();
         var results = new List<(AudioBook Book, DateTime LastPlayedAt)>();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            SELECT ab.*, pp.UpdatedAt AS LastPlayedAt FROM AudioBooks ab
-            INNER JOIN PlaybackProgress pp ON ab.Id = pp.AudioBookId
-            ORDER BY pp.UpdatedAt DESC
+        command.CommandText = $@"
+            SELECT ab.*, pp.{PP.UpdatedAt} AS LastPlayedAt FROM {T.AudioBooks} ab
+            INNER JOIN {T.PlaybackProgress} pp ON ab.Id = pp.{PP.AudioBookId}
+            ORDER BY pp.{PP.UpdatedAt} DESC
             LIMIT @limit";
         command.Parameters.AddWithValue("@limit", limit);
 
-        using var reader = await command.ExecuteReaderAsync();
+        using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            var book = ReadAudioBook(reader);
-            var lastPlayedOrd = reader.GetOrdinal("LastPlayedAt");
-            var lastPlayed = reader.IsDBNull(lastPlayedOrd)
-                ? DateTime.MinValue
-                : DateTime.Parse(reader.GetString(lastPlayedOrd));
+            var book = AudioBookMapper.Map(reader);
+            var lastPlayed = reader.GetNullableDateTime("LastPlayedAt") ?? DateTime.MinValue;
             results.Add((book, lastPlayed));
         }
 
         return results;
     }
 
-    // Bulk operations
+    // ── Bulk operations ─────────────────────────────────────────────────
+
     public async Task SaveAudioBooksAsync(IEnumerable<AudioBook> audioBooks)
     {
         EnsureInitialized();
@@ -549,112 +584,13 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         EnsureInitialized();
 
         var command = _connection!.CreateCommand();
-        command.CommandText = @"
-            DELETE FROM AudioBooks;
-            DELETE FROM Libraries;
-            DELETE FROM DownloadItems;
-            DELETE FROM PlaybackProgress;
+        command.CommandText = $@"
+            DELETE FROM {T.AudioBooks};
+            DELETE FROM {T.Libraries};
+            DELETE FROM {T.DownloadItems};
+            DELETE FROM {T.PlaybackProgress};
         ";
         await command.ExecuteNonQueryAsync();
-    }
-
-    // Helper methods
-    private static string? GetNullableString(SqliteDataReader reader, string column)
-    {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-    }
-
-    private AudioBook ReadAudioBook(SqliteDataReader reader)
-    {
-        var audioFilesJson = GetNullableString(reader, "AudioFilesJson") ?? "[]";
-        var genresJson = GetNullableString(reader, "GenresJson") ?? "[]";
-        var tagsJson = GetNullableString(reader, "TagsJson") ?? "[]";
-        var chaptersJson = GetNullableString(reader, "ChaptersJson") ?? "[]";
-
-        return new AudioBook
-        {
-            Id = reader.GetString(reader.GetOrdinal("Id")),
-            Title = reader.GetString(reader.GetOrdinal("Title")),
-            Author = GetNullableString(reader, "Author") ?? string.Empty,
-            Narrator = GetNullableString(reader, "Narrator"),
-            Description = GetNullableString(reader, "Description"),
-            CoverPath = GetNullableString(reader, "CoverPath"),
-            Duration = TimeSpan.FromSeconds(reader.GetDouble(reader.GetOrdinal("DurationSeconds"))),
-            AddedAt = reader.IsDBNull(reader.GetOrdinal("AddedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("AddedAt"))),
-            AudioFiles = JsonSerializer.Deserialize<List<AudioFile>>(audioFilesJson) ?? new List<AudioFile>(),
-            SeriesName = GetNullableString(reader, "SeriesName"),
-            SeriesSequence = GetNullableString(reader, "SeriesSequence"),
-            Genres = JsonSerializer.Deserialize<List<string>>(genresJson) ?? new List<string>(),
-            Tags = JsonSerializer.Deserialize<List<string>>(tagsJson) ?? new List<string>(),
-            Chapters = JsonSerializer.Deserialize<List<Chapter>>(chaptersJson) ?? new List<Chapter>(),
-            CurrentTime = TimeSpan.FromSeconds(reader.GetDouble(reader.GetOrdinal("CurrentTimeSeconds"))),
-            Progress = reader.GetDouble(reader.GetOrdinal("Progress")),
-            IsFinished = reader.GetInt32(reader.GetOrdinal("IsFinished")) == 1,
-            IsDownloaded = reader.GetInt32(reader.GetOrdinal("IsDownloaded")) == 1,
-            LocalPath = GetNullableString(reader, "LocalPath")
-        };
-    }
-
-    private Library ReadLibrary(SqliteDataReader reader)
-    {
-        var foldersJson = reader.IsDBNull(reader.GetOrdinal("FoldersJson"))
-            ? "[]"
-            : reader.GetString(reader.GetOrdinal("FoldersJson"));
-
-        return new Library
-        {
-            Id = reader.GetString(reader.GetOrdinal("Id")),
-            Name = reader.GetString(reader.GetOrdinal("Name")),
-            DisplayOrder = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
-            Icon = reader.IsDBNull(reader.GetOrdinal("Icon")) ? "audiobook" : reader.GetString(reader.GetOrdinal("Icon")),
-            MediaType = reader.IsDBNull(reader.GetOrdinal("MediaType")) ? "book" : reader.GetString(reader.GetOrdinal("MediaType")),
-            Folders = JsonSerializer.Deserialize<List<Folder>>(foldersJson) ?? new List<Folder>()
-        };
-    }
-
-    private DownloadItem ReadDownloadItem(SqliteDataReader reader)
-    {
-        var filesToDownloadJson = reader.IsDBNull(reader.GetOrdinal("FilesToDownloadJson"))
-            ? "[]"
-            : reader.GetString(reader.GetOrdinal("FilesToDownloadJson"));
-
-        return new DownloadItem
-        {
-            Id = reader.GetString(reader.GetOrdinal("Id")),
-            AudioBookId = reader.GetString(reader.GetOrdinal("AudioBookId")),
-            Title = reader.GetString(reader.GetOrdinal("Title")),
-            Status = (DownloadStatus)reader.GetInt32(reader.GetOrdinal("Status")),
-            TotalBytes = reader.GetInt64(reader.GetOrdinal("TotalBytes")),
-            DownloadedBytes = reader.GetInt64(reader.GetOrdinal("DownloadedBytes")),
-            StartedAt = reader.IsDBNull(reader.GetOrdinal("StartedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("StartedAt"))),
-            CompletedAt = reader.IsDBNull(reader.GetOrdinal("CompletedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("CompletedAt"))),
-            ErrorMessage = reader.IsDBNull(reader.GetOrdinal("ErrorMessage")) ? null : reader.GetString(reader.GetOrdinal("ErrorMessage")),
-            FilesToDownload = JsonSerializer.Deserialize<List<string>>(filesToDownloadJson) ?? new List<string>()
-        };
-    }
-
-    private void AddAudioBookParameters(SqliteCommand command, AudioBook audioBook)
-    {
-        command.Parameters.AddWithValue("@id", audioBook.Id);
-        command.Parameters.AddWithValue("@title", audioBook.Title);
-        command.Parameters.AddWithValue("@author", audioBook.Author ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@narrator", audioBook.Narrator ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@description", audioBook.Description ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@coverPath", audioBook.CoverPath ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@durationSeconds", audioBook.Duration.TotalSeconds);
-        command.Parameters.AddWithValue("@addedAt", audioBook.AddedAt?.ToString("O") ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@audioFilesJson", JsonSerializer.Serialize(audioBook.AudioFiles));
-        command.Parameters.AddWithValue("@currentTimeSeconds", audioBook.CurrentTime.TotalSeconds);
-        command.Parameters.AddWithValue("@progress", audioBook.Progress);
-        command.Parameters.AddWithValue("@isFinished", audioBook.IsFinished ? 1 : 0);
-        command.Parameters.AddWithValue("@isDownloaded", audioBook.IsDownloaded ? 1 : 0);
-        command.Parameters.AddWithValue("@localPath", audioBook.LocalPath ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@seriesName", audioBook.SeriesName ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@seriesSequence", audioBook.SeriesSequence ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@genresJson", JsonSerializer.Serialize(audioBook.Genres));
-        command.Parameters.AddWithValue("@tagsJson", JsonSerializer.Serialize(audioBook.Tags));
-        command.Parameters.AddWithValue("@chaptersJson", JsonSerializer.Serialize(audioBook.Chapters));
     }
 
     public void Dispose()

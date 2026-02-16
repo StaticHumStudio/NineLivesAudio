@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NineLivesAudio.Services;
+using NineLivesAudio.Services.Playback;
 using NineLivesAudio.ViewModels;
 using NineLivesAudio.Views;
 using NineLivesAudio.Data;
@@ -50,6 +51,8 @@ public partial class App : Application
                 services.AddSingleton<INotificationService, NotificationService>();
                 services.AddSingleton<IMetadataNormalizer, MetadataNormalizer>();
                 services.AddSingleton<IPlaybackSourceResolver, PlaybackSourceResolver>();
+                services.AddSingleton<ILibraryFilterService, LibraryFilterService>();
+                services.AddSingleton<ITrackManager, TrackManager>();
 
                 // ViewModels
                 services.AddTransient<MainViewModel>();
@@ -58,6 +61,7 @@ public partial class App : Application
                 services.AddTransient<PlayerViewModel>();
                 services.AddTransient<DownloadsViewModel>();
                 services.AddTransient<SettingsViewModel>();
+                services.AddTransient<BookDetailViewModel>();
 
                 // Main Window
                 services.AddSingleton<MainWindow>();

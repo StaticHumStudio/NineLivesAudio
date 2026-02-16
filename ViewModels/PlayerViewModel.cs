@@ -1,8 +1,11 @@
-using NineLivesAudio.Models;
-using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
+using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 
 namespace NineLivesAudio.ViewModels;
 
@@ -65,8 +68,10 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         Volume = _playbackService.Volume;
         PlaybackSpeed = _playbackService.PlaybackSpeed;
 
-        _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
-        _playbackService.PositionChanged += OnPositionChanged;
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+            ((PlayerViewModel)r).OnPlaybackStateChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+            ((PlayerViewModel)r).OnPositionChanged(m.Value));
     }
 
     public void Initialize()
@@ -79,7 +84,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         UpdateTimeTexts();
     }
 
-    private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
+    private void OnPlaybackStateChanged(PlaybackStateChangedEventArgs e)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
@@ -91,7 +96,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnPositionChanged(object? sender, TimeSpan position)
+    private void OnPositionChanged(TimeSpan position)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
@@ -106,19 +111,12 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
 
     private void UpdateTimeTexts()
     {
-        CurrentPositionText = FormatTimeSpan(CurrentPosition);
-        DurationText = FormatTimeSpan(Duration);
+        CurrentPositionText = TimeFormatHelper.FormatTimeSpan(CurrentPosition);
+        DurationText = TimeFormatHelper.FormatTimeSpan(Duration);
 
         var remaining = Duration - CurrentPosition;
         if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-        RemainingTimeText = $"-{FormatTimeSpan(remaining)}";
-    }
-
-    private static string FormatTimeSpan(TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+        RemainingTimeText = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
     }
 
     [RelayCommand]
@@ -253,8 +251,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         CancelSleepTimer();
-        _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
-        _playbackService.PositionChanged -= OnPositionChanged;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     partial void OnPlaybackSpeedChanged(float value)

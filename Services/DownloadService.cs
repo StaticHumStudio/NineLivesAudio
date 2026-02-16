@@ -1,5 +1,7 @@
+using CommunityToolkit.Mvvm.Messaging;
 using NineLivesAudio.Data;
 using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using System.Collections.Concurrent;
 
@@ -14,10 +16,6 @@ public class DownloadService : IDownloadService
     private readonly ConcurrentDictionary<string, DownloadItem> _activeDownloads = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _downloadCts = new();
     private readonly SemaphoreSlim _downloadSemaphore = new(2);
-
-    public event EventHandler<DownloadProgressEventArgs>? DownloadProgressChanged;
-    public event EventHandler<DownloadItem>? DownloadCompleted;
-    public event EventHandler<DownloadItem>? DownloadFailed;
 
     public DownloadService(
         IAudioBookshelfApiService apiService,
@@ -164,7 +162,7 @@ public class DownloadService : IDownloadService
                     downloadItem.Status = DownloadStatus.Failed;
                     downloadItem.ErrorMessage = "No audio files found for this book";
                     await _database.UpdateDownloadItemAsync(downloadItem);
-                    DownloadFailed?.Invoke(this, downloadItem);
+                    WeakReferenceMessenger.Default.Send(new DownloadFailedMessage(downloadItem));
                     return;
                 }
                 audioBook.AudioFiles = fullBook.AudioFiles;
@@ -216,13 +214,13 @@ public class DownloadService : IDownloadService
 
                         if (downloadedBytes % (512 * 1024) < 81920)
                         {
-                            DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs
+                            WeakReferenceMessenger.Default.Send(new DownloadProgressChangedMessage(new DownloadProgressEventArgs
                             {
                                 DownloadId = downloadItem.Id,
                                 Progress = downloadItem.Progress,
                                 DownloadedBytes = downloadedBytes,
                                 TotalBytes = downloadItem.TotalBytes
-                            });
+                            }));
                         }
                     }
 
@@ -254,7 +252,7 @@ public class DownloadService : IDownloadService
                     downloadItem.Status = DownloadStatus.Failed;
                     downloadItem.ErrorMessage = $"{fileName}: {ex.Message}";
                     await _database.UpdateDownloadItemAsync(downloadItem);
-                    DownloadFailed?.Invoke(this, downloadItem);
+                    WeakReferenceMessenger.Default.Send(new DownloadFailedMessage(downloadItem));
                     return;
                 }
             }
@@ -267,7 +265,7 @@ public class DownloadService : IDownloadService
                 downloadItem.Status = DownloadStatus.Failed;
                 downloadItem.ErrorMessage = "No audio files written to disk";
                 await _database.UpdateDownloadItemAsync(downloadItem);
-                DownloadFailed?.Invoke(this, downloadItem);
+                WeakReferenceMessenger.Default.Send(new DownloadFailedMessage(downloadItem));
                 return;
             }
             _logger.Log($"[Download] Verified {downloadedCount}/{audioBook.AudioFiles.Count} files on disk");
@@ -283,7 +281,7 @@ public class DownloadService : IDownloadService
                 await _database.UpdateDownloadItemAsync(downloadItem);
 
                 _logger.Log($"[Download] Complete: {audioBook.Title}");
-                DownloadCompleted?.Invoke(this, downloadItem);
+                WeakReferenceMessenger.Default.Send(new DownloadCompletedMessage(downloadItem));
                 _activeDownloads.TryRemove(downloadItem.Id, out _);
                 _downloadCts.TryRemove(downloadItem.Id, out _);
             }
@@ -300,7 +298,7 @@ public class DownloadService : IDownloadService
                 downloadItem.Status = DownloadStatus.Failed;
                 downloadItem.ErrorMessage = ex.Message;
                 await _database.UpdateDownloadItemAsync(downloadItem);
-                DownloadFailed?.Invoke(this, downloadItem);
+                WeakReferenceMessenger.Default.Send(new DownloadFailedMessage(downloadItem));
             }
             finally
             {

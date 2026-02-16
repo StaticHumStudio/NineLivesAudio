@@ -1,4 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
 using NineLivesAudio.Data;
+using NineLivesAudio.Messages;
 
 namespace NineLivesAudio.Services;
 
@@ -22,14 +24,14 @@ public class OfflineProgressQueue : IOfflineProgressQueue
         _logger = logger;
 
         // Auto-drain when connectivity returns
-        _connectivity.ConnectivityChanged += async (s, e) =>
+        WeakReferenceMessenger.Default.Register<ConnectivityChangedMessage>(this, async (r, m) =>
         {
-            if (e.IsServerReachable)
+            if (m.Value.IsServerReachable)
             {
-                _logger.Log("[OfflineQueue] Server reachable, draining queue");
-                await DrainQueueAsync();
+                ((OfflineProgressQueue)r)._logger.Log("[OfflineQueue] Server reachable, draining queue");
+                await ((OfflineProgressQueue)r).DrainQueueAsync();
             }
-        };
+        });
     }
 
     public async Task EnqueueAsync(string itemId, double currentTime, bool isFinished)
@@ -58,11 +60,22 @@ public class OfflineProgressQueue : IOfflineProgressQueue
                 .ToList();
 
             int synced = 0;
+            int skipped = 0;
             var syncedItemIds = new List<string>();
             foreach (var entry in latest)
             {
                 try
                 {
+                    // Check if server already has a newer position (e.g., from another device)
+                    var serverProgress = await _apiService.GetUserProgressAsync(entry.ItemId);
+                    if (serverProgress != null && serverProgress.LastUpdate > entry.Timestamp)
+                    {
+                        _logger.Log($"[OfflineQueue] Skipping {entry.ItemId}: server is newer ({serverProgress.LastUpdate:O} > {entry.Timestamp:O})");
+                        syncedItemIds.Add(entry.ItemId); // mark as handled — don't retry stale data
+                        skipped++;
+                        continue;
+                    }
+
                     await _apiService.UpdateProgressAsync(entry.ItemId, entry.CurrentTime, entry.IsFinished);
                     synced++;
                     syncedItemIds.Add(entry.ItemId);
@@ -79,7 +92,7 @@ public class OfflineProgressQueue : IOfflineProgressQueue
             else if (syncedItemIds.Count > 0)
                 await _database.ClearPendingProgressForItemsAsync(syncedItemIds);
 
-            _logger.Log($"[OfflineQueue] Drained {synced}/{latest.Count} entries");
+            _logger.Log($"[OfflineQueue] Drained {synced}/{latest.Count} entries (skipped {skipped} with newer server data)");
         }
         finally
         {

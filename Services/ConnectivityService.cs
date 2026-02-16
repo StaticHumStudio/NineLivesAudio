@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Messages;
 using Windows.Networking.Connectivity;
 
 namespace NineLivesAudio.Services;
@@ -13,8 +15,6 @@ public class ConnectivityService : IConnectivityService, IDisposable
 
     public bool IsOnline => _isOnline;
     public bool IsServerReachable => _isServerReachable;
-    public event EventHandler<ConnectivityChangedEventArgs>? ConnectivityChanged;
-
     public ConnectivityService(IAudioBookshelfApiService apiService, ILoggingService logger)
     {
         _apiService = apiService;
@@ -93,11 +93,12 @@ public class ConnectivityService : IConnectivityService, IDisposable
         _isServerReachable = serverReachable;
         if (changed)
         {
-            ConnectivityChanged?.Invoke(this, new ConnectivityChangedEventArgs
-            {
-                IsOnline = _isOnline,
-                IsServerReachable = _isServerReachable
-            });
+            WeakReferenceMessenger.Default.Send(new ConnectivityChangedMessage(
+                new ConnectivityChangedEventArgs
+                {
+                    IsOnline = _isOnline,
+                    IsServerReachable = _isServerReachable
+                }));
         }
     }
 

@@ -4,8 +4,8 @@ namespace NineLivesAudio.Services;
 
 public interface IAudioPlaybackService
 {
-    event EventHandler<PlaybackStateChangedEventArgs>? PlaybackStateChanged;
-    event EventHandler<TimeSpan>? PositionChanged;
+    // Playback events migrated to WeakReferenceMessenger:
+    // PlaybackStateChangedMessage, PositionChangedMessage, TrackChangedMessage, ChapterChangedMessage
 
     Task<bool> LoadAudioBookAsync(AudioBook audioBook);
     Task PlayAsync();
@@ -31,14 +31,11 @@ public interface IAudioPlaybackService
     /// <summary>Total number of tracks in current audiobook.</summary>
     int TotalTracks { get; }
 
-    /// <summary>Fired when track changes in multi-file playback.</summary>
-    event EventHandler<int>? TrackChanged;
-
     // Chapter support
     List<Chapter> Chapters { get; }
     Chapter? CurrentChapter { get; }
     int CurrentChapterIndex { get; }
-    event EventHandler<Chapter?>? ChapterChanged;
+
     Task SeekToChapterAsync(int chapterIndex);
 }
 

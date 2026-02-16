@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using System.Net.Http.Headers;
 using System.Text;
@@ -25,7 +27,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
     public string? LastError { get; private set; }
 
-    public event EventHandler<ReconnectionEventArgs>? ReconnectionAttempted;
+    // Event migrated to WeakReferenceMessenger: ReconnectionAttemptedMessage
 
     public AudioBookshelfApiService(ISettingsService settingsService)
     {
@@ -629,24 +631,24 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                     var response = await _httpClient.GetAsync($"{_serverUrl}/api/me");
                     if (response.IsSuccessStatusCode)
                     {
-                        ReconnectionAttempted?.Invoke(this, new ReconnectionEventArgs
+                        WeakReferenceMessenger.Default.Send(new ReconnectionAttemptedMessage(new ReconnectionEventArgs
                         {
                             Success = true,
                             ServerUrl = _serverUrl,
                             AttemptNumber = attempt + 1
-                        });
+                        }));
                         return true;
                     }
                 }
                 catch { /* continue retry */ }
 
-                ReconnectionAttempted?.Invoke(this, new ReconnectionEventArgs
+                WeakReferenceMessenger.Default.Send(new ReconnectionAttemptedMessage(new ReconnectionEventArgs
                 {
                     Success = false,
                     ServerUrl = _serverUrl,
                     ErrorMessage = $"Attempt {attempt + 1} failed, retrying in {delaysSeconds[attempt]}s",
                     AttemptNumber = attempt + 1
-                });
+                }));
 
                 await Task.Delay(TimeSpan.FromSeconds(delaysSeconds[attempt]));
             }
@@ -664,23 +666,23 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                 {
                     _serverUrl = testUrl;
                     profile.LastConnected = DateTime.UtcNow;
-                    ReconnectionAttempted?.Invoke(this, new ReconnectionEventArgs
+                    WeakReferenceMessenger.Default.Send(new ReconnectionAttemptedMessage(new ReconnectionEventArgs
                     {
                         Success = true,
                         ServerUrl = testUrl,
                         AttemptNumber = 0
-                    });
+                    }));
                     return true;
                 }
             }
             catch { /* try next profile */ }
         }
 
-        ReconnectionAttempted?.Invoke(this, new ReconnectionEventArgs
+        WeakReferenceMessenger.Default.Send(new ReconnectionAttemptedMessage(new ReconnectionEventArgs
         {
             Success = false,
             ErrorMessage = "All reconnection attempts exhausted"
-        });
+        }));
         return false;
     }
 

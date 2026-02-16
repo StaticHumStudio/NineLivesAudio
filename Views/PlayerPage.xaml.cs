@@ -1,3 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
@@ -43,11 +46,15 @@ public sealed partial class PlayerPage : Page
         // Subscribe to ViewModel property changes
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
-        // Subscribe to playback events for real-time updates
-        _playbackService.PositionChanged += PlaybackService_PositionChanged;
-        _playbackService.PlaybackStateChanged += PlaybackService_StateChanged;
-        _playbackService.TrackChanged += PlaybackService_TrackChanged;
-        _playbackService.ChapterChanged += PlaybackService_ChapterChanged;
+        // Subscribe to playback events via Messenger for real-time updates
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+            ((PlayerPage)r).PlaybackService_PositionChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+            ((PlayerPage)r).PlaybackService_StateChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<TrackChangedMessage>(this, (r, m) =>
+            ((PlayerPage)r).PlaybackService_TrackChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<ChapterChangedMessage>(this, (r, m) =>
+            ((PlayerPage)r).PlaybackService_ChapterChanged(m.Value));
 
         // Initial UI update
         UpdateAllUI();
@@ -58,10 +65,7 @@ public sealed partial class PlayerPage : Page
         _logger.Log("PlayerPage unloaded, cleaning up event subscriptions");
 
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-        _playbackService.PositionChanged -= PlaybackService_PositionChanged;
-        _playbackService.PlaybackStateChanged -= PlaybackService_StateChanged;
-        _playbackService.TrackChanged -= PlaybackService_TrackChanged;
-        _playbackService.ChapterChanged -= PlaybackService_ChapterChanged;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
 
         if (ViewModel is IDisposable disposable)
         {
@@ -91,7 +95,7 @@ public sealed partial class PlayerPage : Page
         });
     }
 
-    private void PlaybackService_PositionChanged(object? sender, TimeSpan position)
+    private void PlaybackService_PositionChanged(TimeSpan position)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -106,10 +110,10 @@ public sealed partial class PlayerPage : Page
                         if (chapterElapsed < 0) chapterElapsed = 0;
                         ProgressSlider.Value = chapterElapsed / chapter.Duration.TotalSeconds * 100;
 
-                        CurrentTimeText.Text = FormatTimeSpan(TimeSpan.FromSeconds(chapterElapsed));
+                        CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(TimeSpan.FromSeconds(chapterElapsed));
                         var chapterRemaining = chapter.Duration - TimeSpan.FromSeconds(chapterElapsed);
                         if (chapterRemaining < TimeSpan.Zero) chapterRemaining = TimeSpan.Zero;
-                        RemainingTimeText.Text = $"-{FormatTimeSpan(chapterRemaining)}";
+                        RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(chapterRemaining)}";
                     }
                 }
                 else
@@ -120,16 +124,16 @@ public sealed partial class PlayerPage : Page
                         ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
                     }
 
-                    CurrentTimeText.Text = FormatTimeSpan(position);
+                    CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
                     var remaining = duration - position;
                     if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-                    RemainingTimeText.Text = $"-{FormatTimeSpan(remaining)}";
+                    RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
                 }
             }
         });
     }
 
-    private void PlaybackService_StateChanged(object? sender, PlaybackStateChangedEventArgs e)
+    private void PlaybackService_StateChanged(PlaybackStateChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -138,7 +142,7 @@ public sealed partial class PlayerPage : Page
         });
     }
 
-    private void PlaybackService_TrackChanged(object? sender, int trackIndex)
+    private void PlaybackService_TrackChanged(int trackIndex)
     {
         DispatcherQueue.TryEnqueue(() => UpdateTrackIndicator());
     }
@@ -216,24 +220,8 @@ public sealed partial class PlayerPage : Page
         if (coverPath != _lastCoverPath)
         {
             _lastCoverPath = coverPath;
-            if (!string.IsNullOrEmpty(coverPath))
-            {
-                try
-                {
-                    _cachedCoverImage = new BitmapImage(new Uri(coverPath));
-                    CoverImage.Source = _cachedCoverImage;
-                }
-                catch
-                {
-                    _cachedCoverImage = null;
-                    CoverImage.Source = null;
-                }
-            }
-            else
-            {
-                _cachedCoverImage = null;
-                CoverImage.Source = null;
-            }
+            _cachedCoverImage = CoverImageService.LoadCover(coverPath);
+            CoverImage.Source = _cachedCoverImage;
         }
     }
 
@@ -279,7 +267,7 @@ public sealed partial class PlayerPage : Page
         }
     }
 
-    private void PlaybackService_ChapterChanged(object? sender, Chapter? chapter)
+    private void PlaybackService_ChapterChanged(Chapter? chapter)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -375,12 +363,6 @@ public sealed partial class PlayerPage : Page
         else VolumeIcon.Glyph = "\uE995";
     }
 
-    private static string FormatTimeSpan(TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
-    }
 
     private void ProgressSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -548,10 +530,10 @@ public sealed partial class PlayerPage : Page
                 if (chapterElapsed < 0) chapterElapsed = 0;
                 ProgressSlider.Value = chapterElapsed / chapter.Duration.TotalSeconds * 100;
 
-                CurrentTimeText.Text = FormatTimeSpan(TimeSpan.FromSeconds(chapterElapsed));
+                CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(TimeSpan.FromSeconds(chapterElapsed));
                 var chapterRemaining = chapter.Duration - TimeSpan.FromSeconds(chapterElapsed);
                 if (chapterRemaining < TimeSpan.Zero) chapterRemaining = TimeSpan.Zero;
-                RemainingTimeText.Text = $"-{FormatTimeSpan(chapterRemaining)}";
+                RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(chapterRemaining)}";
             }
         }
         else
@@ -561,10 +543,10 @@ public sealed partial class PlayerPage : Page
                 ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
             }
 
-            CurrentTimeText.Text = FormatTimeSpan(position);
+            CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
             var remaining = duration - position;
             if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-            RemainingTimeText.Text = $"-{FormatTimeSpan(remaining)}";
+            RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
         }
     }
 
@@ -672,11 +654,11 @@ public sealed partial class PlayerPage : Page
         if (chapter != null && chapterIndex >= 0)
         {
             var chapterElapsed = TimeSpan.FromSeconds(currentTime - chapter.Start);
-            defaultTitle = $"{chapter.Title} - {FormatTimeSpan(chapterElapsed)}";
+            defaultTitle = $"{chapter.Title} - {TimeFormatHelper.FormatTimeSpan(chapterElapsed)}";
         }
         else
         {
-            defaultTitle = $"Bookmark at {FormatTimeSpan(_playbackService.Position)}";
+            defaultTitle = $"Bookmark at {TimeFormatHelper.FormatTimeSpan(_playbackService.Position)}";
         }
 
         // Show a ContentDialog to let user edit the bookmark title

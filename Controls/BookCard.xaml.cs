@@ -1,9 +1,9 @@
 using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace NineLivesAudio.Controls;
 
@@ -44,21 +44,7 @@ public sealed partial class BookCard : UserControl
         TitleText.Text = _audioBook.Title;
         AuthorText.Text = _audioBook.Author;
 
-        if (!string.IsNullOrEmpty(_audioBook.CoverPath))
-        {
-            try
-            {
-                CoverImage.Source = new BitmapImage(new Uri(_audioBook.CoverPath));
-            }
-            catch
-            {
-                CoverImage.Source = null;
-            }
-        }
-        else
-        {
-            CoverImage.Source = null;
-        }
+        CoverImage.Source = CoverImageService.LoadCover(_audioBook.CoverPath);
 
         if (_audioBook.Progress > 0)
         {

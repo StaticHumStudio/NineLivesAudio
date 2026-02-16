@@ -1,8 +1,10 @@
 using NineLivesAudio.Data;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using System.Collections.ObjectModel;
 
@@ -35,9 +37,12 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         _database = database;
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
-        _downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
-        _downloadService.DownloadCompleted += OnDownloadCompleted;
-        _downloadService.DownloadFailed += OnDownloadFailed;
+        WeakReferenceMessenger.Default.Register<DownloadProgressChangedMessage>(this, (r, m) =>
+            ((DownloadsViewModel)r).OnDownloadProgressChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<DownloadCompletedMessage>(this, (r, m) =>
+            ((DownloadsViewModel)r).OnDownloadCompleted(m.Value));
+        WeakReferenceMessenger.Default.Register<DownloadFailedMessage>(this, (r, m) =>
+            ((DownloadsViewModel)r).OnDownloadFailed(m.Value));
     }
 
     public async Task InitializeAsync()
@@ -184,7 +189,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnDownloadProgressChanged(object? sender, DownloadProgressEventArgs e)
+    private void OnDownloadProgressChanged(DownloadProgressEventArgs e)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
@@ -197,7 +202,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnDownloadCompleted(object? sender, DownloadItem download)
+    private void OnDownloadCompleted(DownloadItem download)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
@@ -208,7 +213,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnDownloadFailed(object? sender, DownloadItem download)
+    private void OnDownloadFailed(DownloadItem download)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
@@ -225,8 +230,6 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _downloadService.DownloadProgressChanged -= OnDownloadProgressChanged;
-        _downloadService.DownloadCompleted -= OnDownloadCompleted;
-        _downloadService.DownloadFailed -= OnDownloadFailed;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 }

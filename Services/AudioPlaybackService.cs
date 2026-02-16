@@ -1,4 +1,7 @@
+using CommunityToolkit.Mvvm.Messaging;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
+using NineLivesAudio.Services.Playback;
 using NAudio.Wave;
 
 namespace NineLivesAudio.Services;
@@ -12,6 +15,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private readonly INotificationService _notifications;
     private readonly ISyncService _syncService;
     private readonly Data.ILocalDatabase _database;
+    private readonly ITrackManager _trackManager;
 
     // NAudio for local file playback
     private WaveOutEvent? _outputDevice;
@@ -65,10 +69,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         Failed
     }
 
-    public event EventHandler<PlaybackStateChangedEventArgs>? PlaybackStateChanged;
-    public event EventHandler<TimeSpan>? PositionChanged;
-    public event EventHandler<int>? TrackChanged;
-    public event EventHandler<Chapter?>? ChapterChanged;
+    // Events migrated to WeakReferenceMessenger:
+    // PlaybackStateChangedMessage, PositionChangedMessage, TrackChangedMessage, ChapterChangedMessage
 
     public PlaybackState State => _state;
     public float PlaybackSpeed => _playbackSpeed;
@@ -120,7 +122,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         IPlaybackSourceResolver sourceResolver,
         INotificationService notifications,
         ISyncService syncService,
-        Data.ILocalDatabase database)
+        Data.ILocalDatabase database,
+        ITrackManager trackManager)
     {
         _apiService = apiService;
         _settingsService = settingsService;
@@ -129,13 +132,16 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         _notifications = notifications;
         _syncService = syncService;
         _database = database;
+        _trackManager = trackManager;
 
         _positionTimer = new System.Timers.Timer(500);
-        _positionTimer.Elapsed += (s, e) =>
-        {
-            PositionChanged?.Invoke(this, Position);
-            UpdateCurrentChapter();
-        };
+        _positionTimer.Elapsed += OnPositionTimerElapsed;
+    }
+
+    private void OnPositionTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new PositionChangedMessage(Position));
+        UpdateCurrentChapter();
     }
 
     public async Task<bool> LoadAudioBookAsync(AudioBook audioBook)
@@ -315,6 +321,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         ct.ThrowIfCancellationRequested();
         _isStreaming = false;
 
+        // Unwire old events before disposing to prevent leak
+        UnwireNAudioEvents();
+
         // Dispose previous NAudio objects
         _outputDevice?.Stop();
         _outputDevice?.Dispose();
@@ -341,6 +350,9 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         ct.ThrowIfCancellationRequested();
         _isStreaming = false;
 
+        // Unwire old events before disposing to prevent leak
+        UnwireNAudioEvents();
+
         _outputDevice?.Stop();
         _outputDevice?.Dispose();
         _audioFileReader?.Dispose();
@@ -366,6 +378,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             ct.ThrowIfCancellationRequested();
             _isStreaming = true;
 
+            // Unwire old events before disposing to prevent leak
+            UnwireMediaPlayerEvents();
             _mediaPlayer?.Dispose();
             _mediaPlayer = null;
 
@@ -551,6 +565,11 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
         }
 
+        // Unwire all events before disposing to prevent leaks
+        UnwireMediaPlayerEvents();
+        UnwireNAudioEvents();
+        UnwireSmtcEvents();
+
         // Properly dispose streaming MediaPlayer
         if (_isStreaming && _mediaPlayer != null)
         {
@@ -621,7 +640,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             if (targetTrack != _currentTrackIndex)
             {
                 _currentTrackIndex = targetTrack;
-                TrackChanged?.Invoke(this, _currentTrackIndex);
+                WeakReferenceMessenger.Default.Send(new TrackChangedMessage(_currentTrackIndex));
                 var wasPlaying = _state == PlaybackState.Playing;
 
                 if (_isStreaming && _streamTracks.Count > targetTrack && _currentAudioBook != null)
@@ -640,7 +659,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     _audioFileReader.CurrentTime = withinTrack;
 
                 if (wasPlaying) await PlayAsync();
-                PositionChanged?.Invoke(this, position);
+                WeakReferenceMessenger.Default.Send(new PositionChangedMessage(position));
                 return;
             }
         }
@@ -658,7 +677,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             _audioFileReader.CurrentTime = withinTrack;
         }
 
-        PositionChanged?.Invoke(this, position);
+        WeakReferenceMessenger.Default.Send(new PositionChangedMessage(position));
     }
 
     public Task SetPlaybackSpeedAsync(float speed)
@@ -682,120 +701,141 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private void WireNAudioEvents()
     {
         if (_outputDevice == null) return;
-        _outputDevice.PlaybackStopped += (s, e) =>
+        _outputDevice.PlaybackStopped += OnNAudioPlaybackStopped;
+    }
+
+    private void UnwireNAudioEvents()
+    {
+        if (_outputDevice != null)
+            _outputDevice.PlaybackStopped -= OnNAudioPlaybackStopped;
+    }
+
+    private void OnNAudioPlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (e.Exception != null)
         {
-            if (e.Exception != null)
-            {
-                StopSessionSyncTimer();
-                _logger.LogError("[Playback] NAudio error", e.Exception);
-                SetState(PlaybackState.Stopped, e.Exception.Message);
-                return;
-            }
-
-            // Auto-advance to next track if available
-            if (!_autoAdvancing && _currentTrackIndex + 1 < _trackPaths.Count)
-            {
-                _autoAdvancing = true;
-                _currentTrackIndex++;
-                TrackChanged?.Invoke(this, _currentTrackIndex);
-                _logger.Log($"[Playback] Auto-advancing to track {_currentTrackIndex + 1}/{TotalTracks}");
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await LoadLocalTrackAsync(_trackPaths[_currentTrackIndex], CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError("[Playback] Track advance failed", ex);
-                        SetState(PlaybackState.Stopped, ex.Message);
-                    }
-                    finally { _autoAdvancing = false; }
-                });
-                return;
-            }
-
-            // No more tracks — end of book
             StopSessionSyncTimer();
-            _logger.Log("[Playback] End of book (all tracks)");
-            SetState(PlaybackState.Stopped);
-            if (_currentAudioBook != null)
+            _logger.LogError("[Playback] NAudio error", e.Exception);
+            SetState(PlaybackState.Stopped, e.Exception.Message);
+            return;
+        }
+
+        // Auto-advance to next track if available
+        if (!_autoAdvancing && _currentTrackIndex + 1 < _trackPaths.Count)
+        {
+            _autoAdvancing = true;
+            _currentTrackIndex++;
+            WeakReferenceMessenger.Default.Send(new TrackChangedMessage(_currentTrackIndex));
+            _logger.Log($"[Playback] Auto-advancing to track {_currentTrackIndex + 1}/{TotalTracks}");
+            _ = Task.Run(async () =>
             {
-                _ = _syncService.FlushPlaybackProgressAsync(
-                    _currentAudioBook.Id,
-                    Position.TotalSeconds,
-                    Duration.TotalSeconds,
-                    isFinished: true);
-            }
-            if (_currentSession != null)
-                _ = CloseSessionAsync();
-        };
+                try
+                {
+                    await LoadLocalTrackAsync(_trackPaths[_currentTrackIndex], CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("[Playback] Track advance failed", ex);
+                    SetState(PlaybackState.Stopped, ex.Message);
+                }
+                finally { _autoAdvancing = false; }
+            });
+            return;
+        }
+
+        // No more tracks — end of book
+        StopSessionSyncTimer();
+        _logger.Log("[Playback] End of book (all tracks)");
+        SetState(PlaybackState.Stopped);
+        if (_currentAudioBook != null)
+        {
+            _ = _syncService.FlushPlaybackProgressAsync(
+                _currentAudioBook.Id,
+                Position.TotalSeconds,
+                Duration.TotalSeconds,
+                isFinished: true);
+        }
+        if (_currentSession != null)
+            _ = CloseSessionAsync();
     }
 
     private void WireMediaPlayerEvents()
     {
         if (_mediaPlayer == null) return;
+        _mediaPlayer.MediaEnded += OnMediaPlayerEnded;
+        _mediaPlayer.MediaFailed += OnMediaPlayerFailed;
+        _mediaPlayer.BufferingStarted += OnMediaPlayerBufferingStarted;
+        _mediaPlayer.BufferingEnded += OnMediaPlayerBufferingEnded;
+    }
 
-        _mediaPlayer.MediaEnded += (s, a) =>
+    private void UnwireMediaPlayerEvents()
+    {
+        if (_mediaPlayer == null) return;
+        _mediaPlayer.MediaEnded -= OnMediaPlayerEnded;
+        _mediaPlayer.MediaFailed -= OnMediaPlayerFailed;
+        _mediaPlayer.BufferingStarted -= OnMediaPlayerBufferingStarted;
+        _mediaPlayer.BufferingEnded -= OnMediaPlayerBufferingEnded;
+    }
+
+    private void OnMediaPlayerEnded(Windows.Media.Playback.MediaPlayer sender, object args)
+    {
+        // Auto-advance to next stream track if available
+        if (!_autoAdvancing && _currentTrackIndex + 1 < _streamTracks.Count)
         {
-            // Auto-advance to next stream track if available
-            if (!_autoAdvancing && _currentTrackIndex + 1 < _streamTracks.Count)
+            _autoAdvancing = true;
+            _currentTrackIndex++;
+            WeakReferenceMessenger.Default.Send(new TrackChangedMessage(_currentTrackIndex));
+            _logger.Log($"[Playback] Stream auto-advancing to track {_currentTrackIndex + 1}/{TotalTracks}");
+            _ = Task.Run(async () =>
             {
-                _autoAdvancing = true;
-                _currentTrackIndex++;
-                TrackChanged?.Invoke(this, _currentTrackIndex);
-                _logger.Log($"[Playback] Stream auto-advancing to track {_currentTrackIndex + 1}/{TotalTracks}");
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
-                    {
-                        if (_currentAudioBook != null)
-                            await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None);
-                        await PlayAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError("[Playback] Stream track advance failed", ex);
-                        SetState(PlaybackState.Stopped, ex.Message);
-                    }
-                    finally { _autoAdvancing = false; }
-                });
-                return;
-            }
+                    if (_currentAudioBook != null)
+                        await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None);
+                    await PlayAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("[Playback] Stream track advance failed", ex);
+                    SetState(PlaybackState.Stopped, ex.Message);
+                }
+                finally { _autoAdvancing = false; }
+            });
+            return;
+        }
 
-            // No more tracks
-            StopSessionSyncTimer();
-            _logger.Log("[Playback] Stream ended (all tracks)");
-            SetState(PlaybackState.Stopped);
-            if (_currentAudioBook != null)
-            {
-                _ = _syncService.FlushPlaybackProgressAsync(
-                    _currentAudioBook.Id,
-                    Position.TotalSeconds,
-                    Duration.TotalSeconds,
-                    isFinished: true);
-            }
-            if (_currentSession != null)
-                _ = CloseSessionAsync();
-        };
-
-        _mediaPlayer.MediaFailed += (s, a) =>
+        // No more tracks
+        StopSessionSyncTimer();
+        _logger.Log("[Playback] Stream ended (all tracks)");
+        SetState(PlaybackState.Stopped);
+        if (_currentAudioBook != null)
         {
-            _logger.LogError($"[Playback] MediaPlayer error: {a.ErrorMessage}");
-            SetState(PlaybackState.Stopped, a.ErrorMessage);
-        };
+            _ = _syncService.FlushPlaybackProgressAsync(
+                _currentAudioBook.Id,
+                Position.TotalSeconds,
+                Duration.TotalSeconds,
+                isFinished: true);
+        }
+        if (_currentSession != null)
+            _ = CloseSessionAsync();
+    }
 
-        _mediaPlayer.BufferingStarted += (s, a) =>
-        {
-            if (_state == PlaybackState.Playing)
-                SetState(PlaybackState.Buffering);
-        };
+    private void OnMediaPlayerFailed(Windows.Media.Playback.MediaPlayer sender, Windows.Media.Playback.MediaPlayerFailedEventArgs args)
+    {
+        _logger.LogError($"[Playback] MediaPlayer error: {args.ErrorMessage}");
+        SetState(PlaybackState.Stopped, args.ErrorMessage);
+    }
 
-        _mediaPlayer.BufferingEnded += (s, a) =>
-        {
-            if (_state == PlaybackState.Buffering)
-                SetState(PlaybackState.Playing);
-        };
+    private void OnMediaPlayerBufferingStarted(Windows.Media.Playback.MediaPlayer sender, object args)
+    {
+        if (_state == PlaybackState.Playing)
+            SetState(PlaybackState.Buffering);
+    }
+
+    private void OnMediaPlayerBufferingEnded(Windows.Media.Playback.MediaPlayer sender, object args)
+    {
+        if (_state == PlaybackState.Buffering)
+            SetState(PlaybackState.Playing);
     }
 
     private void SetState(PlaybackState newState, string? errorMessage = null)
@@ -803,12 +843,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         var oldState = _state;
         _state = newState;
         _logger.LogDebug($"[Playback] {oldState} -> {newState}{(errorMessage != null ? $" ({errorMessage})" : "")}");
-        PlaybackStateChanged?.Invoke(this, new PlaybackStateChangedEventArgs
+        WeakReferenceMessenger.Default.Send(new PlaybackStateChangedMessage(new PlaybackStateChangedEventArgs
         {
             State = newState,
             OldState = oldState,
             ErrorMessage = errorMessage
-        });
+        }));
     }
 
     private void StartSessionSyncTimer()
@@ -902,22 +942,27 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         if (_chapters.Count == 0) return;
 
         var posSeconds = Position.TotalSeconds;
-        int newIndex = -1;
-        for (int i = 0; i < _chapters.Count; i++)
+
+        // Fast path: ~80% of 500ms ticks land in the same chapter — skip search entirely
+        if (_currentChapterIndex >= 0 && _currentChapterIndex < _chapters.Count)
         {
-            if (posSeconds >= _chapters[i].Start && posSeconds < _chapters[i].End)
-            {
-                newIndex = i;
-                break;
-            }
+            var current = _chapters[_currentChapterIndex];
+            if (posSeconds >= current.Start && posSeconds < current.End)
+                return; // Still in the same chapter, no change
         }
+
+        // Slow path: binary search for the chapter containing this position
+        int newIndex = BinarySearchChapter(posSeconds);
 
         if (newIndex != _currentChapterIndex)
         {
             _currentChapterIndex = newIndex;
-            ChapterChanged?.Invoke(this, CurrentChapter);
+            WeakReferenceMessenger.Default.Send(new ChapterChangedMessage(CurrentChapter));
         }
     }
+
+    private int BinarySearchChapter(double posSeconds)
+        => _trackManager.FindChapterForPosition(_chapters, posSeconds);
 
     public async Task SeekToChapterAsync(int chapterIndex)
     {
@@ -925,56 +970,18 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         var chapter = _chapters[chapterIndex];
         await SeekAsync(TimeSpan.FromSeconds(chapter.Start));
         _currentChapterIndex = chapterIndex;
-        ChapterChanged?.Invoke(this, chapter);
+        WeakReferenceMessenger.Default.Send(new ChapterChangedMessage(chapter));
     }
 
-    // Multi-track helpers
+    // Multi-track helpers — delegate to ITrackManager
     private void BuildLocalTrackList(AudioBook audioBook, string primaryPath)
     {
         _trackPaths.Clear();
         _trackDurations.Clear();
 
-        if (audioBook.AudioFiles.Count <= 1)
-        {
-            // Single file
-            _trackPaths.Add(primaryPath);
-            return;
-        }
-
-        // Multi-file: find all local files in the same directory
-        var dir = Path.GetDirectoryName(primaryPath);
-        if (dir == null)
-        {
-            _trackPaths.Add(primaryPath);
-            return;
-        }
-
-        double cumulative = 0;
-        foreach (var af in audioBook.AudioFiles.OrderBy(f => f.Index))
-        {
-            var localPath = af.LocalPath;
-            if (string.IsNullOrEmpty(localPath))
-            {
-                // Try to find file in the download directory
-                var candidate = Path.Combine(dir, Path.GetFileName(af.Filename));
-                if (File.Exists(candidate))
-                    localPath = candidate;
-            }
-
-            if (!string.IsNullOrEmpty(localPath) && File.Exists(localPath))
-            {
-                _trackPaths.Add(localPath);
-                cumulative += af.Duration.TotalSeconds;
-                _trackDurations.Add(cumulative);
-            }
-        }
-
-        // Fallback: if we couldn't build a multi-track list, use the primary file
-        if (_trackPaths.Count == 0)
-        {
-            _trackPaths.Add(primaryPath);
-            _trackDurations.Clear();
-        }
+        var result = _trackManager.BuildLocalTrackList(audioBook, primaryPath);
+        _trackPaths.AddRange(result.Paths);
+        _trackDurations.AddRange(result.CumulativeDurations);
 
         _logger.Log($"[Playback] Built track list: {_trackPaths.Count} local files");
     }
@@ -982,42 +989,18 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private void BuildStreamTrackDurations()
     {
         _trackDurations.Clear();
-        double cumulative = 0;
-        foreach (var track in _streamTracks)
-        {
-            cumulative += track.Duration;
-            _trackDurations.Add(cumulative);
-        }
+        var durations = _trackManager.BuildStreamTrackDurations(_streamTracks);
+        _trackDurations.AddRange(durations);
     }
 
     private void DetermineStartingTrack(TimeSpan currentTime)
     {
-        if (_trackDurations.Count == 0 || currentTime.TotalSeconds <= 0)
-        {
-            _currentTrackIndex = 0;
-            return;
-        }
-
-        double target = currentTime.TotalSeconds;
-        for (int i = 0; i < _trackDurations.Count; i++)
-        {
-            if (target < _trackDurations[i])
-            {
-                _currentTrackIndex = i;
-                return;
-            }
-        }
-        _currentTrackIndex = Math.Max(0, _trackDurations.Count - 1);
+        _currentTrackIndex = _trackManager.DetermineStartingTrack(_trackDurations, currentTime);
     }
 
     private TimeSpan GetWithinTrackOffset(TimeSpan overallPosition)
     {
-        if (_currentTrackIndex == 0 || _trackDurations.Count == 0)
-            return overallPosition;
-
-        var previousCumulative = _currentTrackIndex > 0 ? _trackDurations[_currentTrackIndex - 1] : 0;
-        var offset = overallPosition.TotalSeconds - previousCumulative;
-        return TimeSpan.FromSeconds(Math.Max(0, offset));
+        return _trackManager.GetWithinTrackOffset(_currentTrackIndex, _trackDurations, overallPosition);
     }
 
     private async Task CloseSessionAsync()
@@ -1050,6 +1033,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
 
             // NAudio path: create a background MediaPlayer solely for SMTC
+            UnwireSmtcEvents();
             _smtcPlayer?.Dispose();
             _smtcPlayer = new Windows.Media.Playback.MediaPlayer
             {
@@ -1058,20 +1042,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             };
 
             ConfigureSmtcForMediaPlayer(_smtcPlayer, book);
-            _smtcPlayer.CommandManager.PlayReceived += (s, a) => _ = PlayAsync();
-            _smtcPlayer.CommandManager.PauseReceived += (s, a) => _ = PauseAsync();
-            _smtcPlayer.CommandManager.NextReceived += (s, a) =>
-            {
-                var pos = Position + TimeSpan.FromSeconds(30);
-                if (pos > Duration) pos = Duration;
-                _ = SeekAsync(pos);
-            };
-            _smtcPlayer.CommandManager.PreviousReceived += (s, a) =>
-            {
-                var pos = Position - TimeSpan.FromSeconds(10);
-                if (pos < TimeSpan.Zero) pos = TimeSpan.Zero;
-                _ = SeekAsync(pos);
-            };
+            WireSmtcEvents();
 
             _logger.Log("[SMTC] Configured via background MediaPlayer for NAudio");
         }
@@ -1113,6 +1084,46 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         catch { /* non-fatal */ }
     }
 
+    private void WireSmtcEvents()
+    {
+        if (_smtcPlayer == null) return;
+        _smtcPlayer.CommandManager.PlayReceived += OnSmtcPlayReceived;
+        _smtcPlayer.CommandManager.PauseReceived += OnSmtcPauseReceived;
+        _smtcPlayer.CommandManager.NextReceived += OnSmtcNextReceived;
+        _smtcPlayer.CommandManager.PreviousReceived += OnSmtcPreviousReceived;
+    }
+
+    private void UnwireSmtcEvents()
+    {
+        if (_smtcPlayer == null) return;
+        _smtcPlayer.CommandManager.PlayReceived -= OnSmtcPlayReceived;
+        _smtcPlayer.CommandManager.PauseReceived -= OnSmtcPauseReceived;
+        _smtcPlayer.CommandManager.NextReceived -= OnSmtcNextReceived;
+        _smtcPlayer.CommandManager.PreviousReceived -= OnSmtcPreviousReceived;
+    }
+
+    private void OnSmtcPlayReceived(Windows.Media.Playback.MediaPlaybackCommandManager sender,
+        Windows.Media.Playback.MediaPlaybackCommandManagerPlayReceivedEventArgs args) => _ = PlayAsync();
+
+    private void OnSmtcPauseReceived(Windows.Media.Playback.MediaPlaybackCommandManager sender,
+        Windows.Media.Playback.MediaPlaybackCommandManagerPauseReceivedEventArgs args) => _ = PauseAsync();
+
+    private void OnSmtcNextReceived(Windows.Media.Playback.MediaPlaybackCommandManager sender,
+        Windows.Media.Playback.MediaPlaybackCommandManagerNextReceivedEventArgs args)
+    {
+        var pos = Position + TimeSpan.FromSeconds(30);
+        if (pos > Duration) pos = Duration;
+        _ = SeekAsync(pos);
+    }
+
+    private void OnSmtcPreviousReceived(Windows.Media.Playback.MediaPlaybackCommandManager sender,
+        Windows.Media.Playback.MediaPlaybackCommandManagerPreviousReceivedEventArgs args)
+    {
+        var pos = Position - TimeSpan.FromSeconds(10);
+        if (pos < TimeSpan.Zero) pos = TimeSpan.Zero;
+        _ = SeekAsync(pos);
+    }
+
     private async Task<bool> ResolveInitialProgressAsync(AudioBook audioBook, CancellationToken ct)
     {
         var originalPosition = audioBook.CurrentTime;
@@ -1147,10 +1158,16 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     var server = await progressTask;
                     if (server != null)
                     {
-                        if (!bestTimestamp.HasValue || server.LastUpdate >= bestTimestamp.Value)
+                        // Strictly newer wins — on ties, local is preserved
+                        if (!bestTimestamp.HasValue || server.LastUpdate > bestTimestamp.Value)
                         {
+                            _logger.Log($"[Playback] POSITION CHANGE (startup): server is newer ({server.LastUpdate:O} > {bestTimestamp:O}), using server position {server.CurrentTime}");
                             bestPosition = server.CurrentTime;
                             bestTimestamp = server.LastUpdate;
+                        }
+                        else
+                        {
+                            _logger.LogDebug($"[Playback] Startup: keeping local position {bestPosition} (local {bestTimestamp:O} >= server {server.LastUpdate:O})");
                         }
 
                         authoritativeResolved = true;
@@ -1202,9 +1219,15 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     {
         StopSessionSyncTimer();
 
+        // Unwire all events before disposing to prevent leaks
+        UnwireNAudioEvents();
+        UnwireMediaPlayerEvents();
+        UnwireSmtcEvents();
+
         // Stop and dispose timer
         if (_positionTimer != null)
         {
+            _positionTimer.Elapsed -= OnPositionTimerElapsed;
             _positionTimer.Stop();
             _positionTimer.Dispose();
             _positionTimer = null;

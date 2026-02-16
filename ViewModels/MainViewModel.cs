@@ -1,7 +1,9 @@
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace NineLivesAudio.ViewModels;
 
@@ -47,17 +49,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsService = settingsService;
         _syncService = syncService;
 
-        // Subscribe to playback events
-        _playbackService.PlaybackStateChanged += OnPlaybackStateChanged;
-        _playbackService.PositionChanged += OnPositionChanged;
-        _syncService.SyncStarted += OnSyncStarted;
-        _syncService.SyncCompleted += OnSyncCompleted;
-        _syncService.SyncFailed += OnSyncFailed;
+        // Subscribe to playback events via Messenger
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+            ((MainViewModel)r).OnPlaybackStateChanged(m.Value));
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+            ((MainViewModel)r).OnPositionChanged(m.Value));
+
+        // Subscribe to sync events via Messenger
+        WeakReferenceMessenger.Default.Register<SyncStartedMessage>(this, (r, m) =>
+            ((MainViewModel)r).IsSyncing = true);
+        WeakReferenceMessenger.Default.Register<SyncCompletedMessage>(this, (r, m) =>
+            ((MainViewModel)r).IsSyncing = false);
+        WeakReferenceMessenger.Default.Register<SyncFailedMessage>(this, (r, m) =>
+            ((MainViewModel)r).IsSyncing = false);
 
         IsAuthenticated = _apiService.IsAuthenticated;
     }
 
-    private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
+    private void OnPlaybackStateChanged(PlaybackStateChangedEventArgs e)
     {
         IsPlaying = e.State == PlaybackState.Playing;
         CurrentAudioBook = _playbackService.CurrentAudioBook;
@@ -65,7 +74,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Duration = _playbackService.Duration;
     }
 
-    private void OnPositionChanged(object? sender, TimeSpan position)
+    private void OnPositionChanged(TimeSpan position)
     {
         CurrentPosition = position;
         if (Duration.TotalSeconds > 0)
@@ -74,17 +83,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnSyncStarted(object? sender, SyncEventArgs e) => IsSyncing = true;
-    private void OnSyncCompleted(object? sender, SyncEventArgs e) => IsSyncing = false;
-    private void OnSyncFailed(object? sender, SyncErrorEventArgs e) => IsSyncing = false;
-
     public void Dispose()
     {
-        _playbackService.PlaybackStateChanged -= OnPlaybackStateChanged;
-        _playbackService.PositionChanged -= OnPositionChanged;
-        _syncService.SyncStarted -= OnSyncStarted;
-        _syncService.SyncCompleted -= OnSyncCompleted;
-        _syncService.SyncFailed -= OnSyncFailed;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     [RelayCommand]
