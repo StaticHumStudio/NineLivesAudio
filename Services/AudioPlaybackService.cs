@@ -345,7 +345,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         return Task.FromResult(true);
     }
 
-    private Task<bool> LoadLocalTrackAsync(string path, CancellationToken ct)
+    private Task<bool> LoadLocalTrackAsync(string path, CancellationToken ct, bool autoPlay)
     {
         ct.ThrowIfCancellationRequested();
         _isStreaming = false;
@@ -363,9 +363,17 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         _outputDevice.Volume = _volume;
         WireNAudioEvents();
 
-        SetState(PlaybackState.Playing);
-        _outputDevice.Play();
-        _positionTimer?.Start();
+        if (autoPlay)
+        {
+            SetState(PlaybackState.Playing);
+            _outputDevice.Play();
+            _positionTimer?.Start();
+        }
+        else
+        {
+            SetState(PlaybackState.Paused);
+            _positionTimer?.Stop();
+        }
 
         _logger.Log($"[Playback] Track {_currentTrackIndex + 1}/{TotalTracks} loaded (auto-advance)");
         return Task.FromResult(true);
@@ -649,7 +657,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 }
                 else if (!_isStreaming && _trackPaths.Count > targetTrack)
                 {
-                    await LoadLocalTrackAsync(_trackPaths[targetTrack], CancellationToken.None);
+                    await LoadLocalTrackAsync(_trackPaths[targetTrack], CancellationToken.None, wasPlaying);
                 }
 
                 var withinTrack = GetWithinTrackOffset(position);
@@ -731,7 +739,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             {
                 try
                 {
-                    await LoadLocalTrackAsync(_trackPaths[_currentTrackIndex], CancellationToken.None);
+                    await LoadLocalTrackAsync(_trackPaths[_currentTrackIndex], CancellationToken.None, autoPlay: true);
                 }
                 catch (Exception ex)
                 {
