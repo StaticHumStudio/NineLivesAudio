@@ -7,7 +7,7 @@ using System.Collections.Concurrent;
 
 namespace NineLivesAudio.Services;
 
-public class DownloadService : IDownloadService
+public class DownloadService : IDownloadService, IDisposable
 {
     private readonly IAudioBookshelfApiService _apiService;
     private readonly ISettingsService _settingsService;
@@ -72,6 +72,13 @@ public class DownloadService : IDownloadService
         if (_activeDownloads.TryGetValue(downloadId, out var download))
         {
             download.Status = DownloadStatus.Queued;
+
+            if (_downloadCts.TryRemove(downloadId, out var previousCts))
+            {
+                previousCts.Cancel();
+                previousCts.Dispose();
+            }
+
             var cts = new CancellationTokenSource();
             _downloadCts[downloadId] = cts;
 
@@ -283,7 +290,10 @@ public class DownloadService : IDownloadService
                 _logger.Log($"[Download] Complete: {audioBook.Title}");
                 WeakReferenceMessenger.Default.Send(new DownloadCompletedMessage(downloadItem));
                 _activeDownloads.TryRemove(downloadItem.Id, out _);
-                _downloadCts.TryRemove(downloadItem.Id, out _);
+                if (_downloadCts.TryRemove(downloadItem.Id, out var completedCts))
+                {
+                    completedCts.Dispose();
+                }
             }
             }
             catch (OperationCanceledException)
@@ -354,4 +364,15 @@ public class DownloadService : IDownloadService
 
     private string GetLegacyDownloadPath(string audioBookId)
         => DownloadPathHelper.GetLegacyDownloadPath(_settingsService.Settings.DownloadPath, audioBookId);
+
+    public void Dispose()
+    {
+        foreach (var cts in _downloadCts.Values)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        _downloadCts.Clear();
+        _downloadSemaphore.Dispose();
+    }
 }
