@@ -302,3 +302,12 @@ Private project by [Static Hum Studio](https://github.com/StaticHumStudio).
 [Download Now](https://github.com/StaticHumStudio/NineLivesAudio/releases/latest) • [Report Issue](https://github.com/StaticHumStudio/NineLivesAudio/issues) • [View Source](https://github.com/StaticHumStudio/NineLivesAudio)
 
 </div>
+
+---
+
+## Legal
+
+Nine Lives Audio is a trademark of Static Hum Studio. All rights reserved.
+See [TRADEMARK.md](./TRADEMARK.md) for full trademark notice.
+
+© Static Hum Studio — [statichum.studio](https://statichum.studio)
