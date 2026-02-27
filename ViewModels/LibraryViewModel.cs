@@ -258,9 +258,9 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             // Clear normalized cache when loading fresh data
             _normalizedCache.Clear();
 
-            // Load from local database first
+            // Load from local database first (filtered by selected library)
             _logger.Log("Loading audiobooks from local database...");
-            var localBooks = await _database.GetAllAudioBooksAsync();
+            var localBooks = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
             _logger.Log($"Loaded {localBooks.Count} audiobooks from database");
 
             AudioBooks.Clear();
@@ -279,7 +279,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                     await _syncService.SyncLibrariesAsync();
 
                     // Reload from DB after sync (SyncService saved the merged data)
-                    var refreshedBooks = await _database.GetAllAudioBooksAsync();
+                    var refreshedBooks = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
                     AudioBooks.Clear();
                     foreach (var book in refreshedBooks)
                         AudioBooks.Add(book);

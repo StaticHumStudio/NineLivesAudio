@@ -188,6 +188,24 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         return audioBooks;
     }
 
+    public async Task<List<AudioBook>> GetAudioBooksByLibraryAsync(string libraryId)
+    {
+        EnsureInitialized();
+        var audioBooks = new List<AudioBook>();
+
+        var command = _connection!.CreateCommand();
+        command.CommandText = "SELECT * FROM AudioBooks WHERE LibraryId = @libraryId ORDER BY Title";
+        command.Parameters.AddWithValue("@libraryId", libraryId);
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            audioBooks.Add(AudioBookMapper.Map((SqliteDataReader)reader));
+        }
+
+        return audioBooks;
+    }
+
     public async Task<AudioBook?> GetAudioBookAsync(string id)
     {
         EnsureInitialized();
