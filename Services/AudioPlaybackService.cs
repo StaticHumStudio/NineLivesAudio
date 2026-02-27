@@ -260,6 +260,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     {
                         _streamTracks = _currentSession.AudioTracks.OrderBy(t => t.Index).ToList();
                         BuildStreamTrackDurations();
+                        DetermineStartingTrack(audioBook.CurrentTime);
 
                         var track = _streamTracks[_currentTrackIndex];
                         _logger.Log($"[Playback] Stream URL obtained, {_streamTracks.Count} tracks");
@@ -359,7 +360,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         return Task.FromResult(true);
     }
 
-    private async Task<bool> LoadStreamAsync(string streamUrl, AudioBook audioBook, CancellationToken ct)
+    private async Task<bool> LoadStreamAsync(string streamUrl, AudioBook audioBook, CancellationToken ct, bool seekToPosition = true)
     {
         try
         {
@@ -407,8 +408,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
             WireMediaPlayerEvents();
 
-            if (audioBook.CurrentTime.TotalSeconds > 0)
-                _mediaPlayer.PlaybackSession.Position = audioBook.CurrentTime;
+            if (seekToPosition)
+            {
+                var withinTrack = GetWithinTrackOffset(audioBook.CurrentTime);
+                if (withinTrack.TotalSeconds > 0)
+                    _mediaPlayer.PlaybackSession.Position = withinTrack;
+            }
 
             SetState(PlaybackState.Paused);
             _logger.Log($"[Playback] Stream loaded. Duration: {Duration}");
@@ -750,7 +755,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     try
                     {
                         if (_currentAudioBook != null)
-                            await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None);
+                            await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None, seekToPosition: false);
                         await PlayAsync();
                     }
                     catch (Exception ex)

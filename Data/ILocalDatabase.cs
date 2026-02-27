@@ -8,6 +8,7 @@ public interface ILocalDatabase
 
     // AudioBooks
     Task<List<AudioBook>> GetAllAudioBooksAsync();
+    Task<List<AudioBook>> GetAudioBooksByLibraryAsync(string libraryId);
     Task<AudioBook?> GetAudioBookAsync(string id);
     Task SaveAudioBookAsync(AudioBook audioBook);
     Task UpdateAudioBookAsync(AudioBook audioBook);
