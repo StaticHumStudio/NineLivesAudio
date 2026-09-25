@@ -6,6 +6,7 @@ namespace NineLivesAudio.Models;
 public class AudioBook
 {
     public string Id { get; set; } = string.Empty;
+    public string? LibraryId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;
     public string? Narrator { get; set; }

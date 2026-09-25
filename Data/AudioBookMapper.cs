@@ -15,6 +15,7 @@ public static class AudioBookMapper
         return new AudioBook
         {
             Id = reader.GetString(reader.GetOrdinal(AB.Id)),
+            LibraryId = reader.GetNullableString(AB.LibraryId),
             Title = reader.GetString(reader.GetOrdinal(AB.Title)),
             Author = reader.GetNullableString(AB.Author) ?? string.Empty,
             Narrator = reader.GetNullableString(AB.Narrator),
@@ -39,6 +40,7 @@ public static class AudioBookMapper
     public static void AddParameters(SqliteCommand command, AudioBook audioBook)
     {
         command.Parameters.AddWithValue("@id", audioBook.Id);
+        command.Parameters.AddWithValue("@libraryId", audioBook.LibraryId ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("@title", audioBook.Title);
         command.Parameters.AddWithValue("@author", audioBook.Author ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("@narrator", audioBook.Narrator ?? (object)DBNull.Value);

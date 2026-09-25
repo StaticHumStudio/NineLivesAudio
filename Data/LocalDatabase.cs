@@ -230,11 +230,11 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         var command = _connection!.CreateCommand();
         command.CommandText = @"
             INSERT OR REPLACE INTO AudioBooks
-            (Id, Title, Author, Narrator, Description, CoverPath, DurationSeconds, AddedAt,
+            (Id, LibraryId, Title, Author, Narrator, Description, CoverPath, DurationSeconds, AddedAt,
              AudioFilesJson, CurrentTimeSeconds, Progress, IsFinished, IsDownloaded, LocalPath,
              SeriesName, SeriesSequence, GenresJson, TagsJson, ChaptersJson)
             VALUES
-            (@id, @title, @author, @narrator, @description, @coverPath, @durationSeconds, @addedAt,
+            (@id, @libraryId, @title, @author, @narrator, @description, @coverPath, @durationSeconds, @addedAt,
              @audioFilesJson, @currentTimeSeconds, @progress, @isFinished, @isDownloaded, @localPath,
              @seriesName, @seriesSequence, @genresJson, @tagsJson, @chaptersJson)";
 

@@ -131,6 +131,7 @@ public class SyncService : ISyncService, IDisposable
                 // Preserve local state (download info + progress) from existing DB records
                 foreach (var item in items)
                 {
+                    item.LibraryId = library.Id;
                     existingLookup.TryGetValue(item.Id, out var existingItem);
                     if (existingItem != null)
                     {
