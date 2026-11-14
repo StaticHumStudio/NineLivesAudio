@@ -213,7 +213,7 @@ public partial class SettingsViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         await _settingsService.LoadSettingsAsync();
-        LoadSettingsToUI();
+        await LoadSettingsToUIAsync();
         LoadDoctorInfo();
 
         // Check if already connected
@@ -224,7 +224,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    private void LoadSettingsToUI()
+    private async Task LoadSettingsToUIAsync()
     {
         _isLoadingSettings = true;
         try
