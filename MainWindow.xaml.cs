@@ -162,9 +162,14 @@ namespace NineLivesAudio
             if (settings.StartMinimized)
             {
                 if (settings.MinimizeToTray)
+                {
                     _tray.HideToTray();
-                else
-                    _appWindow?.Minimize();
+                }
+                else if (_appWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+                {
+                    // AppWindow itself has no Minimize(); the presenter owns that verb.
+                    presenter.Minimize();
+                }
             }
 
             ApplyLocalization();
