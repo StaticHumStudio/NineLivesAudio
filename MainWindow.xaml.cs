@@ -1,3 +1,4 @@
+using NineLivesAudio.Helpers;
 using CommunityToolkit.Mvvm.Messaging;
 using NineLivesAudio.Messages;
 using NineLivesAudio.Services;
@@ -37,6 +38,10 @@ namespace NineLivesAudio
         {
             this.InitializeComponent();
 
+            // Windows are the theme carriers: everything below them re-resolves ThemeResource.
+            if (this.Content is FrameworkElement themeRoot)
+                ThemeService.Register(themeRoot);
+
             Title = "Nine Lives Audio";
 
             // Set initial window size (portrait default) — user can freely resize/maximize
@@ -65,24 +70,9 @@ namespace NineLivesAudio
             }
             catch { /* Non-fatal — icon is cosmetic */ }
 
-            // Color title bar to match dark void theme
-            if (_appWindow?.TitleBar is { } titleBar)
-            {
-                // Active window
-                titleBar.BackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10); // VoidDeep
-                titleBar.ForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8); // StarlightDim
-                titleBar.ButtonBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-                titleBar.ButtonForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8);
-                titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27); // VoidSurface
-                titleBar.ButtonHoverForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
-                titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x1A, 0x22, 0x36); // VoidElevated
-                titleBar.ButtonPressedForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
-                // Inactive window
-                titleBar.InactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-                titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80); // MistFaint
-                titleBar.ButtonInactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-                titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80);
-            }
+            // Title bar colours follow the palette (dark void vs. daylight) — repainted
+            // again whenever "Appearance → Theme" changes.
+            ThemeService.RegisterTitleBar(_appWindow);
 
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
             SetMinimumWindowSize(hwnd, 500, 600);
@@ -162,6 +152,21 @@ namespace NineLivesAudio
 
         private void ShowApp()
         {
+            // "Appearance → Theme" is applied here, once settings are loaded, and again on
+            // every change from the settings page.
+            var settings = App.Services.GetRequiredService<ISettingsService>().Settings;
+            ThemeService.Apply(settings.Theme);
+
+            // "Start minimized": the window goes straight to the tray (or at least to the
+            // taskbar) instead of popping up in the user's face on every launch.
+            if (settings.StartMinimized)
+            {
+                if (settings.MinimizeToTray)
+                    _tray.HideToTray();
+                else
+                    _appWindow?.Minimize();
+            }
+
             ApplyLocalization();
             _localization.LanguageChanged -= ApplyLocalization;
             _localization.LanguageChanged += ApplyLocalization;
@@ -239,21 +244,21 @@ namespace NineLivesAudio
 
             if (!isOnline)
             {
-                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualErrorBrush"];
+                ConnectivityIcon.Foreground = ThemeService.Brush("RitualErrorBrush");
                 ConnectivityText.Text = _localization.GetString("Offline");
-                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
+                ConnectivityText.Foreground = ThemeService.Brush("MistFaintBrush");
             }
             else if (!isServerReachable)
             {
-                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualWarningBrush"];
+                ConnectivityIcon.Foreground = ThemeService.Brush("RitualWarningBrush");
                 ConnectivityText.Text = _localization.GetString("ServerUnreachable");
-                ConnectivityText.Foreground = (Brush)Application.Current.Resources["MistFaintBrush"];
+                ConnectivityText.Foreground = ThemeService.Brush("MistFaintBrush");
             }
             else
             {
-                ConnectivityIcon.Foreground = (Brush)Application.Current.Resources["RitualSuccessBrush"];
+                ConnectivityIcon.Foreground = ThemeService.Brush("RitualSuccessBrush");
                 ConnectivityText.Text = _localization.GetString("Connected");
-                ConnectivityText.Foreground = (Brush)Application.Current.Resources["StarlightBrush"];
+                ConnectivityText.Foreground = ThemeService.Brush("StarlightBrush");
             }
         }
 

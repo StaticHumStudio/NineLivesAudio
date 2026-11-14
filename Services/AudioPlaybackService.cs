@@ -35,8 +35,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private AudioBook? _currentAudioBook;
     private PlaybackSessionInfo? _currentSession;
     private PlaybackState _state = PlaybackState.Stopped;
-    private float _playbackSpeed = 1.0f;
-    private float _volume = 0.8f;
+    private float _playbackSpeed;
+    private float _volume;
     private bool _isStreaming; // true = MediaPlayer, false = NAudio local
     private bool _isLocalFile; // true if playing from downloaded file
     private CancellationTokenSource? _loadCts;
@@ -135,6 +135,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     {
         _apiService = apiService;
         _settingsService = settingsService;
+
+        // Defaults come from settings.json (Settings → Playback), not from constants.
+        _volume = Math.Clamp((float)_settingsService.Settings.Volume, 0f, 1f);
+        _playbackSpeed = (float)Math.Clamp(_settingsService.Settings.PlaybackSpeed, 0.5, 2.0);
         _logger = loggingService;
         _sourceResolver = sourceResolver;
         _notifications = notifications;

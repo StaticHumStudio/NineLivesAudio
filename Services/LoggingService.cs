@@ -16,6 +16,12 @@ public interface ILoggingService
 
     /// <summary>Unique ID for this app run — included in every log line.</summary>
     string SessionId { get; }
+
+    /// <summary>
+    /// Settings → Diagnostics. Off (default) writes Info and above; on also writes the
+    /// Debug lines (API calls, state transitions, sync detail) that support asks for.
+    /// </summary>
+    void SetDiagnosticsMode(bool enabled);
 }
 
 public enum LogLevel
@@ -132,8 +138,20 @@ public class LoggingService : ILoggingService, IDisposable
         catch { /* logging must never throw */ }
     }
 
+    private volatile bool _diagnosticsMode;
+
+    public void SetDiagnosticsMode(bool enabled)
+    {
+        if (_diagnosticsMode == enabled) return;
+        _diagnosticsMode = enabled;
+        Log($"[Logging] Diagnostics mode {(enabled ? "enabled — debug lines are written" : "disabled — debug lines are skipped")}");
+    }
+
     public void Log(string message, LogLevel level = LogLevel.Info)
     {
+        // Debug is opt-in: without diagnostics mode the file stays small and readable.
+        if (level == LogLevel.Debug && !_diagnosticsMode) return;
+
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var levelStr = level.ToString().ToUpper().PadRight(5);
         var logLine = $"[{timestamp}] [{SessionId}] [{levelStr}] {message}";

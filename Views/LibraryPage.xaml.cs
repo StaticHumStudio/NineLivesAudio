@@ -84,13 +84,13 @@ public sealed partial class LibraryPage : Page
         // Update pill color
         if (isConnected)
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["NebulaDarkBrush"];
-            StatusEllipse.Fill = (Brush)Application.Current.Resources["RitualSuccessBrush"];
+            StatusPill.Background = ThemeService.Brush("NebulaDarkBrush");
+            StatusEllipse.Fill = ThemeService.Brush("RitualSuccessBrush");
         }
         else
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["VoidElevatedBrush"];
-            StatusEllipse.Fill = (Brush)Application.Current.Resources["MistFaintBrush"];
+            StatusPill.Background = ThemeService.Brush("VoidElevatedBrush");
+            StatusEllipse.Fill = ThemeService.Brush("MistFaintBrush");
         }
     }
 
@@ -260,10 +260,10 @@ public sealed partial class LibraryPage : Page
 
     private void UpdateViewModeButtons()
     {
-        var activeBg = (Brush)Application.Current.Resources["SigilGoldBrush"];
-        var activeFg = (Brush)Application.Current.Resources["VoidDeepBrush"];
-        var inactiveBg = (Brush)Application.Current.Resources["VoidElevatedBrush"];
-        var inactiveFg = (Brush)Application.Current.Resources["StarlightDimBrush"];
+        var activeBg = ThemeService.Brush("SigilGoldBrush");
+        var activeFg = ThemeService.Brush("VoidDeepBrush");
+        var inactiveBg = ThemeService.Brush("VoidElevatedBrush");
+        var inactiveFg = ThemeService.Brush("StarlightDimBrush");
 
         SetViewModeButton(ViewModeAllButton, ViewModel.CurrentViewMode == ViewMode.All, activeBg, activeFg, inactiveBg, inactiveFg);
         SetViewModeButton(ViewModeSeriesButton, ViewModel.CurrentViewMode == ViewMode.Series, activeBg, activeFg, inactiveBg, inactiveFg);

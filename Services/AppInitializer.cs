@@ -56,6 +56,8 @@ public class AppInitializer : IAppInitializer
             await Task.WhenAll(dbTask, settingsTask);
             // Apply persisted UI language now that settings are loaded.
             _localization.RefreshFromSettings();
+            // Settings → Diagnostics: without it only Info and above reaches the log file.
+            _logger.SetDiagnosticsMode(_settingsService.Settings.DiagnosticsMode);
             _logger.Log($"AppInitializer: database + settings ready (server={_settingsService.Settings.ServerUrl})");
             var skipSettings = _settingsService.Settings;
             _logger.Log($"AppInitializer: skip settings — intro {skipSettings.SkipIntroSeconds}s, " +

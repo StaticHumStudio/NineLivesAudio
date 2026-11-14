@@ -186,7 +186,7 @@ public sealed class TrayIconService : ITrayIconService
         return DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
-    private void HideToTray()
+    public void HideToTray()
     {
         Show();
         ShowWindow(_hwnd, SW_HIDE);

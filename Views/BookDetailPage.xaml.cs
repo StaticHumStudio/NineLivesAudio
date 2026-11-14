@@ -248,7 +248,7 @@ public sealed partial class BookDetailPage : Page
         var labelBlock = new TextBlock
         {
             Text = label,
-            Foreground = (Brush)Application.Current.Resources["MistFaintBrush"],
+            Foreground = ThemeService.Brush("MistFaintBrush"),
             FontSize = 13
         };
         Grid.SetColumn(labelBlock, 0);
@@ -258,7 +258,7 @@ public sealed partial class BookDetailPage : Page
             Text = value,
             FontSize = 13,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = (Brush)Application.Current.Resources["StarlightDimBrush"]
+            Foreground = ThemeService.Brush("StarlightDimBrush")
         };
         Grid.SetColumn(valueBlock, 1);
 

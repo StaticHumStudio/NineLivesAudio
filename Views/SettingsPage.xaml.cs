@@ -13,74 +13,8 @@ public sealed partial class SettingsPage : Page
     public SettingsViewModel ViewModel { get; }
 
     public SolidColorBrush ConnectionStatusColor => ViewModel.IsConnected
-        ? (SolidColorBrush)Application.Current.Resources["RitualSuccessBrush"]
-        : (SolidColorBrush)Application.Current.Resources["MistFaintBrush"];
-
-    public int SpeedSelectedIndex
-    {
-        get => ViewModel.PlaybackSpeed switch
-        {
-            0.5 => 0,
-            0.75 => 1,
-            1.0 => 2,
-            1.25 => 3,
-            1.5 => 4,
-            1.75 => 5,
-            2.0 => 6,
-            _ => 2
-        };
-        set => ViewModel.PlaybackSpeed = value switch
-        {
-            0 => 0.5,
-            1 => 0.75,
-            2 => 1.0,
-            3 => 1.25,
-            4 => 1.5,
-            5 => 1.75,
-            6 => 2.0,
-            _ => 1.0
-        };
-    }
-
-    public int SyncIntervalSelectedIndex
-    {
-        get => ViewModel.SyncIntervalMinutes switch
-        {
-            1 => 0,
-            5 => 1,
-            10 => 2,
-            15 => 3,
-            30 => 4,
-            _ => 1
-        };
-        set => ViewModel.SyncIntervalMinutes = value switch
-        {
-            0 => 1,
-            1 => 5,
-            2 => 10,
-            3 => 15,
-            4 => 30,
-            _ => 5
-        };
-    }
-
-    public int ThemeSelectedIndex
-    {
-        get => ViewModel.Theme switch
-        {
-            "System" => 0,
-            "Light" => 1,
-            "Dark" => 2,
-            _ => 0
-        };
-        set => ViewModel.Theme = value switch
-        {
-            0 => "System",
-            1 => "Light",
-            2 => "Dark",
-            _ => "System"
-        };
-    }
+        ? (SolidColorBrush)Helpers.ThemeService.Brush("RitualSuccessBrush")
+        : (SolidColorBrush)Helpers.ThemeService.Brush("MistFaintBrush");
 
     private readonly ILocalizationService _localization;
 
@@ -201,7 +135,6 @@ public sealed partial class SettingsPage : Page
         if (ExportLogsButton != null) ExportLogsButton.Content = _localization.GetString("ExportLogs");
         if (OpenSettingsFolderButton != null) OpenSettingsFolderButton.Content = _localization.GetString("OpenSettingsFolder");
         if (SettingsDoctorTitle != null) SettingsDoctorTitle.Text = _localization.GetString("SettingsDoctor");
-        if (SaveSettingsButton != null) SaveSettingsButton.Content = _localization.GetString("SaveSettings");
         if (ResetConnectionButton != null) ResetConnectionButton.Content = _localization.GetString("ResetConnection");
         if (DoctorTestConnectionButton != null) DoctorTestConnectionButton.Content = _localization.GetString("TestConnection");
         if (AboutTitle != null) AboutTitle.Text = _localization.GetString("About");
@@ -217,10 +150,6 @@ public sealed partial class SettingsPage : Page
         ViewModel.DismissErrorCommand.Execute(null);
     }
 
-    private void SuccessInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
-    {
-        ViewModel.DismissSuccessCommand.Execute(null);
-    }
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {

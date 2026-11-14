@@ -8,6 +8,7 @@
     <helpers:BoolToInverseConverter x:Key="BoolToInverseConverter"/>
     <helpers:ProgressToVisibilityConverter x:Key="ProgressToVisibilityConverter"/>
     <helpers:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter"/>
+    <helpers:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
     <helpers:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
     <helpers:NullToVisibilityInverseConverter x:Key="NullToVisibilityInverseConverter"/>
     <helpers:DownloadStatusToGlyphConverter x:Key="DownloadStatusToGlyphConverter"/>

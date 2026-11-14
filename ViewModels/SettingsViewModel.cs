@@ -1,4 +1,5 @@
 using NineLivesAudio.Data;
+using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -14,6 +15,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ILoggingService _logger;
     private readonly ISyncService _syncService;
     private readonly ILocalizationService _localization;
+    private readonly IAudioPlaybackService _playbackService;
 
     [ObservableProperty]
     private string _serverUrl = string.Empty;
@@ -42,9 +44,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private double _playbackSpeed;
 
-    // Debounces the "apply immediately" saves triggered by the skip boxes.
-    private bool _isLoadingSettings;
-    private CancellationTokenSource? _autoSaveCts;
+    // Starts true: x:Bind pushes control defaults (Slider 0, ComboBox -1) before
+    // InitializeAsync runs, and those must never be persisted as the user's choice.
+    private bool _isLoadingSettings = true;
 
     [ObservableProperty]
     private double _skipIntroSeconds;
@@ -117,13 +119,84 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasSuccess;
 
+    // ── Dropdown selections (observable, so they show the saved value) ─────
+    [ObservableProperty] private int _speedSelectedIndex = 2;
+    [ObservableProperty] private int _syncIntervalSelectedIndex = 1;
+    [ObservableProperty] private int _themeSelectedIndex;
+    private bool _syncingIndexes;
+
+    private static int IndexForSpeed(double speed) => speed switch
+    {
+        <= 0.5 => 0,
+        <= 0.75 => 1,
+        <= 1.0 => 2,
+        <= 1.25 => 3,
+        <= 1.5 => 4,
+        <= 1.75 => 5,
+        _ => 6
+    };
+
+    private static double SpeedForIndex(int index) => index switch
+    {
+        0 => 0.5, 1 => 0.75, 2 => 1.0, 3 => 1.25, 4 => 1.5, 5 => 1.75, 6 => 2.0, _ => 1.0
+    };
+
+    private static int IndexForInterval(int minutes) => minutes switch
+    {
+        <= 1 => 0,
+        <= 5 => 1,
+        <= 10 => 2,
+        <= 15 => 3,
+        _ => 4
+    };
+
+    private static int IntervalForIndex(int index) => index switch
+    {
+        0 => 1, 1 => 5, 2 => 10, 3 => 15, 4 => 30, _ => 5
+    };
+
+    private static int IndexForTheme(string? theme) => theme switch
+    {
+        "Light" => 1,
+        "Dark" => 2,
+        _ => 0
+    };
+
+    private static string ThemeForIndex(int index) => index switch
+    {
+        1 => "Light",
+        2 => "Dark",
+        _ => "System"
+    };
+
+    // ── Inline save feedback ────────────────────────────────────────────────
+    // Every control writes its own "Saved" / error text right under itself, so nothing
+    // depends on a single message at the bottom of the page any more.
+    [ObservableProperty] private string _serverUrlStatus = string.Empty;
+    [ObservableProperty] private string _usernameStatus = string.Empty;
+    [ObservableProperty] private string _downloadPathStatus = string.Empty;
+    [ObservableProperty] private string _autoDownloadCoversStatus = string.Empty;
+    [ObservableProperty] private string _playbackSpeedStatus = string.Empty;
+    [ObservableProperty] private string _volumeStatus = string.Empty;
+    [ObservableProperty] private string _skipIntroStatus = string.Empty;
+    [ObservableProperty] private string _skipOutroStatus = string.Empty;
+    [ObservableProperty] private string _autoSyncStatus = string.Empty;
+    [ObservableProperty] private string _syncIntervalStatus = string.Empty;
+    [ObservableProperty] private string _startMinimizedStatus = string.Empty;
+    [ObservableProperty] private string _minimizeToTrayStatus = string.Empty;
+    [ObservableProperty] private string _themeStatus = string.Empty;
+    [ObservableProperty] private string _languageStatus = string.Empty;
+    [ObservableProperty] private string _selfSignedStatus = string.Empty;
+    [ObservableProperty] private string _diagnosticsStatus = string.Empty;
+
     public SettingsViewModel(
         ISettingsService settingsService,
         IAudioBookshelfApiService apiService,
         ILocalDatabase database,
         ILoggingService loggingService,
         ISyncService syncService,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        IAudioPlaybackService playbackService)
     {
         _settingsService = settingsService;
         _apiService = apiService;
@@ -131,6 +204,7 @@ public partial class SettingsViewModel : ObservableObject
         _logger = loggingService;
         _syncService = syncService;
         _localization = localization;
+        _playbackService = playbackService;
 
         // Seed localized defaults before the page is shown.
         ConnectionStatus = _localization.GetString("NotConnectedStatus");
@@ -161,6 +235,22 @@ public partial class SettingsViewModel : ObservableObject
         {
             _isLoadingSettings = false;
         }
+
+        // Cover auto-download is on by default, so a download folder has to exist from the
+        // first start — store the default once instead of leaving settings.json blank.
+        if (string.IsNullOrWhiteSpace(_settingsService.Settings.DownloadPath))
+        {
+            try
+            {
+                _settingsService.Settings.DownloadPath = DownloadPath;
+                await _settingsService.SaveSettingsAsync();
+                _logger.Log($"[Settings] Default download folder stored: {DownloadPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"[Settings] Could not store default download folder: {ex.Message}");
+            }
+        }
     }
 
     private void LoadSettingsToUIUnsafe()
@@ -169,7 +259,11 @@ public partial class SettingsViewModel : ObservableObject
 
         ServerUrl = settings.ServerUrl ?? string.Empty;
         Username = settings.Username ?? string.Empty;
-        DownloadPath = settings.DownloadPath ?? GetDefaultDownloadPath();
+        // "Auto-download cover art" is on by default, so there has to be a folder even when
+        // the user never picked one.
+        DownloadPath = string.IsNullOrWhiteSpace(settings.DownloadPath)
+            ? GetDefaultDownloadPath()
+            : settings.DownloadPath;
         AutoDownloadCovers = settings.AutoDownloadCovers;
         PlaybackSpeed = settings.PlaybackSpeed;
         SkipIntroSeconds = settings.SkipIntroSeconds;
@@ -183,6 +277,13 @@ public partial class SettingsViewModel : ObservableObject
         Language = settings.Language ?? "system";
         AllowSelfSignedCertificates = settings.AllowSelfSignedCertificates;
         DiagnosticsMode = settings.DiagnosticsMode;
+
+        // Dropdowns show what is actually stored (they used to keep showing the defaults).
+        _syncingIndexes = true;
+        SpeedSelectedIndex = IndexForSpeed(settings.PlaybackSpeed);
+        SyncIntervalSelectedIndex = IndexForInterval(settings.SyncIntervalMinutes);
+        ThemeSelectedIndex = IndexForTheme(settings.Theme);
+        _syncingIndexes = false;
     }
 
     /// <summary>Where the app keeps settings, database and logs — shown in Settings › Diagnostics.</summary>
@@ -243,61 +344,227 @@ public partial class SettingsViewModel : ObservableObject
     public static int ToSeconds(double value)
         => double.IsNaN(value) || value <= 0 ? 0 : (int)Math.Round(Math.Min(value, 600));
 
+    // ── Auto-save ───────────────────────────────────────────────────────────
+    // Nothing on this page needs the "save" button: every control persists itself and puts
+    // its own result right underneath. Text boxes debounce (400 ms) so typing a URL does not
+    // hit the disk per keystroke; toggles write immediately.
+
+    private CancellationTokenSource? _saveCts;
+
+    /// <summary>Copies the UI state into the settings object that every service reads.</summary>
+    private void ApplyToSettings()
+    {
+        var settings = _settingsService.Settings;
+
+        settings.ServerUrl = (ServerUrl ?? string.Empty).Trim();
+        settings.Username = Username ?? string.Empty;
+        settings.DownloadPath = DownloadPath ?? string.Empty;
+        settings.AutoDownloadCovers = AutoDownloadCovers;
+        settings.PlaybackSpeed = PlaybackSpeed;
+        settings.SkipIntroSeconds = ToSeconds(SkipIntroSeconds);
+        settings.SkipOutroSeconds = ToSeconds(SkipOutroSeconds);
+        settings.AutoSyncProgress = AutoSyncProgress;
+        settings.SyncIntervalMinutes = SyncIntervalMinutes;
+        settings.StartMinimized = StartMinimized;
+        settings.MinimizeToTray = MinimizeToTray;
+        settings.Volume = Volume;
+        settings.Theme = Theme;
+        settings.AllowSelfSignedCertificates = AllowSelfSignedCertificates;
+        settings.DiagnosticsMode = DiagnosticsMode;
+        settings.Language = Language;
+    }
+
+    /// <summary>"✓ Saved · 5 min" — the note also states the value that just took effect.</summary>
+    private static string Detail(string saved, string? detail)
+        => string.IsNullOrWhiteSpace(detail) ? saved : saved + " · " + detail;
+
+    private void AutoSave(Action<string> report, int delayMs = 0)
+    {
+        if (_isLoadingSettings) return;
+
+        ApplyToSettings();
+
+        var cts = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _saveCts, cts);
+        if (previous != null)
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
+
+        _ = PersistAsync(cts.Token, report, delayMs);
+    }
+
+    private async Task PersistAsync(CancellationToken token, Action<string> report, int delayMs)
+    {
+        try
+        {
+            if (delayMs > 0)
+                await Task.Delay(delayMs, token);
+
+            await _settingsService.SaveSettingsAsync();
+
+            report("✓ " + _localization.GetString("SavedInline"));
+            LoadDoctorInfo();
+            _logger.LogDebug($"[Settings] Auto-saved (intro={_settingsService.Settings.SkipIntroSeconds}s, " +
+                             $"outro={_settingsService.Settings.SkipOutroSeconds}s, theme={_settingsService.Settings.Theme})");
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer edit
+        }
+        catch (Exception ex)
+        {
+            report("⚠ " + _localization.GetString("SaveFailedInline"));
+            _logger.LogError("[Settings] Auto-save failed", ex);
+        }
+    }
+
+    // ── Per-setting change hooks: apply the effect, then persist ───────────
+
+    partial void OnSpeedSelectedIndexChanged(int value)
+    {
+        if (_syncingIndexes) return;
+
+        if (value < 0)
+        {
+            _syncingIndexes = true;
+            SpeedSelectedIndex = IndexForSpeed(PlaybackSpeed);
+            _syncingIndexes = false;
+            return;
+        }
+
+        PlaybackSpeed = SpeedForIndex(value);
+    }
+
+    partial void OnSyncIntervalSelectedIndexChanged(int value)
+    {
+        if (_syncingIndexes) return;
+
+        if (value < 0)
+        {
+            _syncingIndexes = true;
+            SyncIntervalSelectedIndex = IndexForInterval(SyncIntervalMinutes);
+            _syncingIndexes = false;
+            return;
+        }
+
+        SyncIntervalMinutes = IntervalForIndex(value);
+    }
+
+    partial void OnThemeSelectedIndexChanged(int value)
+    {
+        if (_syncingIndexes) return;
+
+        if (value < 0)
+        {
+            _syncingIndexes = true;
+            ThemeSelectedIndex = IndexForTheme(Theme);
+            _syncingIndexes = false;
+            return;
+        }
+
+        Theme = ThemeForIndex(value);
+    }
+
     partial void OnSkipIntroSecondsChanged(double value)
     {
         var clamped = ToSeconds(value);
         if (Math.Abs(value - clamped) > 0.001)
+        {
             SkipIntroSeconds = clamped;
+            return;
+        }
 
-        ScheduleAutoSave();
+        AutoSave(s => SkipIntroStatus = s, 400);
     }
 
     partial void OnSkipOutroSecondsChanged(double value)
     {
         var clamped = ToSeconds(value);
         if (Math.Abs(value - clamped) > 0.001)
+        {
             SkipOutroSeconds = clamped;
+            return;
+        }
 
-        ScheduleAutoSave();
+        AutoSave(s => SkipOutroStatus = s, 400);
     }
 
-    /// <summary>
-    /// Skip intro/outro change what happens during playback, so they must not wait for
-    /// the "Save settings" button — persist them as soon as the user stops typing.
-    /// </summary>
-    private void ScheduleAutoSave()
-    {
-        if (_isLoadingSettings) return;
+    partial void OnServerUrlChanged(string value) =>
+        AutoSave(s => ServerUrlStatus = Detail(s, value), 600);
 
-        _autoSaveCts?.Cancel();
-        _autoSaveCts?.Dispose();
-        _autoSaveCts = new CancellationTokenSource();
-        _ = AutoSaveSkipSettingsAsync(_autoSaveCts.Token);
+    partial void OnUsernameChanged(string value) => AutoSave(s => UsernameStatus = s, 600);
+
+    partial void OnDownloadPathChanged(string value) =>
+        AutoSave(s => DownloadPathStatus = Detail(s, value), 600);
+
+    partial void OnAutoDownloadCoversChanged(bool value) => AutoSave(s => AutoDownloadCoversStatus = s);
+
+    partial void OnPlaybackSpeedChanged(double value)
+    {
+        if (!_syncingIndexes)
+        {
+            _syncingIndexes = true;
+            SpeedSelectedIndex = IndexForSpeed(value);
+            _syncingIndexes = false;
+        }
+
+        // The player follows immediately, not on the next book.
+        _ = _playbackService.SetPlaybackSpeedAsync((float)value);
+        AutoSave(s => PlaybackSpeedStatus = Detail(s, value.ToString("0.##") + "x"), 300);
     }
 
-    private async Task AutoSaveSkipSettingsAsync(CancellationToken token)
+    partial void OnVolumeChanged(double value)
     {
-        try
-        {
-            await Task.Delay(400, token);
+        _ = _playbackService.SetVolumeAsync((float)value);
+        AutoSave(s => VolumeStatus = Detail(s, ((int)Math.Round(value * 100)).ToString() + "%"), 300);
+    }
 
-            var settings = _settingsService.Settings;
-            settings.SkipIntroSeconds = ToSeconds(SkipIntroSeconds);
-            settings.SkipOutroSeconds = ToSeconds(SkipOutroSeconds);
+    partial void OnAutoSyncProgressChanged(bool value)
+    {
+        _ = _syncService.ApplyScheduleAsync();
+        AutoSave(s => AutoSyncStatus = s);
+    }
 
-            await _settingsService.SaveSettingsAsync();
-            LoadDoctorInfo();
-            _logger.LogDebug($"[Settings] Skip settings auto-saved " +
-                             $"(intro={settings.SkipIntroSeconds}s, outro={settings.SkipOutroSeconds}s)");
-        }
-        catch (OperationCanceledException)
+    partial void OnSyncIntervalMinutesChanged(int value)
+    {
+        if (!_syncingIndexes)
         {
-            // user is still typing
+            _syncingIndexes = true;
+            SyncIntervalSelectedIndex = IndexForInterval(value);
+            _syncingIndexes = false;
         }
-        catch (Exception ex)
+
+        _ = _syncService.ApplyScheduleAsync();
+        AutoSave(s => SyncIntervalStatus = Detail(s, value + " min"));
+    }
+
+    partial void OnStartMinimizedChanged(bool value) => AutoSave(s => StartMinimizedStatus = s);
+
+    partial void OnMinimizeToTrayChanged(bool value) => AutoSave(s => MinimizeToTrayStatus = s);
+
+    partial void OnThemeChanged(string value)
+    {
+        if (!_syncingIndexes)
         {
-            _logger.LogDebug($"[Settings] Skip settings auto-save failed: {ex.Message}");
+            _syncingIndexes = true;
+            ThemeSelectedIndex = IndexForTheme(value);
+            _syncingIndexes = false;
         }
+
+        ThemeService.Apply(value);
+        AutoSave(s => ThemeStatus = Detail(s, value));
+    }
+
+    partial void OnLanguageChanged(string value) => AutoSave(s => LanguageStatus = s);
+
+    partial void OnAllowSelfSignedCertificatesChanged(bool value) => AutoSave(s => SelfSignedStatus = s);
+
+    partial void OnDiagnosticsModeChanged(bool value)
+    {
+        _logger.SetDiagnosticsMode(value);
+        AutoSave(s => DiagnosticsStatus = s);
     }
 
     private static string GetDefaultDownloadPath()
@@ -456,6 +723,10 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Safety net for the connect flow (it changes server + credentials at once). The
+    /// settings page itself has no Save button: individual controls persist themselves.
+    /// </summary>
     [RelayCommand]
     private async Task SaveSettingsAsync()
     {
@@ -464,25 +735,7 @@ public partial class SettingsViewModel : ObservableObject
             HasError = false;
             HasSuccess = false;
 
-            var settings = _settingsService.Settings;
-
-            settings.ServerUrl = ServerUrl;
-            settings.Username = Username;
-            settings.DownloadPath = DownloadPath;
-            settings.AutoDownloadCovers = AutoDownloadCovers;
-            settings.PlaybackSpeed = PlaybackSpeed;
-            settings.SkipIntroSeconds = ToSeconds(SkipIntroSeconds);
-            settings.SkipOutroSeconds = ToSeconds(SkipOutroSeconds);
-            settings.AutoSyncProgress = AutoSyncProgress;
-            settings.SyncIntervalMinutes = SyncIntervalMinutes;
-            settings.StartMinimized = StartMinimized;
-            settings.MinimizeToTray = MinimizeToTray;
-            settings.Volume = Volume;
-            settings.Theme = Theme;
-            settings.AllowSelfSignedCertificates = AllowSelfSignedCertificates;
-            settings.DiagnosticsMode = DiagnosticsMode;
-            settings.Language = Language;
-
+            ApplyToSettings();
             await _settingsService.SaveSettingsAsync();
 
             SuccessMessage = _localization.GetString("SettingsSaved");

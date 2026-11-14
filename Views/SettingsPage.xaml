@@ -17,10 +17,10 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
@@ -39,10 +39,18 @@
                                  IsEnabled="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
 
                         <!-- Username -->
+                        <TextBlock Text="{x:Bind ViewModel.ServerUrlStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}" Margin="0,-4,0,0"
+                                   Visibility="{x:Bind ViewModel.ServerUrlStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
+
                         <TextBox x:Name="UsernameBox" Header="Username"
                                  loc:Loc.Placeholder="EnterUsername" PlaceholderText="Enter your username"
                                  Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  IsEnabled="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
+
+                        <TextBlock Text="{x:Bind ViewModel.UsernameStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}" Margin="0,-4,0,0"
+                                   Visibility="{x:Bind ViewModel.UsernameStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Password -->
                         <PasswordBox x:Name="PasswordBox" Header="Password"
@@ -54,8 +62,8 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button x:Name="ConnectButton" Content="Connect"
                                     Style="{ThemeResource AccentButtonStyle}"
-                                    Background="{StaticResource SigilGoldBrush}"
-                                    Foreground="{StaticResource VoidDeepBrush}"
+                                    Background="{ThemeResource SigilGoldBrush}"
+                                    Foreground="{ThemeResource VoidDeepBrush}"
                                     Command="{x:Bind ViewModel.ConnectCommand}"
                                     Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"
                                     IsEnabled="{x:Bind ViewModel.IsConnecting, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
@@ -83,10 +91,10 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
@@ -97,11 +105,14 @@
                                     Maximum="1"
                                     StepFrequency="0.05"
                                     Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.VolumeStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.VolumeStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
 
                         <!-- Default Playback Speed -->
                         <ComboBox x:Name="DefaultSpeedBox" Header="Default Playback Speed"
-                                  SelectedIndex="{x:Bind SpeedSelectedIndex, Mode=TwoWay}">
+                                  SelectedIndex="{x:Bind ViewModel.SpeedSelectedIndex, Mode=TwoWay}">
                             <ComboBoxItem Content="0.5x" Tag="0.5"/>
                             <ComboBoxItem Content="0.75x" Tag="0.75"/>
                             <ComboBoxItem Content="1.0x (Normal)" Tag="1.0"/>
@@ -110,6 +121,9 @@
                             <ComboBoxItem Content="1.75x" Tag="1.75"/>
                             <ComboBoxItem Content="2.0x" Tag="2.0"/>
                         </ComboBox>
+                        <TextBlock Text="{x:Bind ViewModel.PlaybackSpeedStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.PlaybackSpeedStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Skip intro / skip outro (global, applied to every book) -->
                         <StackPanel>
@@ -127,6 +141,9 @@
                                        Opacity="0.7"
                                        TextWrapping="Wrap"
                                        Margin="0,4,0,0"/>
+                            <TextBlock Text="{x:Bind ViewModel.SkipIntroStatus, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource RitualSuccessBrush}"
+                                       Visibility="{x:Bind ViewModel.SkipIntroStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
 
                         <StackPanel>
@@ -144,6 +161,9 @@
                                        Opacity="0.7"
                                        TextWrapping="Wrap"
                                        Margin="0,4,0,0"/>
+                            <TextBlock Text="{x:Bind ViewModel.SkipOutroStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.SkipOutroStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -155,10 +175,10 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
@@ -178,10 +198,16 @@
                                     Margin="8,0,0,0"
                                     Grid.Column="1"/>
                         </Grid>
+                        <TextBlock Text="{x:Bind ViewModel.DownloadPathStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.DownloadPathStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Auto Download Covers -->
                         <ToggleSwitch x:Name="AutoDownloadCoversSwitch" Header="Auto-download cover art"
                                       IsOn="{x:Bind ViewModel.AutoDownloadCovers, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.AutoDownloadCoversStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.AutoDownloadCoversStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -192,27 +218,33 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Auto Sync Progress -->
                         <ToggleSwitch x:Name="AutoSyncSwitch" Header="Auto-sync playback progress"
                                       IsOn="{x:Bind ViewModel.AutoSyncProgress, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.AutoSyncStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.AutoSyncStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Sync Interval -->
                         <ComboBox x:Name="SyncIntervalBox" Header="Sync Interval"
                                   IsEnabled="{x:Bind ViewModel.AutoSyncProgress, Mode=OneWay}"
-                                  SelectedIndex="{x:Bind SyncIntervalSelectedIndex, Mode=TwoWay}">
+                                  SelectedIndex="{x:Bind ViewModel.SyncIntervalSelectedIndex, Mode=TwoWay}">
                             <ComboBoxItem Content="1 minute" Tag="1"/>
                             <ComboBoxItem Content="5 minutes" Tag="5"/>
                             <ComboBoxItem Content="10 minutes" Tag="10"/>
                             <ComboBoxItem Content="15 minutes" Tag="15"/>
                             <ComboBoxItem Content="30 minutes" Tag="30"/>
                         </ComboBox>
+                        <TextBlock Text="{x:Bind ViewModel.SyncIntervalStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.SyncIntervalStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -223,20 +255,23 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <!-- Theme -->
                         <ComboBox x:Name="ThemeBox" Header="Theme"
-                                  SelectedIndex="{x:Bind ThemeSelectedIndex, Mode=TwoWay}">
+                                  SelectedIndex="{x:Bind ViewModel.ThemeSelectedIndex, Mode=TwoWay}">
                             <ComboBoxItem loc:Loc.Content="SystemDefault" Content="System default" Tag="System"/>
                             <ComboBoxItem loc:Loc.Content="Light" Content="Light" Tag="Light"/>
                             <ComboBoxItem loc:Loc.Content="Dark" Content="Dark" Tag="Dark"/>
                         </ComboBox>
+                        <TextBlock Text="{x:Bind ViewModel.ThemeStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.ThemeStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Language -->
                         <ComboBox x:Name="LanguageComboBox" Header="Language"
@@ -245,14 +280,23 @@
                             <ComboBoxItem Content="English" Tag="en-US"/>
                             <ComboBoxItem Content="简体中文" Tag="zh-CN"/>
                         </ComboBox>
+                        <TextBlock Text="{x:Bind ViewModel.LanguageStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.LanguageStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Start Minimized -->
                         <ToggleSwitch x:Name="StartMinimizedSwitch" Header="Start minimized"
                                       IsOn="{x:Bind ViewModel.StartMinimized, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.StartMinimizedStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.StartMinimizedStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Minimize to Tray -->
                         <ToggleSwitch x:Name="MinimizeToTraySwitch" Header="Minimize to system tray"
                                       IsOn="{x:Bind ViewModel.MinimizeToTray, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.MinimizeToTrayStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.MinimizeToTrayStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -263,15 +307,18 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <ToggleSwitch x:Name="AllowSelfSignedSwitch" Header="Allow self-signed SSL certificates"
                                       IsOn="{x:Bind ViewModel.AllowSelfSignedCertificates, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.SelfSignedStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.SelfSignedStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <TextBlock Text="Only applies to your configured server host. Required for some self-hosted setups."
                                    TextWrapping="Wrap"
@@ -286,10 +333,10 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
@@ -316,15 +363,18 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="16">
 
                         <ToggleSwitch x:Name="DiagnosticsModeSwitch" Header="Diagnostics mode"
                                       IsOn="{x:Bind ViewModel.DiagnosticsMode, Mode=TwoWay}"/>
+                        <TextBlock Text="{x:Bind ViewModel.DiagnosticsStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}"
+                                   Visibility="{x:Bind ViewModel.DiagnosticsStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <TextBlock Text="Enables verbose logging for API requests, state transitions, and playback events."
                                    TextWrapping="Wrap"
@@ -350,10 +400,10 @@
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="12">
 
@@ -376,24 +426,24 @@
                             <TextBlock Grid.Row="0" Grid.Column="0" loc:Loc.Text="DataFolder" Text="Data folder:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.DataDirectory, Mode=OneWay}"
                                        FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Settings file:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SettingsFilePath, Mode=OneWay}"
                                        FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Settings source:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SettingsSource, Mode=OneWay}" FontSize="12"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Token source:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.TokenSource, Mode=OneWay}" FontSize="12"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Last loaded:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.LastLoadedAt, Mode=OneWay}" FontSize="12"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Session ID:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.SessionId, Mode=OneWay}"
@@ -401,12 +451,12 @@
 
                             <TextBlock Grid.Row="6" Grid.Column="0" Text="Server host:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="6" Grid.Column="1" Text="{x:Bind ViewModel.ServerHost, Mode=OneWay}" FontSize="12"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <!-- Shows what is actually persisted, so "did my setting save?" is answerable -->
                             <TextBlock Grid.Row="7" Grid.Column="0" Text="Playback saved:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="7" Grid.Column="1" Text="{x:Bind ViewModel.PlaybackFlags, Mode=OneWay}" FontSize="12"
-                                       Foreground="{StaticResource StarlightDimBrush}"/>
+                                       Foreground="{ThemeResource StarlightDimBrush}"/>
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
@@ -423,15 +473,14 @@
                 </Border>
             </StackPanel>
 
-            <!-- Save Button -->
-            <Button x:Name="SaveSettingsButton" Content="Save Settings"
-                    Style="{ThemeResource AccentButtonStyle}"
-                    Background="{StaticResource SigilGoldBrush}"
-                    Foreground="{StaticResource VoidDeepBrush}"
-                    Command="{x:Bind ViewModel.SaveSettingsCommand}"
-                    HorizontalAlignment="Right"/>
+            <!-- Nothing to save: every control above persists itself and shows its own
+                 confirmation right underneath. Only hard errors (sign-in failed) surface here. -->
+            <TextBlock x:Name="AutosaveNote"
+                       Text="Changes save automatically — there is no Save button. A ✓ appears under the setting you changed."
+                       Style="{StaticResource CaptionStyle}"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Right"/>
 
-            <!-- Messages -->
             <InfoBar x:Name="ErrorInfoBar"
                      IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                      Severity="Error"
@@ -440,43 +489,35 @@
                      IsClosable="True"
                      Closed="ErrorInfoBar_Closed"/>
 
-            <InfoBar x:Name="SuccessInfoBar"
-                     IsOpen="{x:Bind ViewModel.HasSuccess, Mode=OneWay}"
-                     Severity="Success"
-                     Title="Success"
-                     Message="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}"
-                     IsClosable="True"
-                     Closed="SuccessInfoBar_Closed"/>
-
             <!-- About Section -->
             <StackPanel Margin="0,16,0,32">
                 <TextBlock x:Name="AboutTitle" Text="About"
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>
 
-                <Border Background="{StaticResource VoidSurfaceBrush}"
+                <Border Background="{ThemeResource VoidSurfaceBrush}"
                         CornerRadius="8"
                         Padding="16"
-                        BorderBrush="{StaticResource DustBrush}"
+                        BorderBrush="{ThemeResource DustBrush}"
                         BorderThickness="1">
                     <StackPanel Spacing="8">
                         <TextBlock Text="Nine Lives Audio"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource StarlightDimBrush}"/>
+                                   Foreground="{ThemeResource StarlightDimBrush}"/>
                         <TextBlock Text="{x:Bind ViewModel.AppVersion}"
-                                   Foreground="{StaticResource MistBrush}"/>
+                                   Foreground="{ThemeResource MistBrush}"/>
                         <TextBlock loc:Loc.Text="AboutDesc" Text="A lightweight Windows client for Audiobookshelf"
-                                   Foreground="{StaticResource MistFaintBrush}"
+                                   Foreground="{ThemeResource MistFaintBrush}"
                                    TextWrapping="Wrap"/>
                         <Border Margin="0,8,0,0" Padding="0" Background="Transparent">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="This app is not affiliated with or endorsed by the Audiobookshelf project."
-                                           Foreground="{StaticResource MistFaintBrush}"
+                                           Foreground="{ThemeResource MistFaintBrush}"
                                            FontSize="11"
                                            TextWrapping="Wrap"
                                            Opacity="0.7"/>
                                 <TextBlock Text="Audiobookshelf is open-source software licensed under GPL-3.0."
-                                           Foreground="{StaticResource MistFaintBrush}"
+                                           Foreground="{ThemeResource MistFaintBrush}"
                                            FontSize="11"
                                            TextWrapping="Wrap"
                                            Opacity="0.7"/>
@@ -484,13 +525,13 @@
                                                  NavigateUri="https://www.audiobookshelf.org/"
                                                  FontSize="11"
                                                  Padding="0"
-                                                 Foreground="{StaticResource SigilGoldDimBrush}"/>
+                                                 Foreground="{ThemeResource SigilGoldDimBrush}"/>
                                 <HyperlinkButton loc:Loc.Content="SourceCode" Content="Source Code on GitHub"
                                                  NavigateUri="https://github.com/one-LN/NineLivesAudio"
                                                  FontSize="11"
                                                  Padding="0"
                                                  Margin="0,4,0,0"
-                                                 Foreground="{StaticResource SigilGoldDimBrush}"/>
+                                                 Foreground="{ThemeResource SigilGoldDimBrush}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

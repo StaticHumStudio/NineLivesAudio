@@ -61,6 +61,7 @@ public class SyncService : ISyncService, IDisposable
         _syncTimer = new Timer(
             _ =>
             {
+                if (!_settingsService.Settings.AutoSyncProgress) return;
                 // Timer callback is async-void by design; SyncNowAsync already
                 // guards re-entry via _syncLock and catches its own exceptions.
                 _ = SyncNowAsync();
@@ -71,6 +72,24 @@ public class SyncService : ISyncService, IDisposable
 
         _logger.Log($"[Sync] Started with {interval.TotalMinutes}min interval");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Restarts the periodic sync with the interval that is configured right now, or stops
+    /// it when automatic syncing was switched off. Called from the settings page.
+    /// </summary>
+    public Task ApplyScheduleAsync()
+    {
+        _syncTimer?.Dispose();
+        _syncTimer = null;
+
+        if (!_settingsService.Settings.AutoSyncProgress)
+        {
+            _logger.Log("[Sync] Automatic sync disabled — schedule cleared");
+            return Task.CompletedTask;
+        }
+
+        return StartAsync();
     }
 
     public Task StopAsync()

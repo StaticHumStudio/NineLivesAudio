@@ -30,6 +30,11 @@ public sealed partial class MiniPlayerWindow : Window
 
         this.InitializeComponent();
 
+        // The mini player is a separate Window: it needs the theme itself, otherwise it
+        // stays dark while the main window is light.
+        if (this.Content is Microsoft.UI.Xaml.FrameworkElement themeRoot)
+            ThemeService.Register(themeRoot);
+
         Title = "Nine Lives Audio";
 
         // Set up compact window size and title bar styling
@@ -58,22 +63,8 @@ public sealed partial class MiniPlayerWindow : Window
         }
         catch { /* Non-fatal */ }
 
-        // Dark title bar matching the app theme
-        if (_appWindow?.TitleBar is { } titleBar)
-        {
-            titleBar.BackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-            titleBar.ForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8);
-            titleBar.ButtonBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-            titleBar.ButtonForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xE0, 0xE0, 0xE8);
-            titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27);
-            titleBar.ButtonHoverForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
-            titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x1A, 0x22, 0x36);
-            titleBar.ButtonPressedForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
-            titleBar.InactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-            titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80);
-            titleBar.ButtonInactiveBackgroundColor = Windows.UI.Color.FromArgb(0xFF, 0x05, 0x08, 0x10);
-            titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x6B, 0x72, 0x80);
-        }
+        // Title bar colours follow the current palette (see ThemeService).
+        ThemeService.RegisterTitleBar(_appWindow);
 
         // Subscribe to playback events via Messenger
         WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
@@ -222,8 +213,8 @@ public sealed partial class MiniPlayerWindow : Window
         // Update pin icon appearance
         PinIcon.Glyph = _isPinned ? "\uE840" : "\uE718"; // Pinned vs UnPin
         PinIcon.Foreground = _isPinned
-            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SigilGoldBrush"]
-            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["MistFaintBrush"];
+            ? ThemeService.Brush("SigilGoldBrush")
+            : ThemeService.Brush("MistFaintBrush");
 
         _logger.LogDebug($"[MiniPlayer] Always on top: {_isPinned}");
     }

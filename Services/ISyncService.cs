@@ -9,6 +9,12 @@ public interface ISyncService
 
     Task StartAsync();
     Task StopAsync();
+
+    /// <summary>
+    /// Re-reads <c>SyncIntervalMinutes</c> / <c>AutoSyncProgress</c> and restarts the
+    /// schedule, so changing either in Settings takes effect without a restart.
+    /// </summary>
+    Task ApplyScheduleAsync();
     Task SyncNowAsync();
     Task SyncLibrariesAsync();
     Task SyncProgressAsync();
