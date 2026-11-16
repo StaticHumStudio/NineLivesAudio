@@ -18,6 +18,10 @@ public class SyncService : ISyncService, IDisposable
     private bool _isSyncing;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
+    // The home page pulls on open while the timer may already be pulling: without this the
+    // two runs would fetch the same payload twice and race on the database.
+    private readonly SemaphoreSlim _progressLock = new(1, 1);
+
     // Guards the library pull so the startup sync and a page load cannot download
     // the same libraries twice at the same time.
     private readonly SemaphoreSlim _librariesLock = new(1, 1);
@@ -279,12 +283,50 @@ public class SyncService : ISyncService, IDisposable
 
     public async Task SyncProgressAsync()
     {
+        if (!await _progressLock.WaitAsync(0))
+        {
+            _logger.LogDebug("[Sync] Progress pull already running, skipping duplicate");
+            return;
+        }
+
+        try
+        {
+            await SyncProgressCoreAsync();
+        }
+        finally
+        {
+            _progressLock.Release();
+        }
+    }
+
+    private async Task SyncProgressCoreAsync()
+    {
         try
         {
             var serverProgress = await _apiService.GetAllUserProgressAsync();
             int synced = 0;
             int unchanged = 0;
             int missing = 0;
+
+            // The watermark is compared against server timestamps, so it has to come *from*
+            // the server too. Storing DateTime.UtcNow here meant any client clock that ran
+            // ahead (a few seconds is enough) made every later update look "not newer" and
+            // progress silently stopped refreshing until the next restart.
+            var watermark = _lastProgressPullTimestamp;
+
+            // Positions that this device listened to while offline and has not uploaded yet.
+            // Those must not be overwritten by an older server value.
+            HashSet<string> pendingLocal;
+            try
+            {
+                pendingLocal = (await _database.GetPendingProgressAsync())
+                    .Select(p => p.ItemId)
+                    .ToHashSet(StringComparer.Ordinal);
+            }
+            catch
+            {
+                pendingLocal = new HashSet<string>(StringComparer.Ordinal);
+            }
 
             foreach (var progress in serverProgress)
             {
@@ -316,15 +358,33 @@ public class SyncService : ISyncService, IDisposable
                 audioBook.Progress = progress.Progress;
                 audioBook.IsFinished = progress.IsFinished;
 
-                // Only update position if server is strictly newer than local — newest wins
-                var localProgress = await _database.GetPlaybackProgressWithTimestampAsync(progress.LibraryItemId);
-                var localTimestamp = localProgress?.updatedAt ?? DateTime.MinValue;
+                // The server is the source of truth for positions. This used to compare the
+                // server timestamp with a locally written DateTime.UtcNow, so a client clock
+                // running a few seconds ahead permanently "won" and the position never
+                // refreshed — which is exactly why the shelf looked stale until you pressed
+                // play (playback reads the position straight from the server).
+                // The only exception is a local position that is still waiting to be uploaded.
+                if (pendingLocal.Contains(progress.LibraryItemId))
+                {
+                    await _database.UpdateAudioBookAsync(audioBook);
+                    _logger.LogDebug($"[Sync] Keeping local position for '{audioBook.Title}' — an offline update is still queued");
+                    synced++;
+                    continue;
+                }
 
-                if (progress.LastUpdate > localTimestamp)
+                var localTimestamp = DateTime.MinValue;
+                try
+                {
+                    var localProgress = await _database.GetPlaybackProgressWithTimestampAsync(progress.LibraryItemId);
+                    localTimestamp = localProgress?.updatedAt ?? DateTime.MinValue;
+                }
+                catch { /* informational only */ }
+
                 {
                     var oldPosition = audioBook.CurrentTime;
                     audioBook.CurrentTime = progress.CurrentTime;
-                    _logger.Log($"[Sync] POSITION CHANGE '{audioBook.Title}': {oldPosition} → {progress.CurrentTime} (server is newer: {progress.LastUpdate:O} > {localTimestamp:O})");
+                    _logger.Log($"[Sync] POSITION CHANGE '{audioBook.Title}': {oldPosition} → {progress.CurrentTime} " +
+                                $"(server {progress.LastUpdate:O}, local {localTimestamp:O})");
 
                     await _database.UpdateAudioBookAsync(audioBook);
 
@@ -341,22 +401,23 @@ public class SyncService : ISyncService, IDisposable
                         progress.IsFinished,
                         progress.LastUpdate); // Use server's timestamp for correct Nine Lives sorting
                 }
-                else
-                {
-                    // Position stays local — only persist display fields
-                    await _database.UpdateAudioBookAsync(audioBook);
-                    _logger.LogDebug($"[Sync] Kept local position for '{audioBook.Title}': local is newer or same ({localTimestamp:O} >= {progress.LastUpdate:O})");
-                }
-
+                if (progress.LastUpdate > watermark) watermark = progress.LastUpdate;
                 synced++;
             }
 
             // Only remember the watermark when every entry was applied: an entry that was
             // skipped because its book is not imported yet must be retried next time.
             if (missing == 0)
-                _lastProgressPullTimestamp = DateTime.UtcNow;
+                _lastProgressPullTimestamp = watermark;
+
             _logger.Log($"[Sync] Progress synced for {synced} of {serverProgress.Count} server entries " +
-                        $"({unchanged} unchanged, {missing} awaiting library import)");
+                        $"({unchanged} unchanged, {missing} awaiting library import), " +
+                        $"watermark {watermark:yyyy-MM-dd HH:mm:ss}Z");
+
+            // Anyone who asked for this pull (e.g. the home page on open) gets the fresh
+            // numbers without waiting for the next timer tick.
+            if (synced > 0)
+                WeakReferenceMessenger.Default.Send(new SyncCompletedMessage(new SyncEventArgs { ItemsSynced = synced }));
         }
         catch (Exception ex)
         {

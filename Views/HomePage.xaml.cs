@@ -86,7 +86,11 @@ public sealed partial class HomePage : Page
         ApplyLocalization();
         _localization.LanguageChanged -= ApplyLocalization;
         _localization.LanguageChanged += ApplyLocalization;
+
+        // Local snapshot first (instant), then the server's numbers replace it as soon as the
+        // pull comes back — SyncCompletedMessage triggers the reload.
         await ViewModel.LoadAsync();
+        _ = ViewModel.RefreshFromServerAsync();
     }
 
     private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)

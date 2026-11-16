@@ -82,10 +82,17 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             }
         });
 
-        // Reload Nine Lives whenever a sync completes (progress data may have changed)
+        // Reload Nine Lives whenever a sync completes (progress data may have changed).
+        // A progress pull and a full sync can both report completion within a second, so
+        // only reload once per second.
         WeakReferenceMessenger.Default.Register<SyncCompletedMessage>(this, (r, m) =>
         {
             var self = (HomeViewModel)r;
+
+            var now = DateTime.UtcNow;
+            if ((now - self._lastReload).TotalMilliseconds < 1000) return;
+            self._lastReload = now;
+
             self._logger.Log("[Home] Sync completed, reloading Nine Lives...");
             self._dispatcherQueue?.TryEnqueue(() => _ = self.LoadAsync());
         });
@@ -93,6 +100,9 @@ public partial class HomeViewModel : ObservableObject, IDisposable
 
     /// <summary>Throttle marker for <see cref="ApplyLiveProgress"/> (player ticks ~4×/s).</summary>
     private DateTime _lastLiveUpdate = DateTime.MinValue;
+
+    /// <summary>Throttle marker for reloads triggered by sync messages.</summary>
+    private DateTime _lastReload = DateTime.MinValue;
 
     public void Dispose()
     {
@@ -123,6 +133,24 @@ public partial class HomeViewModel : ObservableObject, IDisposable
 
         TotalListeningTimeText = CosmicCatHelper.FormatListeningTime(
             TimeSpan.FromSeconds(Lives.Sum(l => l.HoursListened * 3600)));
+    }
+
+    /// <summary>
+    /// Pulls the current progress from the server and reloads the list when something changed.
+    /// The page calls this on open: without it the rows showed whatever the last 5-minute
+    /// sync (or the last play) had written, which is why positions looked stale.
+    /// </summary>
+    public async Task RefreshFromServerAsync()
+    {
+        try
+        {
+            _lastReload = DateTime.MinValue; // allow the reload this pull produces
+            await _syncService.SyncProgressAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Home] Server refresh failed: {ex.Message}");
+        }
     }
 
     public async Task LoadAsync()
