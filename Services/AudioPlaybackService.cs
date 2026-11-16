@@ -1059,14 +1059,15 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 _logger.LogDebug($"[Playback] Session sync failed: {ex.Message}");
             }
         }
-
-        FlushListeningHistory();
         else
         {
             // Fallback: use SyncService throttled progress reporting
             await _syncService.ReportPlaybackPositionAsync(
                 _currentAudioBook.Id, currentTime, duration);
         }
+
+        // On-device listening history runs for online and offline playback alike.
+        FlushListeningHistory();
     }
 
     /// <summary>
