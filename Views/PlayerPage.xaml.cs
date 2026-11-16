@@ -91,10 +91,21 @@ public sealed partial class PlayerPage : Page
 
         // Initial UI update
         UpdateAllUI();
+
+        // The source badge is painted from code; repaint it when the palette changes.
+        Helpers.ThemeService.PaletteChanged -= OnPaletteChanged;
+        Helpers.ThemeService.PaletteChanged += OnPaletteChanged;
+    }
+
+    private void OnPaletteChanged()
+    {
+        try { UpdateSourceBadge(); }
+        catch { /* page torn down */ }
     }
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        Helpers.ThemeService.PaletteChanged -= OnPaletteChanged;
         _localization.LanguageChanged -= ApplyLocalization;
         _logger.Log("PlayerPage unloaded, cleaning up event subscriptions");
 

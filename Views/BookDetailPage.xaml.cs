@@ -248,7 +248,9 @@ public sealed partial class BookDetailPage : Page
         var labelBlock = new TextBlock
         {
             Text = label,
-            Foreground = ThemeService.Brush("MistFaintBrush"),
+            // Opacity instead of a fixed brush: these rows are built in code once and would
+            // otherwise keep the dark palette after switching to the light theme.
+            Opacity = 0.72,
             FontSize = 13
         };
         Grid.SetColumn(labelBlock, 0);
@@ -257,8 +259,7 @@ public sealed partial class BookDetailPage : Page
         {
             Text = value,
             FontSize = 13,
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = ThemeService.Brush("StarlightDimBrush")
+            TextWrapping = TextWrapping.Wrap
         };
         Grid.SetColumn(valueBlock, 1);
 

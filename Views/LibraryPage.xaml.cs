@@ -31,6 +31,10 @@ public sealed partial class LibraryPage : Page
         this.InitializeComponent();
         UpdateViewModeButtons();
         UpdateStatusPill();
+
+        // Code-painted colours (status pill, view-mode buttons) do not follow
+        // {ThemeResource}, so they are repainted explicitly when the theme changes.
+        Helpers.ThemeService.PaletteChanged += OnPaletteChanged;
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
@@ -47,8 +51,19 @@ public sealed partial class LibraryPage : Page
         UpdateStatusPill();
     }
 
+    private void OnPaletteChanged()
+    {
+        try
+        {
+            UpdateStatusPill();
+            UpdateViewModeButtons();
+        }
+        catch { /* page torn down */ }
+    }
+
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        Helpers.ThemeService.PaletteChanged -= OnPaletteChanged;
         _localization.LanguageChanged -= ApplyLocalization;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
 

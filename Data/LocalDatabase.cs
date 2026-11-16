@@ -1,4 +1,5 @@
 using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using Microsoft.Data.Sqlite;
 using System.Globalization;
 using System.Text.Json;
@@ -15,6 +16,12 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     private bool _initialized;
     // SqliteConnection is not thread-safe; serialize all access.
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    // Self-healing: a long-lived single connection can die on sleep/resume, a user-profile
+    // hiccup or an antivirus lock. Everything goes through GetConnection(), which probes the
+    // connection and transparently replaces it instead of failing until the app restarts.
+    private readonly object _connectionLock = new();
+    private bool _canReconnect;
 
     public LocalDatabase()
     {
@@ -41,6 +48,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             if (_initialized) return;
             if (_connection == null)
             {
+                _canReconnect = _dbPath != ":memory:";
                 _connection = new SqliteConnection($"Data Source={_dbPath};Pooling=True");
                 await _connection.OpenAsync();
                 // WAL + busy timeout: safe concurrent readers, fewer "database is locked" errors.
@@ -55,9 +63,62 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// The live connection, re-created once if the handle went bad. A cheap <c>SELECT 1</c>
+    /// probe is the only way to notice it: <see cref="SqliteConnection.State"/> keeps saying
+    /// "Open" after the underlying handle dies, so callers would just throw afterwards.
+    /// </summary>
+    private SqliteConnection GetConnection()
+    {
+        var connection = _connection ?? throw new InvalidOperationException("Database is not initialised.");
+
+        // Test/in-memory databases must never be recreated — that would silently drop data.
+        if (!_canReconnect)
+            return connection;
+
+        try
+        {
+            using var probe = connection.CreateCommand();
+            probe.CommandText = "SELECT 1;";
+            probe.ExecuteScalar();
+            return connection;
+        }
+        catch (Exception ex)
+        {
+            return Reconnect(connection, ex);
+        }
+    }
+
+    private SqliteConnection Reconnect(SqliteConnection broken, Exception cause)
+    {
+        lock (_connectionLock)
+        {
+            // Another caller may already have replaced it while we waited.
+            if (!ReferenceEquals(_connection, broken) && _connection != null)
+                return _connection;
+
+            try { broken.Dispose(); } catch { /* already unusable */ }
+
+            var fresh = new SqliteConnection($"Data Source={_dbPath};Pooling=True");
+            fresh.Open();
+
+            foreach (var pragma in new[] { "PRAGMA journal_mode=WAL;", "PRAGMA busy_timeout=5000;", "PRAGMA synchronous=NORMAL;" })
+            {
+                using var cmd = fresh.CreateCommand();
+                cmd.CommandText = pragma;
+                cmd.ExecuteNonQuery();
+            }
+
+            _connection = fresh;
+            LoggingService.LogStatic(LogLevel.Warning,
+                $"[Database] Connection lost ({cause.GetType().Name}: {cause.Message}) — reconnected to {_dbPath}");
+            return fresh;
+        }
+    }
+
     private async Task ExecutePragmaAsync(string pragma)
     {
-        var cmd = _connection!.CreateCommand();
+        var cmd = GetConnection().CreateCommand();
         cmd.CommandText = pragma;
         await cmd.ExecuteNonQueryAsync();
     }
@@ -81,7 +142,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
             try
             {
-                var cmd = _connection!.CreateCommand();
+                var cmd = GetConnection().CreateCommand();
                 // Table/column names come from compile-time constants above, not user input
                 cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
                 await cmd.ExecuteNonQueryAsync();
@@ -96,7 +157,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     private async Task<bool> ColumnExistsAsync(string table, string column)
     {
-        var cmd = _connection!.CreateCommand();
+        var cmd = GetConnection().CreateCommand();
         cmd.CommandText = $"PRAGMA table_info({table})";
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -109,7 +170,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
 
     private async Task CreateTablesAsync()
     {
-        var command = _connection!.CreateCommand();
+        var command = GetConnection().CreateCommand();
         command.CommandText = @"
             CREATE TABLE IF NOT EXISTS Libraries (
                 Id TEXT PRIMARY KEY,
@@ -195,7 +256,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             EnsureInitialized();
             var audioBooks = new List<AudioBook>();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.AudioBooks} ORDER BY Title";
 
             using var reader = await command.ExecuteReaderAsync();
@@ -217,7 +278,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             EnsureInitialized();
             var audioBooks = new List<AudioBook>();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = "SELECT * FROM AudioBooks WHERE LibraryId = @libraryId ORDER BY Title";
             command.Parameters.AddWithValue("@libraryId", libraryId);
 
@@ -239,7 +300,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.AudioBooks} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
 
@@ -266,7 +327,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     {
         EnsureInitialized();
 
-        var command = _connection!.CreateCommand();
+        var command = GetConnection().CreateCommand();
         command.CommandText = @"
             INSERT OR REPLACE INTO AudioBooks
             (Id, LibraryId, Title, Author, Narrator, Description, CoverPath, DurationSeconds, AddedAt,
@@ -291,7 +352,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"DELETE FROM {T.AudioBooks} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
             await command.ExecuteNonQueryAsync();
@@ -309,7 +370,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             EnsureInitialized();
             var libraries = new List<Library>();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.Libraries} ORDER BY DisplayOrder";
 
             using var reader = await command.ExecuteReaderAsync();
@@ -330,7 +391,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.Libraries} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
 
@@ -357,7 +418,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     {
         EnsureInitialized();
 
-        var command = _connection!.CreateCommand();
+        var command = GetConnection().CreateCommand();
         command.CommandText = $@"
             INSERT OR REPLACE INTO {T.Libraries} (Id, Name, DisplayOrder, Icon, MediaType, FoldersJson)
             VALUES (@id, @name, @displayOrder, @icon, @mediaType, @foldersJson)";
@@ -382,7 +443,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"DELETE FROM {T.Libraries} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
             await command.ExecuteNonQueryAsync();
@@ -400,7 +461,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             EnsureInitialized();
             var downloads = new List<DownloadItem>();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.DownloadItems} ORDER BY StartedAt DESC";
 
             using var reader = await command.ExecuteReaderAsync();
@@ -421,7 +482,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT * FROM {T.DownloadItems} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
 
@@ -448,7 +509,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
     {
         EnsureInitialized();
 
-        var command = _connection!.CreateCommand();
+        var command = GetConnection().CreateCommand();
         command.CommandText = $@"
             INSERT OR REPLACE INTO {T.DownloadItems}
             (Id, AudioBookId, Title, Status, TotalBytes, DownloadedBytes, StartedAt, CompletedAt, ErrorMessage, FilesToDownloadJson)
@@ -479,7 +540,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"DELETE FROM {T.DownloadItems} WHERE Id = @id";
             command.Parameters.AddWithValue("@id", id);
             await command.ExecuteNonQueryAsync();
@@ -496,7 +557,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $@"
                 INSERT OR REPLACE INTO {T.PlaybackProgress} ({PP.AudioBookId}, {PP.PositionSeconds}, {PP.IsFinished}, {PP.UpdatedAt})
                 VALUES (@audioBookId, @positionSeconds, @isFinished, @updatedAt)";
@@ -518,7 +579,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT {PP.PositionSeconds}, {PP.IsFinished} FROM {T.PlaybackProgress} WHERE {PP.AudioBookId} = @audioBookId";
             command.Parameters.AddWithValue("@audioBookId", audioBookId);
 
@@ -542,7 +603,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT {PP.PositionSeconds}, {PP.IsFinished}, {PP.UpdatedAt} FROM {T.PlaybackProgress} WHERE {PP.AudioBookId} = @audioBookId";
             command.Parameters.AddWithValue("@audioBookId", audioBookId);
 
@@ -568,7 +629,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         try
         {
             EnsureInitialized();
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $@"
                 INSERT INTO {T.PendingProgressUpdates} ({PPU.ItemId}, {PPU.CurrentTime}, {PPU.IsFinished}, {PPU.Timestamp})
                 VALUES (@itemId, @currentTime, @isFinished, @timestamp)";
@@ -588,7 +649,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
             var entries = new List<PendingProgressEntry>();
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT {PPU.ItemId}, {PPU.CurrentTime}, {PPU.IsFinished}, {PPU.Timestamp} FROM {T.PendingProgressUpdates} ORDER BY {PPU.Timestamp} ASC";
             using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
@@ -612,7 +673,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         try
         {
             EnsureInitialized();
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"DELETE FROM {T.PendingProgressUpdates}";
             await command.ExecuteNonQueryAsync();
         }
@@ -628,7 +689,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             var itemIdsList = itemIds.ToList();
             if (!itemIdsList.Any()) return;
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             var placeholders = string.Join(",", itemIdsList.Select((_, i) => $"@id{i}"));
             command.CommandText = $"DELETE FROM {T.PendingProgressUpdates} WHERE {PPU.ItemId} IN ({placeholders})";
             for (int i = 0; i < itemIdsList.Count; i++)
@@ -646,7 +707,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         try
         {
             EnsureInitialized();
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $"SELECT COUNT(*) FROM {T.PendingProgressUpdates}";
             return Convert.ToInt32(await command.ExecuteScalarAsync());
         }
@@ -663,7 +724,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             EnsureInitialized();
             var results = new List<(AudioBook Book, DateTime LastPlayedAt)>();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $@"
                 SELECT ab.*, pp.{PP.UpdatedAt} AS LastPlayedAt FROM {T.AudioBooks} ab
                 INNER JOIN {T.PlaybackProgress} pp ON ab.Id = pp.{PP.AudioBookId}
@@ -693,7 +754,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            using var transaction = _connection!.BeginTransaction();
+            using var transaction = GetConnection().BeginTransaction();
             try
             {
                 foreach (var audioBook in audioBooks)
@@ -718,7 +779,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            using var transaction = _connection!.BeginTransaction();
+            using var transaction = GetConnection().BeginTransaction();
             try
             {
                 foreach (var library in libraries)
@@ -743,7 +804,7 @@ public class LocalDatabase : ILocalDatabase, IDisposable
         {
             EnsureInitialized();
 
-            var command = _connection!.CreateCommand();
+            var command = GetConnection().CreateCommand();
             command.CommandText = $@"
                 DELETE FROM {T.AudioBooks};
                 DELETE FROM {T.Libraries};

@@ -44,6 +44,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private const double ProgressSyncGuardSeconds = 5.0;
     private StartupProgressStatus _startupProgressStatus = StartupProgressStatus.Unknown;
 
+    // The stream fallback writes a full copy of the audio to disk; remember the path so it
+    // can be deleted when playback stops (it used to be left behind for good).
+    private string? _tempPlaybackPath;
+
     // Session sync timer (12-second interval for progress sync to server)
     private PeriodicTimer? _sessionSyncTimer;
     private CancellationTokenSource? _sessionSyncCts;
@@ -501,7 +505,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     {
         // Inside the app's own data folder, not %TEMP%: a downloaded stream file can be
         // hundreds of megabytes and must not be left behind on the system drive.
-        var tempDir = Path.Combine(NineLivesAudio.Helpers.AppPaths.DataRoot, "stream-cache");
+        var tempDir = Helpers.StreamCache.Directory;
         Directory.CreateDirectory(tempDir);
         var tempPath = Path.Combine(tempDir, $"abs_stream_{audioBook.Id}.tmp");
 
@@ -553,6 +557,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         fileStream.Close();
         _logger.Log($"[Playback] Temp download complete: {downloaded / 1024}KB");
 
+        _tempPlaybackPath = tempPath;
         return await LoadLocalFileAsync(tempPath, audioBook, ct);
     }
 
@@ -680,7 +685,36 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         if (_currentSession != null)
             _ = CloseSessionAsync();
 
+        DeleteTempPlaybackFile();
         SetState(PlaybackState.Stopped);
+    }
+
+    /// <summary>
+    /// Removes the temporary stream file for the book that was just stopped. Best effort: if
+    /// a handle is still open the startup purge in <see cref="Helpers.StreamCache"/> gets it.
+    /// </summary>
+    private void DeleteTempPlaybackFile()
+    {
+        var path = _tempPlaybackPath;
+        _tempPlaybackPath = null;
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            if (!File.Exists(path)) return;
+
+            var size = new FileInfo(path).Length;
+            File.Delete(path);
+            _logger.Log($"[Cache] Removed stream temp file {Path.GetFileName(path)} ({size / 1024 / 1024} MB)");
+        }
+        catch (IOException)
+        {
+            _logger.LogDebug($"[Cache] Temp file still locked, leaving it to the startup purge: {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Cache] Could not delete temp file: {ex.Message}");
+        }
     }
 
     public async Task SeekAsync(TimeSpan position)

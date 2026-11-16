@@ -59,6 +59,18 @@ public class AppInitializer : IAppInitializer
             // Settings → Diagnostics: without it only Info and above reaches the log file.
             _logger.SetDiagnosticsMode(_settingsService.Settings.DiagnosticsMode);
             _logger.Log($"AppInitializer: database + settings ready (server={_settingsService.Settings.ServerUrl})");
+            // Disk hygiene from a previous run: streamed books leave a full-size temp copy in
+            // <data>\stream-cache if the app was closed (or crashed) mid-book. Playback now
+            // deletes its own file on stop; this caps the folder and removes leftovers.
+            _ = Task.Run(() =>
+            {
+                var (removed, freed) = NineLivesAudio.Helpers.StreamCache.Purge();
+                if (removed > 0)
+                    _logger.Log($"[Cache] Purged {removed} stream file(s), {freed / 1024 / 1024} MB freed (cap 2 GB)");
+                else
+                    _logger.LogDebug("[Cache] Stream cache already clean");
+            });
+
             var skipSettings = _settingsService.Settings;
             _logger.Log($"AppInitializer: skip settings — intro {skipSettings.SkipIntroSeconds}s, " +
                         $"outro {skipSettings.SkipOutroSeconds}s (applied to every chapter)");

@@ -165,6 +165,17 @@
                                    Foreground="{ThemeResource RitualSuccessBrush}"
                                    Visibility="{x:Bind ViewModel.SkipOutroStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
+
+                        <!-- Progress display mode (same switch as the player's chapter toggle) -->
+                        <StackPanel>
+                            <ToggleSwitch x:Name="ChapterModeSwitch" Header="Progress display: follow the chapter"
+                                          IsOn="{x:Bind ViewModel.PlayerChapterMode, Mode=TwoWay}"/>
+                            <TextBlock x:Name="ChapterModeHint" Text="On: the slider and times follow the current chapter. Off: they follow the whole book."
+                                       FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{x:Bind ViewModel.ChapterModeStatus, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource RitualSuccessBrush}"
+                                       Visibility="{x:Bind ViewModel.ChapterModeStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -320,7 +331,7 @@
                                    Foreground="{ThemeResource RitualSuccessBrush}"
                                    Visibility="{x:Bind ViewModel.SelfSignedStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
-                        <TextBlock Text="Only applies to your configured server host. Required for some self-hosted setups."
+                        <TextBlock x:Name="SelfSignedHint" Text="Only applies to your configured server host. Required for some self-hosted setups."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource CaptionStyle}"/>
                     </StackPanel>
@@ -343,14 +354,14 @@
                         <Button x:Name="SyncNowButton" Content="Sync Now"
                                 Command="{x:Bind ViewModel.ManualSyncCommand}"/>
 
-                        <TextBlock Text="Rebuild local cache by syncing libraries, progress, and metadata from the server."
+                        <TextBlock x:Name="SyncNowHint" Text="Rebuild local cache by syncing libraries, progress, and metadata from the server."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource CaptionStyle}"/>
 
                         <Button x:Name="ClearCacheButton" Content="Clear Local Cache"
                                 Command="{x:Bind ViewModel.ClearCacheCommand}"/>
 
-                        <TextBlock Text="This will remove cached library data. Downloaded audiobooks will not be affected."
+                        <TextBlock x:Name="ClearCacheHint" Text="This will remove cached library data. Downloaded audiobooks will not be affected."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource CaptionStyle}"/>
                     </StackPanel>
@@ -376,7 +387,7 @@
                                    Foreground="{ThemeResource RitualSuccessBrush}"
                                    Visibility="{x:Bind ViewModel.DiagnosticsStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
-                        <TextBlock Text="Enables verbose logging for API requests, state transitions, and playback events."
+                        <TextBlock x:Name="DiagnosticsHint" Text="Enables verbose logging for API requests, state transitions, and playback events."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource CaptionStyle}"/>
 
@@ -428,33 +439,33 @@
                                        FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Settings file:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="SettingsFileLabel" Grid.Row="1" Grid.Column="0" Text="Settings file:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SettingsFilePath, Mode=OneWay}"
                                        FontSize="12" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Settings source:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="SettingsSourceLabel" Grid.Row="2" Grid.Column="0" Text="Settings source:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SettingsSource, Mode=OneWay}" FontSize="12"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Token source:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="TokenSourceLabel" Grid.Row="3" Grid.Column="0" Text="Token source:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.TokenSource, Mode=OneWay}" FontSize="12"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Last loaded:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="LastLoadedLabel" Grid.Row="4" Grid.Column="0" Text="Last loaded:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.LastLoadedAt, Mode=OneWay}" FontSize="12"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Session ID:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="SessionIdLabel" Grid.Row="5" Grid.Column="0" Text="Session ID:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.SessionId, Mode=OneWay}"
                                        Style="{StaticResource MonoStyle}"/>
 
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Server host:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="ServerHostLabel" Grid.Row="6" Grid.Column="0" Text="Server host:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="6" Grid.Column="1" Text="{x:Bind ViewModel.ServerHost, Mode=OneWay}" FontSize="12"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
 
                             <!-- Shows what is actually persisted, so "did my setting save?" is answerable -->
-                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Playback saved:" Style="{StaticResource CaptionStyle}"/>
+                            <TextBlock x:Name="PlaybackSavedLabel" Grid.Row="7" Grid.Column="0" Text="Playback saved:" Style="{StaticResource CaptionStyle}"/>
                             <TextBlock Grid.Row="7" Grid.Column="1" Text="{x:Bind ViewModel.PlaybackFlags, Mode=OneWay}" FontSize="12"
                                        Foreground="{ThemeResource StarlightDimBrush}"/>
                         </Grid>
@@ -511,12 +522,12 @@
                                    TextWrapping="Wrap"/>
                         <Border Margin="0,8,0,0" Padding="0" Background="Transparent">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="This app is not affiliated with or endorsed by the Audiobookshelf project."
+                                <TextBlock x:Name="DisclaimerText" Text="This app is not affiliated with or endorsed by the Audiobookshelf project."
                                            Foreground="{ThemeResource MistFaintBrush}"
                                            FontSize="11"
                                            TextWrapping="Wrap"
                                            Opacity="0.7"/>
-                                <TextBlock Text="Audiobookshelf is open-source software licensed under GPL-3.0."
+                                <TextBlock x:Name="OpenSourceNoteText" Text="Audiobookshelf is open-source software licensed under GPL-3.0."
                                            Foreground="{ThemeResource MistFaintBrush}"
                                            FontSize="11"
                                            TextWrapping="Wrap"

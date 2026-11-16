@@ -71,15 +71,24 @@ public class LoggingService : ILoggingService, IDisposable
         try
         {
             var cutoff = DateTime.Now.AddDays(-14);
+            var pruned = 0;
+            long prunedBytes = 0;
             foreach (var old in Directory.GetFiles(logDir, "app_*.log"))
             {
                 try
                 {
-                    if (File.GetLastWriteTime(old) < cutoff)
-                        File.Delete(old);
+                    if (File.GetLastWriteTime(old) >= cutoff) continue;
+
+                    var size = new FileInfo(old).Length;
+                    File.Delete(old);
+                    pruned++;
+                    prunedBytes += size;
                 }
                 catch { /* best effort */ }
             }
+
+            if (pruned > 0)
+                LogStatic(LogLevel.Info, $"[Logging] pruned {pruned} old log file(s), {prunedBytes / 1024 / 1024} MB freed (retention 14 days)");
         }
         catch { /* best effort */ }
 
@@ -137,6 +146,11 @@ public class LoggingService : ILoggingService, IDisposable
         }
         catch { /* logging must never throw */ }
     }
+
+    /// <summary>Hard cap for a single day's file — diagnostics mode is verbose by design.</summary>
+    private const long MaxLogFileBytes = 25L * 1024 * 1024;
+
+    private bool _sizeCapReported;
 
     private volatile bool _diagnosticsMode;
 
@@ -229,6 +243,16 @@ public class LoggingService : ILoggingService, IDisposable
         ack.TrySetResult(true);
     }
 
+    private static long FileLength(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0;
+        }
+        catch { return 0; }
+    }
+
     private async Task ConsumeLogsAsync()
     {
         var reader = _channel.Reader;
@@ -264,7 +288,22 @@ public class LoggingService : ILoggingService, IDisposable
                 {
                     try
                     {
-                        await File.AppendAllLinesAsync(_logPath, buffer).ConfigureAwait(false);
+                        // Stop at the per-file cap instead of filling the disk: one final line
+                        // says why the log ends here.
+                        if (_sizeCapReported)
+                        {
+                            buffer.Clear();
+                        }
+                        else if (FileLength(_logPath) > MaxLogFileBytes)
+                        {
+                            _sizeCapReported = true;
+                            buffer.Clear();
+                            buffer.Add($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{SessionId}] [WARN ] " +
+                                       $"[Logging] today's log reached {MaxLogFileBytes / 1024 / 1024} MB — further lines are skipped");
+                        }
+
+                        if (buffer.Count > 0)
+                            await File.AppendAllLinesAsync(_logPath, buffer).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

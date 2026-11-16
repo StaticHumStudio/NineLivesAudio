@@ -24,6 +24,10 @@ public sealed partial class SettingsPage : Page
         _localization = App.Services.GetRequiredService<ILocalizationService>();
         this.InitializeComponent();
         this.Unloaded += Page_Unloaded;
+
+        // ConnectionStatusColor is a code-computed brush bound OneWay; re-evaluate the
+        // bindings when the palette changes so the dot does not keep the old colour.
+        Helpers.ThemeService.PaletteChanged += OnPaletteChanged;
     }
 
     // Guards SelectionChanged while the combo box is being synced from settings.
@@ -113,6 +117,8 @@ public sealed partial class SettingsPage : Page
         if (SkipIntroHint != null) SkipIntroHint.Text = _localization.GetString("SkipIntroHint");
         if (SkipOutroBox != null) SkipOutroBox.Header = _localization.GetString("SkipOutro");
         if (SkipOutroHint != null) SkipOutroHint.Text = _localization.GetString("SkipOutroHint");
+        if (ChapterModeSwitch != null) ChapterModeSwitch.Header = _localization.GetString("ChapterModeHeader");
+        if (ChapterModeHint != null) ChapterModeHint.Text = _localization.GetString("ChapterModeHint");
         if (DownloadsTitle != null) DownloadsTitle.Text = _localization.GetString("DownloadsSection");
         if (DownloadLocationBox != null) DownloadLocationBox.Header = _localization.GetString("DownloadLocation");
         if (BrowseButton != null) BrowseButton.Content = _localization.GetString("Browse");
@@ -138,10 +144,35 @@ public sealed partial class SettingsPage : Page
         if (ResetConnectionButton != null) ResetConnectionButton.Content = _localization.GetString("ResetConnection");
         if (DoctorTestConnectionButton != null) DoctorTestConnectionButton.Content = _localization.GetString("TestConnection");
         if (AboutTitle != null) AboutTitle.Text = _localization.GetString("About");
+        if (SelfSignedHint != null) SelfSignedHint.Text = _localization.GetString("AllowSelfSignedHint");
+        if (SyncNowHint != null) SyncNowHint.Text = _localization.GetString("SyncNowHint");
+        if (ClearCacheHint != null) ClearCacheHint.Text = _localization.GetString("ClearCacheHint");
+        if (DiagnosticsHint != null) DiagnosticsHint.Text = _localization.GetString("DiagnosticsHint");
+        if (SettingsFileLabel != null) SettingsFileLabel.Text = _localization.GetString("SettingsFileLabel");
+        if (SettingsSourceLabel != null) SettingsSourceLabel.Text = _localization.GetString("SettingsSourceLabel");
+        if (TokenSourceLabel != null) TokenSourceLabel.Text = _localization.GetString("TokenSourceLabel");
+        if (LastLoadedLabel != null) LastLoadedLabel.Text = _localization.GetString("LastLoadedLabel");
+        if (SessionIdLabel != null) SessionIdLabel.Text = _localization.GetString("SessionIdLabel");
+        if (ServerHostLabel != null) ServerHostLabel.Text = _localization.GetString("ServerHostLabel");
+        if (PlaybackSavedLabel != null) PlaybackSavedLabel.Text = _localization.GetString("PlaybackSavedLabel");
+        if (AutosaveNote != null) AutosaveNote.Text = _localization.GetString("AutosaveNoteText");
+        if (DisclaimerText != null) DisclaimerText.Text = _localization.GetString("DisclaimerText");
+        if (OpenSourceNoteText != null) OpenSourceNoteText.Text = _localization.GetString("OpenSourceNoteText");
+
+    }
+
+    private void OnPaletteChanged()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try { Bindings.Update(); }
+            catch { /* page torn down */ }
+        });
     }
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        Helpers.ThemeService.PaletteChanged -= OnPaletteChanged;
         _localization.LanguageChanged -= ApplyLocalization;
     }
 

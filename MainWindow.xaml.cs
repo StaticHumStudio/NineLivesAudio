@@ -31,6 +31,10 @@ namespace NineLivesAudio
         private readonly ITrayIconService _tray;
         private DateTime _lastMiniPlayerUpdate = DateTime.MinValue;
 
+        // Last known connectivity, so the status point can be repainted when the theme changes.
+        private bool _isOnline = true;
+        private bool _isServerReachable = true;
+
         // Window reference for preset sizing
         private Microsoft.UI.Windowing.AppWindow? _appWindow;
 
@@ -73,6 +77,9 @@ namespace NineLivesAudio
             // Title bar colours follow the palette (dark void vs. daylight) — repainted
             // again whenever "Appearance → Theme" changes.
             ThemeService.RegisterTitleBar(_appWindow);
+
+            // Connectivity colours are painted from code, so they need an explicit repaint.
+            ThemeService.PaletteChanged += OnPaletteChanged;
 
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
             SetMinimumWindowSize(hwnd, 500, 600);
@@ -190,6 +197,12 @@ namespace NineLivesAudio
             UpdateConnectivityUI(_connectivity.IsOnline, _connectivity.IsServerReachable);
         }
 
+        private void OnPaletteChanged()
+        {
+            try { UpdateConnectivityUI(_isOnline, _isServerReachable); }
+            catch { /* window closing */ }
+        }
+
         private void ShowInitError(string message)
         {
             InitOverlay.Visibility = Visibility.Collapsed;
@@ -243,6 +256,9 @@ namespace NineLivesAudio
 
         private void UpdateConnectivityUI(bool isOnline, bool isServerReachable)
         {
+            _isOnline = isOnline;
+            _isServerReachable = isServerReachable;
+
             // Always use a solid circle dot — color indicates status
             ConnectivityIcon.Glyph = "\u25CF"; // ● solid circle
             ConnectivityIcon.Opacity = 1.0;

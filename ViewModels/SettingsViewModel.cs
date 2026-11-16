@@ -54,6 +54,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private double _skipOutroSeconds;
 
+    /// <summary>Progress display: chapter slider vs. whole-book slider (same flag the player uses).</summary>
+    [ObservableProperty]
+    private bool _playerChapterMode;
+
     [ObservableProperty]
     private bool _autoSyncProgress;
 
@@ -180,6 +184,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _volumeStatus = string.Empty;
     [ObservableProperty] private string _skipIntroStatus = string.Empty;
     [ObservableProperty] private string _skipOutroStatus = string.Empty;
+    [ObservableProperty] private string _chapterModeStatus = string.Empty;
     [ObservableProperty] private string _autoSyncStatus = string.Empty;
     [ObservableProperty] private string _syncIntervalStatus = string.Empty;
     [ObservableProperty] private string _startMinimizedStatus = string.Empty;
@@ -268,6 +273,7 @@ public partial class SettingsViewModel : ObservableObject
         PlaybackSpeed = settings.PlaybackSpeed;
         SkipIntroSeconds = settings.SkipIntroSeconds;
         SkipOutroSeconds = settings.SkipOutroSeconds;
+        PlayerChapterMode = settings.PlayerChapterMode;
         AutoSyncProgress = settings.AutoSyncProgress;
         SyncIntervalMinutes = settings.SyncIntervalMinutes;
         StartMinimized = settings.StartMinimized;
@@ -363,6 +369,7 @@ public partial class SettingsViewModel : ObservableObject
         settings.PlaybackSpeed = PlaybackSpeed;
         settings.SkipIntroSeconds = ToSeconds(SkipIntroSeconds);
         settings.SkipOutroSeconds = ToSeconds(SkipOutroSeconds);
+        settings.PlayerChapterMode = PlayerChapterMode;
         settings.AutoSyncProgress = AutoSyncProgress;
         settings.SyncIntervalMinutes = SyncIntervalMinutes;
         settings.StartMinimized = StartMinimized;
@@ -490,6 +497,8 @@ public partial class SettingsViewModel : ObservableObject
 
         AutoSave(s => SkipOutroStatus = s, 400);
     }
+
+    partial void OnPlayerChapterModeChanged(bool value) => AutoSave(s => ChapterModeStatus = s);
 
     partial void OnServerUrlChanged(string value) =>
         AutoSave(s => ServerUrlStatus = Detail(s, value), 600);

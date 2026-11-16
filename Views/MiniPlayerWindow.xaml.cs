@@ -75,6 +75,9 @@ public sealed partial class MiniPlayerWindow : Window
         // Clean up on close
         this.Closed += OnClosed;
 
+        // Pin colour is painted from code, so it has to be repainted on theme changes.
+        ThemeService.PaletteChanged += OnPaletteChanged;
+
         ApplyLocalization();
         _localization.LanguageChanged -= ApplyLocalization;
         _localization.LanguageChanged += ApplyLocalization;
@@ -95,8 +98,19 @@ public sealed partial class MiniPlayerWindow : Window
         if (PlayPauseButton != null) ToolTipService.SetToolTip(PlayPauseButton, _localization.GetString("PlayPauseTip"));
     }
 
+    private void OnPaletteChanged()
+    {
+        var window = this.Content as Microsoft.UI.Xaml.FrameworkElement;
+        window?.DispatcherQueue.TryEnqueue(() =>
+        {
+            try { UpdatePinVisual(); }
+            catch { /* window closing */ }
+        });
+    }
+
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        ThemeService.PaletteChanged -= OnPaletteChanged;
         _localization.LanguageChanged -= ApplyLocalization;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         _logger.Log("[MiniPlayer] Window closed");
@@ -210,13 +224,16 @@ public sealed partial class MiniPlayerWindow : Window
             presenter.IsAlwaysOnTop = _isPinned;
         }
 
-        // Update pin icon appearance
+        UpdatePinVisual();
+        _logger.LogDebug($"[MiniPlayer] Always on top: {_isPinned}");
+    }
+
+    private void UpdatePinVisual()
+    {
         PinIcon.Glyph = _isPinned ? "\uE840" : "\uE718"; // Pinned vs UnPin
         PinIcon.Foreground = _isPinned
             ? ThemeService.Brush("SigilGoldBrush")
             : ThemeService.Brush("MistFaintBrush");
-
-        _logger.LogDebug($"[MiniPlayer] Always on top: {_isPinned}");
     }
 
     private void Expand_Click(object sender, RoutedEventArgs e)

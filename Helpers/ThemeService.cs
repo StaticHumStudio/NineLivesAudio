@@ -27,6 +27,13 @@ public static class ThemeService
     /// <summary>True when the palette currently in use is the light one.</summary>
     public static bool IsLight { get; private set; }
 
+    /// <summary>
+    /// Raised after the palette changed. Views that paint colours from code (status dots,
+    /// badges, pinned icons) re-run their painting here, because a brush handed out earlier
+    /// is a snapshot of the old theme — <c>{ThemeResource}</c> only re-resolves in XAML.
+    /// </summary>
+    public static event Action? PaletteChanged;
+
     public static ElementTheme Resolve(string? theme) => theme switch
     {
         "Light" => ElementTheme.Light,
@@ -128,6 +135,9 @@ public static class ThemeService
                 catch { /* window already closed */ }
             }
         }
+
+        try { PaletteChanged?.Invoke(); }
+        catch { /* a view failing to repaint must not abort the theme switch */ }
     }
 
     /// <summary>Brush from the palette of the theme that is currently in use.</summary>
