@@ -104,6 +104,7 @@ public sealed partial class SettingsPage : Page
             LocalizeComboItem(LanguageComboBox, 2, _localization.GetString("LanguageChinese"));
         }
         if (ServerConnectionTitle != null) ServerConnectionTitle.Text = _localization.GetString("ServerConnection");
+        if (SavedServerBox != null) SavedServerBox.Header = _localization.GetString("SavedServers");
         if (ServerUrlBox != null) ServerUrlBox.Header = _localization.GetString("ServerUrl");
         if (UsernameBox != null) UsernameBox.Header = _localization.GetString("Username");
         if (PasswordBox != null) PasswordBox.Header = _localization.GetString("Password");

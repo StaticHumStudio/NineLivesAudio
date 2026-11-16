@@ -6,6 +6,7 @@ using System.Text.Json;
 using T = NineLivesAudio.Data.Db.Tables;
 using PP = NineLivesAudio.Data.Db.Progress;
 using PPU = NineLivesAudio.Data.Db.PendingProgress;
+using PPB = NineLivesAudio.Data.Db.PendingBookmark;
 
 namespace NineLivesAudio.Data;
 
@@ -232,7 +233,21 @@ public class LocalDatabase : ILocalDatabase, IDisposable
                 Timestamp TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS PendingBookmarks (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ItemId TEXT NOT NULL,
+                Time REAL NOT NULL,
+                Title TEXT,
+                Timestamp TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS ListeningDaily (
+                Date TEXT PRIMARY KEY,
+                Seconds REAL NOT NULL DEFAULT 0
+            );
+
             CREATE INDEX IF NOT EXISTS idx_audiobooks_library ON AudioBooks(LibraryId);
+            CREATE INDEX IF NOT EXISTS idx_pending_bookmark_item ON PendingBookmarks(ItemId);
             CREATE INDEX IF NOT EXISTS idx_downloads_audiobook ON DownloadItems(AudioBookId);
             CREATE INDEX IF NOT EXISTS idx_pending_item ON PendingProgressUpdates(ItemId);
         ";
@@ -617,6 +632,115 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             }
 
             return null;
+        }
+        finally { _gate.Release(); }
+    }
+
+    // ── On-device listening history ────────────────────────────────────
+    // The server only exposes per-session statistics; keeping our own daily totals means the
+    // Statistics page works offline and cannot be distorted by the session-sync semantics.
+
+    public async Task AddListeningSecondsAsync(string dateKey, double seconds)
+    {
+        if (seconds <= 0) return;
+
+        await _gate.WaitAsync();
+        try
+        {
+            EnsureInitialized();
+            var command = GetConnection().CreateCommand();
+            command.CommandText = $@"
+                INSERT INTO ListeningDaily (Date, Seconds) VALUES (@date, @seconds)
+                ON CONFLICT(Date) DO UPDATE SET Seconds = Seconds + excluded.Seconds;";
+            command.Parameters.AddWithValue("@date", dateKey);
+            command.Parameters.AddWithValue("@seconds", seconds);
+            await command.ExecuteNonQueryAsync();
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task<List<ListeningDay>> GetListeningDaysAsync(int days)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            EnsureInitialized();
+            var result = new List<ListeningDay>();
+            var command = GetConnection().CreateCommand();
+            command.CommandText = $"SELECT Date, Seconds FROM ListeningDaily ORDER BY Date DESC LIMIT @limit";
+            command.Parameters.AddWithValue("@limit", Math.Max(1, days));
+            using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new ListeningDay
+                {
+                    Date = reader.GetString(0),
+                    Seconds = reader.GetDouble(1)
+                });
+            }
+            return result;
+        }
+        finally { _gate.Release(); }
+    }
+
+    // ── Offline Bookmark Queue ──────────────────────────────────────────
+
+    public async Task EnqueuePendingBookmarkAsync(string itemId, string title, double time)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            EnsureInitialized();
+            var command = GetConnection().CreateCommand();
+            command.CommandText = $@"
+                INSERT INTO {T.PendingBookmarks} ({PPB.ItemId}, {PPB.Time}, {PPB.Title}, {PPB.Timestamp})
+                VALUES (@itemId, @time, @title, @timestamp)";
+            command.Parameters.AddWithValue("@itemId", itemId);
+            command.Parameters.AddWithValue("@time", time);
+            command.Parameters.AddWithValue("@title", title ?? string.Empty);
+            command.Parameters.AddWithValue("@timestamp", DateTime.UtcNow.ToString("O"));
+            await command.ExecuteNonQueryAsync();
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task<List<PendingBookmarkEntry>> GetPendingBookmarksAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            EnsureInitialized();
+            var entries = new List<PendingBookmarkEntry>();
+            var command = GetConnection().CreateCommand();
+            command.CommandText = $"SELECT {PPB.Id}, {PPB.ItemId}, {PPB.Time}, {PPB.Title}, {PPB.Timestamp} " +
+                                  $"FROM {T.PendingBookmarks} ORDER BY {PPB.Timestamp} ASC";
+            using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                entries.Add(new PendingBookmarkEntry
+                {
+                    Id = reader.GetInt64(reader.GetOrdinal(PPB.Id)),
+                    ItemId = reader.GetString(reader.GetOrdinal(PPB.ItemId)),
+                    Time = reader.GetDoubleOrDefault(PPB.Time),
+                    Title = reader.IsDBNull(reader.GetOrdinal(PPB.Title)) ? string.Empty : reader.GetString(reader.GetOrdinal(PPB.Title)),
+                    Timestamp = reader.GetNullableDateTime(PPB.Timestamp) ?? DateTime.MinValue
+                });
+            }
+            return entries;
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task DeletePendingBookmarkAsync(long id)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            EnsureInitialized();
+            var command = GetConnection().CreateCommand();
+            command.CommandText = $"DELETE FROM {T.PendingBookmarks} WHERE {PPB.Id} = @id";
+            command.Parameters.AddWithValue("@id", id);
+            await command.ExecuteNonQueryAsync();
         }
         finally { _gate.Release(); }
     }

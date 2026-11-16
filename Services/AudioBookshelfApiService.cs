@@ -74,6 +74,20 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         _httpClient.Timeout = TimeSpan.FromMinutes(5);
     }
 
+    /// <summary>
+    /// Re-reads server + token from settings after the user switched accounts, so the next
+    /// request goes to the other server instead of the one cached at startup.
+    /// </summary>
+    public async Task<bool> ReloadCredentialsAsync()
+    {
+        _authToken = null;
+        _serverUrl = string.Empty;
+        _httpClient.DefaultRequestHeaders.Authorization = null;
+
+        await InitializeFromSettingsAsync();
+        return IsAuthenticated;
+    }
+
     private async Task InitializeFromSettingsAsync()
     {
         var token = await _settingsService.GetAuthTokenAsync();
@@ -124,12 +138,15 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
             _authToken = loginResponse.User.Token;
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
 
-            // Save credentials
-            await _settingsService.SaveAuthTokenAsync(_authToken);
+            // Save credentials. The token file is per server (SettingsService hashes the
+            // host), so the address has to be in settings *before* the token is written —
+            // otherwise a second server would overwrite the first one's token.
             var settings = _settingsService.Settings;
             settings.ServerUrl = _serverUrl;
             settings.Username = username;
+            await _settingsService.SaveAuthTokenAsync(_authToken);
             await _settingsService.SaveSettingsAsync();
+            _settingsService.RememberServer(_serverUrl, username);
 
             LastError = null;
             LastRequestUnauthorized = false;

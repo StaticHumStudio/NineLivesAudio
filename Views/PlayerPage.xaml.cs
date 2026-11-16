@@ -26,6 +26,7 @@ public sealed partial class PlayerPage : Page
     private readonly ILocalizationService _localization;
     private readonly ISettingsService _settingsService;
     private readonly INotificationService _notifications;
+    private readonly IBookmarkQueue _bookmarkQueue;
     private bool _isUserSeeking = false;
     private bool _isChapterMode = false;
 
@@ -47,6 +48,7 @@ public sealed partial class PlayerPage : Page
         _localization = App.Services.GetRequiredService<ILocalizationService>();
         _settingsService = App.Services.GetRequiredService<ISettingsService>();
         _notifications = App.Services.GetRequiredService<INotificationService>();
+        _bookmarkQueue = App.Services.GetRequiredService<IBookmarkQueue>();
         this.InitializeComponent();
         RegisterChapterAccelerators();
     }
@@ -683,6 +685,21 @@ public sealed partial class PlayerPage : Page
             (120, _localization.Format("HoursCount", 2))
         };
 
+        // "After this chapter" sits above the wall-clock options: it is the one people use
+        // when they actually fall asleep listening.
+        var chapterItem = new MenuFlyoutItem
+        {
+            Text = _localization.GetString("SleepAfterChapter"),
+            Icon = ViewModel.SleepAtChapterEnd ? new FontIcon { Glyph = "\uE73E" } : null
+        };
+        chapterItem.Click += (s, args) =>
+        {
+            ViewModel.SetSleepAtChapterEndCommand.Execute(null);
+            UpdateAllUI();
+        };
+        flyout.Items.Add(chapterItem);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
         foreach (var (minutes, label) in options)
         {
             var item = new MenuFlyoutItem
@@ -804,6 +821,15 @@ public sealed partial class PlayerPage : Page
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
+        if (_bookmarkQueue.PendingCount > 0)
+        {
+            flyout.Items.Add(new MenuFlyoutItem
+            {
+                Text = _localization.Format("BookmarksPendingUpload", _bookmarkQueue.PendingCount),
+                IsEnabled = false
+            });
+        }
+
         // Load existing bookmarks
         try
         {
@@ -917,14 +943,23 @@ public sealed partial class PlayerPage : Page
         if (result == ContentDialogResult.Primary)
         {
             var title = string.IsNullOrWhiteSpace(titleInput.Text) ? defaultTitle : titleInput.Text;
-            var success = await _apiService.CreateBookmarkAsync(audioBook.Id, title, currentTime);
-            if (success)
+
+            // Online: goes straight to the server. Offline: stored locally and uploaded as
+            // soon as the server is reachable again (it used to fail silently).
+            var result = await _bookmarkQueue.CreateAsync(audioBook.Id, title, currentTime);
+            switch (result)
             {
-                _logger.Log($"[Bookmarks] Created: '{title}' at {currentTime:F1}s");
-            }
-            else
-            {
-                _logger.LogWarning($"[Bookmarks] Failed to create bookmark");
+                case BookmarkCreateResult.Created:
+                    _notifications.ShowSuccess(_localization.GetString("BookmarkSaved"));
+                    break;
+
+                case BookmarkCreateResult.Queued:
+                    _notifications.ShowInfo(_localization.GetString("BookmarkQueuedOffline"));
+                    break;
+
+                default:
+                    _notifications.ShowError(_localization.GetString("BookmarkSaveFailed"));
+                    break;
             }
         }
     }

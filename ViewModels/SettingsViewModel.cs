@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using NineLivesAudio.Data;
 using NineLivesAudio.Helpers;
 using NineLivesAudio.Models;
@@ -122,6 +123,15 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasSuccess;
+
+    // ── Remembered servers ─────────────────────────────────────────────────
+    public ObservableCollection<SavedServer> SavedServers { get; } = new();
+
+    [ObservableProperty]
+    private SavedServer? _selectedServer;
+
+    [ObservableProperty]
+    private string _serverSwitchStatus = string.Empty;
 
     // ── Dropdown selections (observable, so they show the saved value) ─────
     [ObservableProperty] private int _speedSelectedIndex = 2;
@@ -283,6 +293,8 @@ public partial class SettingsViewModel : ObservableObject
         Language = settings.Language ?? "system";
         AllowSelfSignedCertificates = settings.AllowSelfSignedCertificates;
         DiagnosticsMode = settings.DiagnosticsMode;
+
+        RefreshSavedServers();
 
         // Dropdowns show what is actually stored (they used to keep showing the defaults).
         _syncingIndexes = true;
@@ -500,6 +512,74 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnPlayerChapterModeChanged(bool value) => AutoSave(s => ChapterModeStatus = s);
 
+    partial void OnSelectedServerChanged(SavedServer? value)
+    {
+        if (_isLoadingSettings || value == null) return;
+
+        // Selecting the server that is already active must not restart anything.
+        if (SavedServer.Normalize(ServerUrl) == SavedServer.Normalize(value.Url)
+            && string.Equals(Username ?? string.Empty, value.Username ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _ = SwitchToServerAsync(value);
+    }
+
+    private void RefreshSavedServers()
+    {
+        var previous = _isLoadingSettings;
+        _isLoadingSettings = true;
+        try
+        {
+            SavedServers.Clear();
+            foreach (var server in (_settingsService.Settings.SavedServers ?? new List<SavedServer>()))
+                SavedServers.Add(server);
+
+            SelectedServer = SavedServers.FirstOrDefault(s =>
+                SavedServer.Normalize(s.Url) == SavedServer.Normalize(_settingsService.Settings.ServerUrl));
+        }
+        finally
+        {
+            _isLoadingSettings = previous;
+        }
+    }
+
+    /// <summary>
+    /// Switches the active server/account: the token belonging to that server is loaded from
+    /// its own file, so switching back does not require typing the password again.
+    /// </summary>
+    private async Task SwitchToServerAsync(SavedServer server)
+    {
+        try
+        {
+            ServerUrl = server.Url;
+            Username = server.Username;
+            Password = string.Empty;
+
+            ApplyToSettings();
+            _settingsService.RememberServer(server.Url, server.Username);
+            await _settingsService.SaveSettingsAsync();
+
+            var authenticated = await _apiService.ReloadCredentialsAsync();
+            IsConnected = authenticated;
+            ConnectionStatus = authenticated
+                ? _localization.Format("ConnectedTo", server.Url)
+                : _localization.GetString("NotConnectedStatus");
+
+            if (authenticated)
+                ServerSwitchStatus = _localization.Format("ServerSwitched", server.DisplayName);
+            else
+                ServerSwitchStatus = _localization.Format("ServerSwitchedNeedsLogin", server.DisplayName);
+
+            _logger.Log($"[Settings] Switched server to {server.Url} (authenticated={authenticated})");
+            LoadDoctorInfo();
+        }
+        catch (Exception ex)
+        {
+            ServerSwitchStatus = _localization.GetString("SaveFailedInline");
+            _logger.LogError("[Settings] Server switch failed", ex);
+        }
+    }
+
     partial void OnServerUrlChanged(string value) =>
         AutoSave(s => ServerUrlStatus = Detail(s, value), 600);
 
@@ -618,6 +698,8 @@ public partial class SettingsViewModel : ObservableObject
                 Password = string.Empty; // Clear password from UI
 
                 await SaveSettingsAsync();
+                _settingsService.RememberServer(ServerUrl, Username);
+                RefreshSavedServers();
                 LoadDoctorInfo();
 
                 // Adding a server used to leave the shelf and every progress entry empty until

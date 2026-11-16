@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:loc="using:NineLivesAudio.Helpers"
+    xmlns:models="using:NineLivesAudio.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Loaded="Page_Loaded">
@@ -30,6 +31,23 @@
                                      Fill="{x:Bind ConnectionStatusColor, Mode=OneWay}"/>
                             <TextBlock Text="{x:Bind ViewModel.ConnectionStatus, Mode=OneWay}"
                                        VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Remembered servers -->
+                        <StackPanel>
+                            <ComboBox x:Name="SavedServerBox" Header="Saved servers"
+                                      HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Bind ViewModel.SavedServers}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedServer, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:SavedServer">
+                                        <TextBlock Text="{x:Bind DisplayName}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{x:Bind ViewModel.ServerSwitchStatus, Mode=OneWay}" FontSize="11"
+                                       Foreground="{ThemeResource RitualSuccessBrush}" TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.ServerSwitchStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
 
                         <!-- Server URL -->

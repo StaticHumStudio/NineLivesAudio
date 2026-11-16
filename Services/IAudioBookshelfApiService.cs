@@ -5,6 +5,9 @@ namespace NineLivesAudio.Services;
 public interface IAudioBookshelfApiService
 {
     bool IsAuthenticated { get; }
+
+    /// <summary>Re-reads server URL and token from settings (used when switching servers).</summary>
+    Task<bool> ReloadCredentialsAsync();
     string? ServerUrl { get; }
     string? LastError { get; }
 

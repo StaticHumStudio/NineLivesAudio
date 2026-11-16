@@ -3,6 +3,9 @@ namespace NineLivesAudio.Models;
 public class AppSettings
 {
     public string ServerUrl { get; set; } = string.Empty;
+
+    /// <summary>Remembered servers so switching accounts does not mean retyping everything.</summary>
+    public List<SavedServer> SavedServers { get; set; } = new();
     public string Username { get; set; } = string.Empty;
     public string DownloadPath { get; set; } = string.Empty;
     public bool AutoDownloadCovers { get; set; } = true;

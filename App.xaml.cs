@@ -48,6 +48,7 @@ public partial class App : Application
                 // Services - Connectivity & Offline
                 services.AddSingleton<IConnectivityService, ConnectivityService>();
                 services.AddSingleton<IOfflineProgressQueue, OfflineProgressQueue>();
+                services.AddSingleton<IBookmarkQueue, BookmarkQueue>();
 
                 // Services - Navigation
                 services.AddSingleton<INavigationService, NavigationService>();
@@ -71,6 +72,7 @@ public partial class App : Application
                 services.AddTransient<DownloadsViewModel>();
                 services.AddTransient<SettingsViewModel>();
                 services.AddTransient<BookDetailViewModel>();
+                services.AddTransient<StatsViewModel>();
 
                 // Main Window
                 services.AddSingleton<MainWindow>();

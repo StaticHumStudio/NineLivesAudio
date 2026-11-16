@@ -400,6 +400,7 @@ namespace NineLivesAudio
                 "Library" => typeof(Views.LibraryPage),
                 "Player" => typeof(Views.PlayerPage),
                 "Downloads" => typeof(Views.DownloadsPage),
+                "Stats" => typeof(Views.StatsPage),
                 "Settings" => typeof(Views.SettingsPage),
                 _ => null
             };
@@ -535,6 +536,7 @@ namespace NineLivesAudio
             if (NavLibraryItem != null) NavLibraryItem.Content = _localization.GetString("NavLibrary");
             if (NavPlayerItem != null) NavPlayerItem.Content = _localization.GetString("NavPlayer");
             if (NavDownloadsItem != null) NavDownloadsItem.Content = _localization.GetString("NavDownloads");
+            if (NavStatsItem != null) NavStatsItem.Content = _localization.GetString("NavStats");
             if (RetryButton != null) RetryButton.Content = _localization.GetString("Retry");
             if (OpenLogsButton != null) OpenLogsButton.Content = _localization.GetString("OpenLogs");
             if (ResetButton != null) ResetButton.Content = _localization.GetString("ResetConnection");

@@ -54,6 +54,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private DateTime _sessionStartTime;
     private double _accumulatedListenTime;   // total reported to the server this session
     private double _pendingListenSeconds;    // played but not sent yet (delta on next sync)
+    private double _unsavedListeningSeconds; // credited to the on-device daily history
     private DateTime _lastSyncTickTime;
     private DateTime _lastListenTick;
 
@@ -1058,6 +1059,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 _logger.LogDebug($"[Playback] Session sync failed: {ex.Message}");
             }
         }
+
+        FlushListeningHistory();
         else
         {
             // Fallback: use SyncService throttled progress reporting
@@ -1086,7 +1089,25 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
         // Guard against a stalled tick or a clock jump being credited as listening.
         if (elapsed is > 0 and < 5)
-            _pendingListenSeconds += elapsed * Math.Max(0.5, _playbackSpeed);
+        {
+            var credited = elapsed * Math.Max(0.5, _playbackSpeed);
+            _pendingListenSeconds += credited;
+            _unsavedListeningSeconds += credited;
+        }
+    }
+
+    /// <summary>
+    /// Moves the freshly credited seconds into the local daily history. Runs on the same 12 s
+    /// cadence as the session sync, so at most a few seconds are lost on a hard kill.
+    /// </summary>
+    private void FlushListeningHistory()
+    {
+        var seconds = _unsavedListeningSeconds;
+        if (seconds < 5) return;
+
+        _unsavedListeningSeconds = 0;
+        var dateKey = DateTime.Now.ToString("yyyy-MM-dd");
+        _ = _database.AddListeningSecondsAsync(dateKey, Math.Round(seconds, 1));
     }
 
     /// <summary>

@@ -72,6 +72,13 @@
                     <NavigationViewItem x:Name="NavDownloadsItem" Content="Downloads"
                                         Tag="Downloads"
                                         Icon="Download"/>
+                    <NavigationViewItem x:Name="NavStatsItem" Content="Statistics"
+                                        Tag="Stats">
+                        <NavigationViewItem.Icon>
+                            <!-- Symbol 枚举里没有 Stopwatch，用图标字体避免 XAML 解析失败 -->
+                            <FontIcon Glyph="&#xE916;"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
                 </NavigationView.MenuItems>
 
                 <NavigationView.FooterMenuItems>
