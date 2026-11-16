@@ -46,6 +46,42 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _normalizer = normalizer;
         _localization = localization;
 
+        // Live progress: the list used to be a snapshot of the database taken when the page
+        // loaded, so the time next to the ring stayed frozen until you left and came back.
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+        {
+            var self = (HomeViewModel)r;
+
+            // The player ticks several times a second; one refresh per second is enough and
+            // keeps the whole list from repainting constantly.
+            var now = DateTime.UtcNow;
+            if ((now - self._lastLiveUpdate).TotalMilliseconds < 900) return;
+            self._lastLiveUpdate = now;
+
+            self._dispatcherQueue?.TryEnqueue(() => self.ApplyLiveProgress(m.Value));
+        });
+
+        WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
+        {
+            var self = (HomeViewModel)r;
+
+            // Stopping writes the final position to the database, so re-read it once.
+            if (m.Value.State == PlaybackState.Stopped)
+            {
+                self._dispatcherQueue?.TryEnqueue(() => _ = self.LoadAsync());
+                return;
+            }
+
+            // Started playing something that is not on the list (opened from the library):
+            // reload so the row exists and starts ticking.
+            if (m.Value.State == PlaybackState.Playing)
+            {
+                var id = self._playbackService.CurrentAudioBook?.Id;
+                if (id != null && self.Lives.All(l => l.AudioBook?.Id != id))
+                    self._dispatcherQueue?.TryEnqueue(() => _ = self.LoadAsync());
+            }
+        });
+
         // Reload Nine Lives whenever a sync completes (progress data may have changed)
         WeakReferenceMessenger.Default.Register<SyncCompletedMessage>(this, (r, m) =>
         {
@@ -55,9 +91,38 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         });
     }
 
+    /// <summary>Throttle marker for <see cref="ApplyLiveProgress"/> (player ticks ~4×/s).</summary>
+    private DateTime _lastLiveUpdate = DateTime.MinValue;
+
     public void Dispose()
     {
         WeakReferenceMessenger.Default.UnregisterAll(this);
+    }
+
+    /// <summary>
+    /// Mirrors the player position onto the matching row: ring percentage, listened time and
+    /// the "just now" stamp, and recomputes the header total.
+    /// </summary>
+    private void ApplyLiveProgress(TimeSpan position)
+    {
+        var playing = _playbackService.CurrentAudioBook;
+        if (playing == null) return;
+
+        var item = Lives.FirstOrDefault(l => l.AudioBook?.Id == playing.Id);
+        if (item == null) return;
+
+        var total = _playbackService.Duration.TotalSeconds;
+        if (total <= 0) total = playing.Duration.TotalSeconds;
+
+        var elapsed = Math.Max(0, position.TotalSeconds);
+
+        item.ProgressPercent = total > 0 ? Math.Clamp(elapsed / total * 100, 0, 100) : item.ProgressPercent;
+        item.TimeGiven = CosmicCatHelper.FormatListeningTime(TimeSpan.FromSeconds(elapsed));
+        item.HoursListened = elapsed / 3600.0;
+        item.LastPlayedLabel = _localization.GetString("JustNow");
+
+        TotalListeningTimeText = CosmicCatHelper.FormatListeningTime(
+            TimeSpan.FromSeconds(Lives.Sum(l => l.HoursListened * 3600)));
     }
 
     public async Task LoadAsync()
@@ -161,24 +226,54 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     }
 }
 
-public class NineLivesItem
+/// <summary>
+/// One row of the "Nine Lives" list. The progress fields are observable: they are refreshed
+/// while a book is playing, which is why this class is not a plain DTO any more.
+/// </summary>
+public class NineLivesItem : ObservableObject
 {
     public AudioBook AudioBook { get; set; } = null!;
     public string DisplayTitle { get; set; } = string.Empty;
     public string DisplayAuthor { get; set; } = string.Empty;
-    public double ProgressPercent { get; set; }
+
+    private double _progressPercent;
+    public double ProgressPercent
+    {
+        get => _progressPercent;
+        set => SetProperty(ref _progressPercent, value);
+    }
+
     public bool IsMostRecent { get; set; }
     public bool IsDownloaded { get; set; }
-    public double HoursListened { get; set; }
+
+    private double _hoursListened;
+    public double HoursListened
+    {
+        get => _hoursListened;
+        set => SetProperty(ref _hoursListened, value);
+    }
+
     public string? CoverPath { get; set; }
 
     // Altar properties
     public int LifeIndex { get; set; }
     public string LifeLabel { get; set; } = string.Empty;
     public string Weight { get; set; } = string.Empty;
-    public string TimeGiven { get; set; } = string.Empty;
+
+    private string _timeGiven = string.Empty;
+    public string TimeGiven
+    {
+        get => _timeGiven;
+        set => SetProperty(ref _timeGiven, value);
+    }
 
     // Last listened
     public DateTime LastPlayedAt { get; set; }
-    public string LastPlayedLabel { get; set; } = string.Empty;
+
+    private string _lastPlayedLabel = string.Empty;
+    public string LastPlayedLabel
+    {
+        get => _lastPlayedLabel;
+        set => SetProperty(ref _lastPlayedLabel, value);
+    }
 }
