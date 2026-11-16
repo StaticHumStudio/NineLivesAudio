@@ -401,7 +401,10 @@ public class SyncService : ISyncService, IDisposable
                         progress.IsFinished,
                         progress.LastUpdate); // Use server's timestamp for correct Nine Lives sorting
                 }
-                if (progress.LastUpdate > watermark) watermark = progress.LastUpdate;
+                // LastUpdate is DateTime? on the API model; the comparison above already
+                // guarantees a value here.
+                if (progress.LastUpdate > watermark && progress.LastUpdate.HasValue)
+                    watermark = progress.LastUpdate.Value;
                 synced++;
             }
 
