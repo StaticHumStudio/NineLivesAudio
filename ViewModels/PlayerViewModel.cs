@@ -187,7 +187,6 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         await _playbackService.SetPlaybackSpeedAsync(speed);
     }
 
-    [RelayCommand]
     /// <summary>
     /// "Sleep after this chapter": the player keeps going to the end of the current chapter and
     /// then pauses, without a wall-clock timer (the common way to fall asleep listening).
