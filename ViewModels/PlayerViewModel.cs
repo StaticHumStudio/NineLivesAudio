@@ -213,6 +213,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         });
     }
 
+    [RelayCommand]
     private void SetSleepTimer(int? minutes)
     {
         CancelSleepTimer();

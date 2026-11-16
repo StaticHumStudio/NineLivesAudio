@@ -946,8 +946,8 @@ public sealed partial class PlayerPage : Page
 
             // Online: goes straight to the server. Offline: stored locally and uploaded as
             // soon as the server is reachable again (it used to fail silently).
-            var result = await _bookmarkQueue.CreateAsync(audioBook.Id, title, currentTime);
-            switch (result)
+            var bookmarkResult = await _bookmarkQueue.CreateAsync(audioBook.Id, title, currentTime);
+            switch (bookmarkResult)
             {
                 case BookmarkCreateResult.Created:
                     _notifications.ShowSuccess(_localization.GetString("BookmarkSaved"));
