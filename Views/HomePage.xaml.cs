@@ -19,11 +19,23 @@ public sealed partial class HomePage : Page
 
     private readonly TapHelper _tapHelper = new();
 
-    // Hover brush cache (created once; pointer events fire constantly)
-    private static readonly SolidColorBrush HoverBrush =
-        new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)); // subtle white overlay
-    private static readonly SolidColorBrush HighlightBrush =
+    // Hover/restore brushes, one pair per palette: a white overlay is invisible on the
+    // light theme and #111827 (the dark VoidSurface) is a black slab there.
+    private static readonly SolidColorBrush HoverDark =
+        new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush HoverLight =
+        new(Windows.UI.Color.FromArgb(0x0D, 0x00, 0x00, 0x00));
+
+    private static readonly SolidColorBrush HighlightDark =
         new(Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
+    private static readonly SolidColorBrush HighlightLight =
+        new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+
+    private static SolidColorBrush HoverBrush =>
+        Helpers.ThemeService.IsLight ? HoverLight : HoverDark;
+
+    private static SolidColorBrush HighlightBrush =>
+        Helpers.ThemeService.IsLight ? HighlightLight : HighlightDark;
     private static readonly SolidColorBrush TransparentBrush =
         new(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
 

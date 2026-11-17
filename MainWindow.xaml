@@ -38,7 +38,8 @@
         </Grid>
 
         <!-- Main App Content -->
-        <Grid x:Name="AppContent" Visibility="Collapsed">
+        <Grid x:Name="AppContent" Visibility="Collapsed"
+              Background="{ThemeResource VoidDeepBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -46,6 +47,7 @@
             </Grid.RowDefinitions>
 
             <NavigationView x:Name="NavView" Grid.Row="0"
+                            Background="{ThemeResource VoidDeepBrush}"
                             PaneDisplayMode="LeftCompact"
                             CompactModeThresholdWidth="0"
                             ExpandedModeThresholdWidth="900"
@@ -55,6 +57,23 @@
                             BackRequested="NavView_BackRequested"
                             IsSettingsVisible="True"
                             SelectionChanged="NavView_SelectionChanged">
+
+                <!-- The pane colour used to come from the control template's own
+                     ThemeResource lookup, which resolved against the system theme instead of
+                     the window's ElementTheme: dark window, light-grey rail. Paint it
+                     transparent (the grid behind it carries the palette) and give the
+                     selected/hover states our own accents. -->
+                <NavigationView.Resources>
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent"/>
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent"/>
+                    <SolidColorBrush x:Key="NavigationViewTopPaneBackground" Color="Transparent"/>
+                    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent"/>
+                    <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{ThemeResource SigilGoldFaint}"/>
+                    <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SigilGoldGlow}"/>
+                    <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="{ThemeResource SigilGoldGlow}"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="{ThemeResource SigilGold}"/>
+                    <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{ThemeResource SigilGoldFaint}"/>
+                </NavigationView.Resources>
 
                 <NavigationView.MenuItems>
                     <NavigationViewItem x:Name="NavHomeItem" Content="Home"
