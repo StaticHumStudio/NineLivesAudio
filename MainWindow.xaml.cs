@@ -84,6 +84,15 @@ namespace NineLivesAudio
             // Enforce minimum size only — no aspect ratio enforcement, no blocking maximize
             SetMinimumWindowSize(hwnd, 500, 600);
 
+            // The streamed-audio cache is session scoped: yesterday's tracks are never reused.
+            try
+            {
+                var streamCache = App.Services.GetRequiredService<IStreamCacheService>();
+                _ = streamCache.ClearAsync();
+                this.Closed += (_, _) => _ = streamCache.ClearAsync();
+            }
+            catch { /* cache is an optimisation, never a startup blocker */ }
+
             _initializer = App.Services.GetRequiredService<IAppInitializer>();
             _logger = App.Services.GetRequiredService<ILoggingService>();
             _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();

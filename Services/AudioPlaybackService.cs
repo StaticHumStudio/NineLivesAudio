@@ -61,6 +61,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     // Multi-track state
     private List<string> _trackPaths = new();     // local file paths for multi-track
     private List<AudioStreamInfo> _streamTracks = new(); // streaming tracks
+    private readonly IStreamCacheService _streamCache;
     private List<double> _trackDurations = new(); // cumulative durations for offset calc
     private int _currentTrackIndex;
     private bool _autoAdvancing; // guards against re-entrancy during track advance
@@ -136,7 +137,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         ISyncService syncService,
         Data.ILocalDatabase database,
         ITrackManager trackManager,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        IStreamCacheService streamCache)
     {
         _apiService = apiService;
         _settingsService = settingsService;
@@ -148,6 +150,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         _sourceResolver = sourceResolver;
         _notifications = notifications;
         _syncService = syncService;
+        _streamCache = streamCache;
         _database = database;
         _trackManager = trackManager;
         _localization = localization;
@@ -262,6 +265,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             // Tell SyncService this item is active (session owns progress)
             _syncService.SetActivePlaybackItem(audioBook.Id);
 
+            // Only one book's tracks are kept on disk while it plays.
+            try { _streamCache.OnBookChanged(audioBook.Id); }
+            catch (Exception ex) { _logger.LogDebug($"[Playback] Stream cache scoping failed: {ex.Message}"); }
+
             // Seed PlaybackProgress so Nine Lives shows this book immediately
             try
             {
@@ -306,7 +313,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                         var track = _streamTracks[_currentTrackIndex];
                         _logger.Log($"[Playback] Stream URL obtained, {_streamTracks.Count} tracks");
 
-                        if (await LoadStreamAsync(track.ContentUrl, audioBook, ct))
+                        if (await LoadStreamAsync(track.ContentUrl, audioBook, ct, trackIndex: _currentTrackIndex))
                         {
                             SetupSmtc(audioBook);
                             return true;
@@ -421,7 +428,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         return Task.FromResult(true);
     }
 
-    private async Task<bool> LoadStreamAsync(string streamUrl, AudioBook audioBook, CancellationToken ct, bool seekToPosition = true)
+    private async Task<bool> LoadStreamAsync(string streamUrl, AudioBook audioBook, CancellationToken ct,
+        bool seekToPosition = true, int trackIndex = -1)
     {
         try
         {
@@ -441,7 +449,20 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             _mediaPlayer.PlaybackSession.PlaybackRate = _playbackSpeed;
             _mediaPlayer.AutoPlay = false;
 
-            _mediaPlayer.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(streamUrl));
+            // Play from the session cache when this track is already on disk (a replay or a
+            // rewind costs no traffic); otherwise stream it and let the cache fill in the
+            // background so the next play of this track is local.
+            string? cachedTrack = null;
+            if (trackIndex >= 0)
+            {
+                try { cachedTrack = await _streamCache.PrepareTrackAsync(audioBook.Id, trackIndex, streamUrl); }
+                catch (Exception ex) { _logger.LogDebug($"[Playback] Track cache lookup failed: {ex.Message}"); }
+            }
+
+            var sourceUri = cachedTrack ?? streamUrl;
+            _mediaPlayer.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(sourceUri));
+            if (cachedTrack != null)
+                _logger.Log($"[Playback] Track {trackIndex + 1} played from cache: {cachedTrack}");
 
             // Wait for media to open (with timeout)
             var tcs = new TaskCompletionSource<bool>();
@@ -464,6 +485,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
                 if (!opened)
                 {
+                    if (cachedTrack != null)
+                    {
+                        // A truncated or corrupt file must not poison every future attempt.
+                        try { File.Delete(cachedTrack); } catch { /* in use */ }
+                        _logger.LogWarning($"[Playback] Cached track {trackIndex + 1} was unusable — dropped, will re-download");
+                    }
+
                     _logger.LogWarning("[Playback] MediaPlayer failed to open stream");
                     _mediaPlayer.Dispose();
                     _mediaPlayer = null;
@@ -473,6 +501,20 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
 
             WireMediaPlayerEvents();
+
+            // Warm the next track while this one plays: "one book, two chapters" is the whole
+            // cache, and a track change then starts from disk instead of the network.
+            if (trackIndex >= 0 && trackIndex + 1 < _streamTracks.Count)
+            {
+                try
+                {
+                    _streamCache.Prefetch(audioBook.Id, new[]
+                    {
+                        (trackIndex + 1, _streamTracks[trackIndex + 1].ContentUrl)
+                    });
+                }
+                catch (Exception ex) { _logger.LogDebug($"[Playback] Prefetch failed: {ex.Message}"); }
+            }
 
             // Same self-healing as local playback: the stream knows its own length.
             if (_trackDurations.Count > 1)
@@ -765,7 +807,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     // seekToPosition: false — we set the exact offset right below, so the
                     // track must not first jump to the saved book progress.
                     trackLoaded = await LoadStreamAsync(_streamTracks[targetTrack].ContentUrl, _currentAudioBook,
-                        CancellationToken.None, seekToPosition: false);
+                        CancellationToken.None, seekToPosition: false, trackIndex: targetTrack);
                 }
                 else if (!_isStreaming && _trackPaths.Count > targetTrack)
                 {
@@ -923,7 +965,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 try
                 {
                     if (_currentAudioBook != null)
-                        await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None, seekToPosition: false);
+                        await LoadStreamAsync(_streamTracks[_currentTrackIndex].ContentUrl, _currentAudioBook, CancellationToken.None, seekToPosition: false, trackIndex: _currentTrackIndex);
                     await PlayAsync();
                 }
                 catch (Exception ex)

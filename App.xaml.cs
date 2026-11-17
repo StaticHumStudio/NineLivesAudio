@@ -42,6 +42,7 @@ public partial class App : Application
                 services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
                 services.AddSingleton<IDownloadService, DownloadService>();
                 services.AddSingleton<ISyncService, SyncService>();
+                services.AddSingleton<IStreamCacheService, StreamCacheService>();
                 services.AddSingleton<ILocalDatabase, LocalDatabase>();
                 services.AddSingleton<IAppInitializer, AppInitializer>();
 

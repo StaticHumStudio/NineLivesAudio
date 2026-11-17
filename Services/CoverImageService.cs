@@ -1,5 +1,9 @@
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.Collections.Concurrent;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using NineLivesAudio.Helpers;
 
 namespace NineLivesAudio.Services;
 
@@ -11,6 +15,14 @@ public static class CoverImageService
 {
     private static readonly ConcurrentDictionary<string, BitmapImage> Cache = new();
     private const int MaxCached = 300;
+
+    // Cover art used to be requested from the server every single time a card was realised
+    // (the token in the URL even changed on relogin, defeating WinUI's own HTTP cache). Now the
+    // first sighting downloads it into <data>\covers and every later load comes from disk,
+    // so covers survive going offline and the folder is part of a portable install.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly ConcurrentDictionary<string, byte> Downloads = new(StringComparer.Ordinal);
+    private static readonly SemaphoreSlim DownloadSlots = new(4, 4);
 
     /// <summary>
     /// Loads a BitmapImage from a cover path URI, returning null on failure.
@@ -27,7 +39,8 @@ public static class CoverImageService
 
         try
         {
-            var image = new BitmapImage(new Uri(coverPath))
+            var source = ResolveSource(coverPath);
+            var image = new BitmapImage(new Uri(source))
             {
                 DecodePixelWidth = decodeWidth,
                 DecodePixelHeight = decodeHeight,
@@ -40,6 +53,97 @@ public static class CoverImageService
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Local file when it is already cached, otherwise the remote URL — and the download is
+    /// scheduled in the background so the next sighting is local.
+    /// </summary>
+    private static string ResolveSource(string coverPath)
+    {
+        if (!coverPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return coverPath; // already a local file (downloaded book)
+
+        var file = LocalFileFor(coverPath);
+        if (file != null && File.Exists(file))
+            return file;
+
+        if (file != null)
+            QueueDownload(coverPath, file);
+
+        return coverPath;
+    }
+
+    private static string? LocalFileFor(string url)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.CoversDirectory);
+            return Path.Combine(AppPaths.CoversDirectory, KeyFor(url) + ".img");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Item id when the URL is a cover endpoint, otherwise a hash of the URL.</summary>
+    private static string KeyFor(string url)
+    {
+        var marker = "/api/items/";
+        var at = url.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (at >= 0)
+        {
+            var rest = url[(at + marker.Length)..];
+            var slash = rest.IndexOf('/');
+            if (slash > 0)
+            {
+                var id = rest[..slash];
+                if (id.Length is > 0 and < 64 && id.All(c => char.IsLetterOrDigit(c) || c is '-' or '_'))
+                    return "item_" + id;
+            }
+        }
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(url));
+        return "url_" + Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
+    }
+
+    private static void QueueDownload(string url, string targetPath)
+    {
+        if (!Downloads.TryAdd(targetPath, 0)) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Respect the "auto-download cover art" setting (default on).
+                ISettingsService? settings = null;
+                try { settings = App.Services?.GetService(typeof(ISettingsService)) as ISettingsService; }
+                catch { /* services not ready yet — treat as enabled */ }
+
+                if (settings != null && !settings.Settings.AutoDownloadCovers) return;
+
+                await DownloadSlots.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    var bytes = await Http.GetByteArrayAsync(url).ConfigureAwait(false);
+                    if (bytes.Length == 0) return;
+
+                    var temp = targetPath + ".part";
+                    await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(false);
+                    File.Move(temp, targetPath, overwrite: true);
+                }
+                finally
+                {
+                    DownloadSlots.Release();
+                }
+            }
+            catch { /* a cover that will not download is not an error worth surfacing */ }
+            finally
+            {
+                Downloads.TryRemove(targetPath, out _);
+            }
+        });
     }
 
     /// <summary>
@@ -57,10 +161,12 @@ public static class CoverImageService
 
         try
         {
-            var thumbnailUri = coverPath.Contains('?')
-                ? $"{coverPath}&width={width}&height={height}"
-                : $"{coverPath}?width={width}&height={height}";
-            var image = new BitmapImage(new Uri(thumbnailUri))
+            var thumbnailUri = coverPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? (coverPath.Contains('?')
+                    ? $"{coverPath}&width={width}&height={height}"
+                    : $"{coverPath}?width={width}&height={height}")
+                : coverPath;
+            var image = new BitmapImage(new Uri(ResolveSource(thumbnailUri)))
             {
                 DecodePixelWidth = width,
                 DecodePixelHeight = height,
@@ -75,6 +181,7 @@ public static class CoverImageService
         }
     }
 
+    /// <summary>Drops the in-memory images; the files on disk stay (that is the point).</summary>
     /// <summary>Clears the cover cache (e.g. on logout / cache clear).</summary>
     public static void ClearCache() => Cache.Clear();
 }
