@@ -7,7 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Loaded="Page_Loaded"
-    Unloaded="Page_Unloaded">
+    Unloaded="Page_Unloaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <Page.Resources>
         <!-- Rows for the chapter picker. A virtualised ListView keeps a 2555-chapter book

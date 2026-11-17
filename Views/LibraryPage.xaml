@@ -9,7 +9,8 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d"
     Loaded="Page_Loaded"
-    Unloaded="Page_Unloaded">
+    Unloaded="Page_Unloaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <Grid x:Name="LibraryRootGrid" Padding="{StaticResource PagePadding}">
         <VisualStateManager.VisualStateGroups>

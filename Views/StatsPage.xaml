@@ -6,7 +6,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:NineLivesAudio.ViewModels"
     mc:Ignorable="d"
-    Loaded="Page_Loaded">
+    Loaded="Page_Loaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <ScrollViewer>
         <StackPanel Padding="{StaticResource PagePadding}" Spacing="16">

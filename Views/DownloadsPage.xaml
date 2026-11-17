@@ -7,7 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:NineLivesAudio.Models"
     mc:Ignorable="d"
-    Loaded="Page_Loaded">
+    Loaded="Page_Loaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <Grid Padding="{StaticResource PagePadding}">
         <Grid.RowDefinitions>

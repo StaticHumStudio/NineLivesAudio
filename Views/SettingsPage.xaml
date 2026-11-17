@@ -7,7 +7,8 @@
     xmlns:models="using:NineLivesAudio.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Loaded="Page_Loaded">
+    Loaded="Page_Loaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <ScrollViewer>
         <StackPanel Padding="{StaticResource PagePadding}" Spacing="24" MaxWidth="600">

@@ -10,7 +10,7 @@
     <Grid>
         <!-- Loading Overlay (shown during init) -->
         <Grid x:Name="InitOverlay" Canvas.ZIndex="100">
-            <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+            <Grid Background="{ThemeResource VoidDeepBrush}">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
                     <ProgressRing x:Name="InitSpinner" IsActive="True" Width="48" Height="48"/>
                     <TextBlock x:Name="InitStatusText" loc:Loc.Text="StartingUp" Text="Starting up..."
@@ -21,7 +21,7 @@
 
         <!-- Init Error Panel (shown if init fails) -->
         <Grid x:Name="InitErrorPanel" Visibility="Collapsed" Canvas.ZIndex="100">
-            <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+            <Grid Background="{ThemeResource VoidDeepBrush}">
                 <StackPanel Style="{StaticResource EmptyStateContainerStyle}">
                     <FontIcon Glyph="&#xE783;" Style="{StaticResource EmptyStateIconStyle}"/>
                     <TextBlock loc:Loc.Text="StartupFailed" Text="Startup Failed" Style="{StaticResource EmptyStateTitleStyle}"/>

@@ -6,7 +6,8 @@
     xmlns:loc="using:NineLivesAudio.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Loaded="Page_Loaded">
+    Loaded="Page_Loaded"
+    Background="{ThemeResource VoidDeepBrush}">
 
     <Grid x:Name="RootGrid">
         <VisualStateManager.VisualStateGroups>
