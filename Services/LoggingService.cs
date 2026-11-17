@@ -108,6 +108,30 @@ public class LoggingService : ILoggingService, IDisposable
     public static string DescribeBuild()
     {
         var version = typeof(LoggingService).Assembly.GetName().Version?.ToString() ?? "unknown";
+
+        // CI stamps the commit into InformationalVersion ("1.0.8+<sha>"), which is the only
+        // trustworthy identity: the PE timestamp is a deterministic-build hash, so it can
+        // read "compiled 2096-02-19" and tells you nothing about which build you have.
+        try
+        {
+            var informational = typeof(LoggingService).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()?.InformationalVersion;
+
+            if (!string.IsNullOrEmpty(informational))
+            {
+                var plus = informational.IndexOf('+');
+                if (plus >= 0 && informational.Length > plus + 1)
+                {
+                    var sha = informational[(plus + 1)..].Trim();
+                    if (sha.Length > 7) sha = sha[..7];
+                    return $"{version} (build {sha})";
+                }
+            }
+        }
+        catch { /* fall through to the file timestamp */ }
+
         try
         {
             var path = typeof(LoggingService).Assembly.Location;
@@ -115,15 +139,9 @@ public class LoggingService : ILoggingService, IDisposable
                 path = Environment.ProcessPath ?? string.Empty;
             if (!string.IsNullOrEmpty(path) && File.Exists(path))
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new BinaryReader(stream);
-                stream.Seek(0x3C, SeekOrigin.Begin);
-                var peOffset = reader.ReadInt32();
-                stream.Seek(peOffset + 8, SeekOrigin.Begin);
-                var seconds = reader.ReadUInt32();
-                var compiled = DateTimeOffset.FromUnixTimeSeconds(seconds).ToLocalTime();
-                if (compiled.Year is > 2020 and < 2100)
-                    return $"{version} (compiled {compiled:yyyy-MM-dd HH:mm})";
+                var built = File.GetLastWriteTime(path);
+                if (built.Year is > 2020 and < 2100)
+                    return $"{version} (local build {built:yyyy-MM-dd HH:mm})";
             }
         }
         catch { /* version-only fallback */ }

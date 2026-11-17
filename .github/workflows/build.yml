@@ -45,7 +45,7 @@ jobs:
           }
 
       - name: Publish (win-x64, self-contained)
-        run: dotnet publish -p:PublishProfile=win-x64 -c Release --no-restore
+        run: dotnet publish -p:PublishProfile=win-x64 -c Release --no-restore -p:SourceRevisionId=${{ github.sha }}
 
       # Shows up as a notice annotation on the run page: makes the publish layout
       # (and any stray culture folders) reviewable without downloading the artifact.
