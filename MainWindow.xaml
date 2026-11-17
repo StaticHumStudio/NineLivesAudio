@@ -60,13 +60,15 @@
 
                 <!-- The pane colour used to come from the control template's own
                      ThemeResource lookup, which resolved against the system theme instead of
-                     the window's ElementTheme: dark window, light-grey rail. Paint it
-                     transparent (the grid behind it carries the palette) and give the
-                     selected/hover states our own accents. -->
+                     the window's ElementTheme: dark window, light-grey rail. Overriding the
+                     keys here (closer to the template than Application.Resources) is what
+                     actually wins, and the brush stays opaque: the compact rail is 48px wide
+                     so transparency went unnoticed, but the expanded pane sits on top of the
+                     book list and the covers showed through it. -->
                 <NavigationView.Resources>
-                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent"/>
-                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent"/>
-                    <SolidColorBrush x:Key="NavigationViewTopPaneBackground" Color="Transparent"/>
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{ThemeResource VoidSurface}"/>
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{ThemeResource VoidSurface}"/>
+                    <SolidColorBrush x:Key="NavigationViewTopPaneBackground" Color="{ThemeResource VoidSurface}"/>
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent"/>
                     <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{ThemeResource SigilGoldFaint}"/>
                     <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SigilGoldGlow}"/>
