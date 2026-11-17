@@ -121,7 +121,9 @@ public sealed class StreamCacheService : IStreamCacheService, IDisposable
     {
         try
         {
-            _shutdown.Cancel();
+            // Never cancel _shutdown here: it is the token every download waits on, so
+            // cancelling it on startup made the whole cache a no-op for the rest of the run
+            // (that is why no track was ever reported as cached in the logs).
             if (Directory.Exists(CacheRoot))
                 Directory.Delete(CacheRoot, recursive: true);
         }
@@ -213,8 +215,8 @@ public sealed class StreamCacheService : IStreamCacheService, IDisposable
         File.Move(tempPath, finalPath, overwrite: true);
         Trim(itemId, keep: trackIndex);
 
-        _logger.LogDebug($"[StreamCache] Cached track {trackIndex} of {itemId} " +
-                         $"({new FileInfo(finalPath).Length / 1024} KB)");
+        _logger.Log($"[StreamCache] Stored track {trackIndex + 1} of '{itemId}' " +
+                    $"({new FileInfo(finalPath).Length / 1024} KB) — next play of this track is local");
     }
 
     /// <summary>Keeps at most <see cref="FilesPerBook"/> files, preferring the newest track.</summary>

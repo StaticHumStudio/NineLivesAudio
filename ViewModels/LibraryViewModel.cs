@@ -218,6 +218,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     {
         if (IsLoading) return;
 
+        var now = DateTime.UtcNow;
+        if ((now - _lastBackgroundRefreshAt).TotalMilliseconds < 1000) return;
+        _lastBackgroundRefreshAt = now;
+
         // Nothing on screen yet (first run / new library): fall back to the visible path.
         if (SelectedLibrary == null)
         {
@@ -230,7 +234,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             var books = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
             MergeBooks(books);
             UpdateShowEmptyState();
-            _logger.Log($"[Library] Background refresh merged {books.Count} books (idle, no re-render)");
+            _logger.LogDebug($"[Library] Background refresh merged {books.Count} books (idle, no re-render)");
         }
         catch (Exception ex)
         {
@@ -375,19 +379,27 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     // When the library list was last fetched (page entry throttle, see InitializeAsync).
     private DateTime _lastLibraryListLoadAt = DateTime.MinValue;
 
+    // The log showed three "Triggering SyncService" lines inside 300 ms because concurrent
+    // loads all passed the 30-second check before any of them set it. Only one may win.
+    private int _serverRefreshGate;
+
+    // Post-sync refreshes arrive in bursts (progress message + full-sync message); one per
+    // second is plenty for a background patch.
+    private DateTime _lastBackgroundRefreshAt = DateTime.MinValue;
+
     private async Task LoadLibrariesCoreAsync()
     {
         try
         {
             _lastLibraryListLoadAt = DateTime.UtcNow;
-            _logger.Log("LoadLibrariesAsync started");
+            _logger.LogDebug("LoadLibrariesAsync started");
             IsLoading = true;
             HasError = false;
 
             // Try to load from local database first
-            _logger.Log("Loading libraries from local database...");
+            _logger.LogDebug("Loading libraries from local database...");
             var localLibraries = await _database.GetAllLibrariesAsync();
-            _logger.Log($"Loaded {localLibraries.Count} libraries from database");
+            _logger.LogDebug($"Loaded {localLibraries.Count} libraries from database");
 
             Libraries.Clear();
             foreach (var library in localLibraries)
@@ -400,9 +412,9 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             {
                 try
                 {
-                    _logger.Log("Fetching libraries from server...");
+                    _logger.LogDebug("Fetching libraries from server...");
                     var serverLibraries = await _apiService.GetLibrariesAsync();
-                    _logger.Log($"Received {serverLibraries.Count} libraries from server");
+                    _logger.LogDebug($"Received {serverLibraries.Count} libraries from server");
 
                     if (serverLibraries.Any())
                     {
@@ -432,11 +444,11 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             // Select first library if none selected
             if (SelectedLibrary == null && Libraries.Any())
             {
-                _logger.Log($"Auto-selecting first library: {Libraries.First().Name}");
+                _logger.LogDebug($"Auto-selecting first library: {Libraries.First().Name}");
                 SelectedLibrary = Libraries.First();
             }
 
-            _logger.Log("LoadLibrariesAsync completed");
+            _logger.LogDebug("LoadLibrariesAsync completed");
         }
         catch (Exception ex)
         {
@@ -527,7 +539,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
 
         try
         {
-            _logger.Log($"LoadAudioBooksAsync started for library: {SelectedLibrary.Name}");
+            _logger.LogDebug($"LoadAudioBooksAsync started for library: {SelectedLibrary.Name}");
 
             // A spinner only makes sense when there is nothing on screen. Re-entering the page
             // with a full shelf used to blank the list and show the spinner again.
@@ -559,15 +571,19 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             // Skipped when the periodic sync covered it recently — the shelf is already current
             // and re-downloading every time the page is shown is what made it "always loading".
             var sinceRefresh = DateTime.UtcNow - _lastServerRefreshAt;
-            if (_apiService.IsAuthenticated && sinceRefresh.TotalSeconds >= 30)
+            var mayRefresh = _apiService.IsAuthenticated
+                             && sinceRefresh.TotalSeconds >= 30
+                             && System.Threading.Interlocked.CompareExchange(ref _serverRefreshGate, 1, 0) == 0;
+
+            if (mayRefresh)
             {
                 _lastServerRefreshAt = DateTime.UtcNow;
                 try
                 {
-                    _logger.Log("Triggering SyncService for fresh server data...");
+                    _logger.LogDebug("Triggering SyncService for fresh server data...");
                     var syncStopwatch = System.Diagnostics.Stopwatch.StartNew();
                     await _syncService.SyncLibrariesAsync();
-                    _logger.Log($"[Library] Server sync finished in {syncStopwatch.ElapsedMilliseconds} ms");
+                    _logger.LogDebug($"[Library] Server sync finished in {syncStopwatch.ElapsedMilliseconds} ms");
 
                     // Reload from DB after sync (SyncService saved the merged data).
                     // Skipped when the ids did not change: re-binding 309 cards costs more
@@ -604,6 +620,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                     // Continue with locally cached books already loaded above
                     ApplyOfflineFallback();
                     _notifications.ShowInfo(_localization.GetString("ShowingDownloadedOnly"));
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref _serverRefreshGate, 0);
                 }
             }
 

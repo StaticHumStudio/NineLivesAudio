@@ -36,6 +36,9 @@ public class SyncService : ISyncService, IDisposable
     // Library metadata changes rarely. Downloading every library's item list on the same
     // one-minute cadence as progress pulled hundreds of KB per minute for nothing.
     private DateTime _lastLibrarySyncAt = DateTime.MinValue;
+
+    /// <summary>Set while a full sync runs: it sends a single completion message itself.</summary>
+    private bool _suppressProgressNotification;
     private static readonly TimeSpan LibrarySyncInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan MinSyncInterval = TimeSpan.FromSeconds(30);
     private const double MinPositionDelta = 2.0;    // seconds
@@ -141,7 +144,9 @@ public class SyncService : ISyncService, IDisposable
                 _logger.LogDebug($"[Sync] Library metadata is {DateTime.UtcNow - _lastLibrarySyncAt} old — progress only");
             }
 
-            await SyncProgressAsync();
+            _suppressProgressNotification = true;
+            try { await SyncProgressAsync(); }
+            finally { _suppressProgressNotification = false; }
 
             LastSyncTime = DateTime.Now;
             WeakReferenceMessenger.Default.Send(new SyncCompletedMessage(new SyncEventArgs()));
@@ -400,8 +405,15 @@ public class SyncService : ISyncService, IDisposable
                 {
                     var oldPosition = audioBook.CurrentTime;
                     audioBook.CurrentTime = progress.CurrentTime;
-                    _logger.Log($"[Sync] POSITION CHANGE '{audioBook.Title}': {oldPosition} → {progress.CurrentTime} " +
-                                $"(server {progress.LastUpdate:O}, local {localTimestamp:O})");
+
+                    // Only worth an INFO line when the position really moved; the startup pull
+                    // logs every book and used to add a dozen "0.0000001s" lines per launch.
+                    var delta = (oldPosition - progress.CurrentTime).Duration();
+                    if (delta > TimeSpan.FromSeconds(1))
+                        _logger.Log($"[Sync] POSITION CHANGE '{audioBook.Title}': {oldPosition} → {progress.CurrentTime} " +
+                                    $"(server {progress.LastUpdate:O}, local {localTimestamp:O})");
+                    else
+                        _logger.LogDebug($"[Sync] Position refreshed for '{audioBook.Title}' (no audible change)");
 
                     await _database.UpdateAudioBookAsync(audioBook);
 
@@ -435,8 +447,9 @@ public class SyncService : ISyncService, IDisposable
                         $"watermark {watermark:yyyy-MM-dd HH:mm:ss}Z");
 
             // Anyone who asked for this pull (e.g. the home page on open) gets the fresh
-            // numbers without waiting for the next timer tick.
-            if (synced > 0)
+            // numbers without waiting for the next timer tick. A full SyncNowAsync sends its
+            // own message afterwards, so it suppresses this one.
+            if (synced > 0 && !_suppressProgressNotification)
                 WeakReferenceMessenger.Default.Send(new SyncCompletedMessage(new SyncEventArgs { ItemsSynced = synced }));
         }
         catch (Exception ex)

@@ -67,10 +67,15 @@ public partial class App : Application
 
                 // ViewModels
                 services.AddTransient<MainViewModel>();
-                services.AddTransient<HomeViewModel>();
-                services.AddTransient<LibraryViewModel>();
-                services.AddTransient<PlayerViewModel>();
-                services.AddTransient<DownloadsViewModel>();
+
+                // Pages are cached by the Frame and are shown again without being recreated,
+                // so a transient view model leaked one messenger subscription per visit: five
+                // visits meant five "reload" reactions to a single sync (see the 22:21 log).
+                // These four are app-scoped state anyway (filters, scroll, current track).
+                services.AddSingleton<HomeViewModel>();
+                services.AddSingleton<LibraryViewModel>();
+                services.AddSingleton<PlayerViewModel>();
+                services.AddSingleton<DownloadsViewModel>();
                 services.AddTransient<SettingsViewModel>();
                 services.AddTransient<BookDetailViewModel>();
                 services.AddTransient<StatsViewModel>();
