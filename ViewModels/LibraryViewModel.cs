@@ -208,17 +208,29 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         _ = ReloadAfterSyncAsync();
     }
 
-    /// <summary>Refresh the shelf after a completed sync (no extra sync is triggered here).</summary>
+    /// <summary>
+    /// Refresh the shelf after a completed sync. This is a background refresh: it reads the
+    /// database (the sync already wrote it) and patches the existing objects, so no spinner
+    /// appears, the list is not reset and scrolling is not lost. The timer fires every minute,
+    /// so anything visible here would flicker constantly.
+    /// </summary>
     private async Task ReloadAfterSyncAsync()
     {
         if (IsLoading) return;
 
-        try
+        // Nothing on screen yet (first run / new library): fall back to the visible path.
+        if (SelectedLibrary == null)
         {
             await LoadLibrariesAsync();
-            if (SelectedLibrary != null)
-                await LoadAudioBooksAsync();
-            _logger.Log("[Library] Shelf refreshed after sync");
+            return;
+        }
+
+        try
+        {
+            var books = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
+            MergeBooks(books);
+            UpdateShowEmptyState();
+            _logger.Log($"[Library] Background refresh merged {books.Count} books (idle, no re-render)");
         }
         catch (Exception ex)
         {
@@ -329,6 +341,15 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             _logger.LogError("Failed to validate token", ex);
         }
 
+        // Re-entering the page (the Frame hands back the cached instance) used to download the
+        // library list again and clear/refill the collections, which is the "always loading"
+        // the shelf showed while the periodic sync was running.
+        if (Libraries.Count > 0 && (DateTime.UtcNow - _lastLibraryListLoadAt).TotalSeconds < 30)
+        {
+            _logger.LogDebug("[Library] Page re-entered — shelf already current, no reload");
+            return;
+        }
+
         await LoadLibrariesAsync();
     }
 
@@ -351,10 +372,14 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         return _librariesLoadInFlight;
     }
 
+    // When the library list was last fetched (page entry throttle, see InitializeAsync).
+    private DateTime _lastLibraryListLoadAt = DateTime.MinValue;
+
     private async Task LoadLibrariesCoreAsync()
     {
         try
         {
+            _lastLibraryListLoadAt = DateTime.UtcNow;
             _logger.Log("LoadLibrariesAsync started");
             IsLoading = true;
             HasError = false;
@@ -480,6 +505,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         return _booksLoadInFlight;
     }
 
+    // Set when the page last pulled a fresh library from the server. Re-entering the page
+    // (a cached instance re-raises Loaded) must not trigger another full download.
+    private DateTime _lastServerRefreshAt = DateTime.MinValue;
+
     private async Task LoadAudioBooksCoreAsync()
     {
         // Never bail out silently: pick a library when one exists, otherwise show
@@ -499,7 +528,12 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         try
         {
             _logger.Log($"LoadAudioBooksAsync started for library: {SelectedLibrary.Name}");
-            IsLoading = true;
+
+            // A spinner only makes sense when there is nothing on screen. Re-entering the page
+            // with a full shelf used to blank the list and show the spinner again.
+            if (AudioBooks.Count == 0)
+                IsLoading = true;
+
             HasError = false;
 
             // Clear normalized cache when loading fresh data
@@ -522,8 +556,12 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
 
             // If online, delegate to SyncService for server refresh + merge.
             // SyncService handles LocalPath preservation with robust matching.
-            if (_apiService.IsAuthenticated)
+            // Skipped when the periodic sync covered it recently — the shelf is already current
+            // and re-downloading every time the page is shown is what made it "always loading".
+            var sinceRefresh = DateTime.UtcNow - _lastServerRefreshAt;
+            if (_apiService.IsAuthenticated && sinceRefresh.TotalSeconds >= 30)
             {
+                _lastServerRefreshAt = DateTime.UtcNow;
                 try
                 {
                     _logger.Log("Triggering SyncService for fresh server data...");
@@ -590,7 +628,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     private async Task RefreshAsync()
     {
         IsRefreshing = true;
-        await _syncService.SyncNowAsync();
+
+        // Explicit user action: pull the library too, not just progress.
+        await _syncService.SyncLibrariesAsync();
+        await _syncService.SyncProgressAsync();
         await LoadLibrariesAsync();
         if (SelectedLibrary != null)
         {

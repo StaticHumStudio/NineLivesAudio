@@ -32,6 +32,11 @@ public class SyncService : ISyncService, IDisposable
     private double _lastSyncedTime;
     private DateTime _lastSyncTimestamp = DateTime.MinValue;
     private DateTime _lastProgressPullTimestamp = DateTime.MinValue;
+
+    // Library metadata changes rarely. Downloading every library's item list on the same
+    // one-minute cadence as progress pulled hundreds of KB per minute for nothing.
+    private DateTime _lastLibrarySyncAt = DateTime.MinValue;
+    private static readonly TimeSpan LibrarySyncInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan MinSyncInterval = TimeSpan.FromSeconds(30);
     private const double MinPositionDelta = 2.0;    // seconds
     private const double MinProgressDelta = 0.01;   // 1%
@@ -123,7 +128,19 @@ public class SyncService : ISyncService, IDisposable
             _isSyncing = true;
             WeakReferenceMessenger.Default.Send(new SyncStartedMessage(new SyncEventArgs()));
 
-            await SyncLibrariesAsync();
+            // Progress every tick; library metadata at most every 10 minutes. "Sync now" and
+            // the first sync of a session still do both (see SyncLibrariesAsync callers).
+            if (_lastLibrarySyncAt == DateTime.MinValue ||
+                DateTime.UtcNow - _lastLibrarySyncAt >= LibrarySyncInterval)
+            {
+                await SyncLibrariesAsync();
+                _lastLibrarySyncAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _logger.LogDebug($"[Sync] Library metadata is {DateTime.UtcNow - _lastLibrarySyncAt} old — progress only");
+            }
+
             await SyncProgressAsync();
 
             LastSyncTime = DateTime.Now;
