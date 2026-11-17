@@ -64,7 +64,7 @@ public sealed partial class MiniPlayerWindow : Window
         catch { /* Non-fatal */ }
 
         // Title bar colours follow the current palette (see ThemeService).
-        ThemeService.RegisterTitleBar(_appWindow);
+        ThemeService.RegisterTitleBar(_appWindow, hwnd);
 
         // Subscribe to playback events via Messenger
         WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>

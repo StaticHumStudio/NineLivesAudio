@@ -76,7 +76,7 @@ namespace NineLivesAudio
 
             // Title bar colours follow the palette (dark void vs. daylight) — repainted
             // again whenever "Appearance → Theme" changes.
-            ThemeService.RegisterTitleBar(_appWindow);
+            ThemeService.RegisterTitleBar(_appWindow, hwnd);
 
             // Connectivity colours are painted from code, so they need an explicit repaint.
             ThemeService.PaletteChanged += OnPaletteChanged;
