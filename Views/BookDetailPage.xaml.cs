@@ -1,4 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
 using NineLivesAudio.Helpers;
+using NineLivesAudio.Messages;
 using NineLivesAudio.Models;
 using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
@@ -43,6 +45,32 @@ public sealed partial class BookDetailPage : Page
             _viewModel.Initialize(audioBook);
             LoadBookDetails();
         }
+
+        // Keep the "N% complete (x / y)" line current: pause and stop both persist a
+        // position, and this page used to only pick it up when reopened.
+        WeakReferenceMessenger.Default.Register<PlaybackProgressSavedMessage>(this, (r, m) =>
+        {
+            var page = (BookDetailPage)r;
+            if (page._audioBook == null || page._audioBook.Id != m.ItemId) return;
+
+            page.DispatcherQueue.TryEnqueue(() =>
+            {
+                page._audioBook.CurrentTime = m.Position;
+
+                if (m.Duration.TotalSeconds > 0)
+                {
+                    page._audioBook.Duration = m.Duration;
+
+                    // ProgressPercent accepts either 0–1 or 0–100 depending on what the
+                    // server sent, so keep whatever convention this book already uses.
+                    var ratio = m.Position.TotalSeconds / m.Duration.TotalSeconds;
+                    page._audioBook.Progress = page._audioBook.Progress > 1.0 ? ratio * 100 : ratio;
+                }
+                if (m.IsFinished) page._audioBook.IsFinished = true;
+                page._viewModel.Initialize(page._audioBook);
+                page.UpdateProgressDisplay();
+            });
+        });
     }
 
     private void Page_Loaded(object sender, RoutedEventArgs e)
@@ -52,6 +80,7 @@ public sealed partial class BookDetailPage : Page
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
         _localization.LanguageChanged -= ApplyLocalization;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     private void LoadBookDetails()

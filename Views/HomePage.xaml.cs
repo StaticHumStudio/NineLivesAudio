@@ -26,16 +26,8 @@ public sealed partial class HomePage : Page
     private static readonly SolidColorBrush HoverLight =
         new(Windows.UI.Color.FromArgb(0x0D, 0x00, 0x00, 0x00));
 
-    private static readonly SolidColorBrush HighlightDark =
-        new(Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
-    private static readonly SolidColorBrush HighlightLight =
-        new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-
     private static SolidColorBrush HoverBrush =>
         Helpers.ThemeService.IsLight ? HoverLight : HoverDark;
-
-    private static SolidColorBrush HighlightBrush =>
-        Helpers.ThemeService.IsLight ? HighlightLight : HighlightDark;
     private static readonly SolidColorBrush TransparentBrush =
         new(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
 
@@ -109,11 +101,7 @@ public sealed partial class HomePage : Page
     {
         if (sender is Grid grid)
         {
-            var isMostRecent = (grid.Tag as NineLivesItem)?.IsMostRecent ?? false;
-            if (!isMostRecent)
-            {
-                grid.Background = HoverBrush;
-            }
+            grid.Background = HoverBrush;
         }
     }
 
@@ -121,17 +109,7 @@ public sealed partial class HomePage : Page
     {
         if (sender is Grid grid)
         {
-            var item = grid.Tag as NineLivesItem;
-            var isMostRecent = item?.IsMostRecent ?? false;
-            if (isMostRecent)
-            {
-                // Restore VoidSurface highlight
-                grid.Background = HighlightBrush;
-            }
-            else
-            {
-                grid.Background = TransparentBrush;
-            }
+            grid.Background = TransparentBrush;
         }
     }
 

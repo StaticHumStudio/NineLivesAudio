@@ -115,8 +115,10 @@
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
                             <!-- Row Container -->
-                            <Grid Background="{Binding IsMostRecent,
-                                      Converter={StaticResource BoolToHighlightBrushConverter}}"
+                            <!-- No selected state: the first row used to be highlighted as
+                                 "most recent", which read like a selection the user never
+                                 made. Hover is the only feedback now. -->
+                            <Grid Background="Transparent"
                                   Padding="12,10"
                                   CornerRadius="8"
                                   PointerEntered="Card_PointerEntered"

@@ -61,6 +61,16 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             self._dispatcherQueue?.TryEnqueue(() => self.ApplyLiveProgress(m.Value));
         });
 
+        // A position was just written (pause, stop, periodic session sync): refresh that row
+        // in place. Views used to wait for the next full reload, which only happened on
+        // restart for the book that was playing.
+        WeakReferenceMessenger.Default.Register<PlaybackProgressSavedMessage>(this, (r, m) =>
+        {
+            var self = (HomeViewModel)r;
+            self._dispatcherQueue?.TryEnqueue(() =>
+                self.ApplyProgress(m.ItemId, m.Position, m.Duration));
+        });
+
         WeakReferenceMessenger.Default.Register<PlaybackStateChangedMessage>(this, (r, m) =>
         {
             var self = (HomeViewModel)r;
@@ -118,11 +128,17 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         var playing = _playbackService.CurrentAudioBook;
         if (playing == null) return;
 
-        var item = Lives.FirstOrDefault(l => l.AudioBook?.Id == playing.Id);
+        ApplyProgress(playing.Id, position, _playbackService.Duration);
+    }
+
+    /// <summary>Writes one book's position onto its row (and the header total).</summary>
+    private void ApplyProgress(string itemId, TimeSpan position, TimeSpan duration)
+    {
+        var item = Lives.FirstOrDefault(l => l.AudioBook?.Id == itemId);
         if (item == null) return;
 
-        var total = _playbackService.Duration.TotalSeconds;
-        if (total <= 0) total = playing.Duration.TotalSeconds;
+        var total = duration.TotalSeconds;
+        if (total <= 0) total = item.AudioBook?.Duration.TotalSeconds ?? 0;
 
         var elapsed = Math.Max(0, position.TotalSeconds);
 

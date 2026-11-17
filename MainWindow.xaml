@@ -53,7 +53,7 @@
                             ExpandedModeThresholdWidth="900"
                             CompactPaneLength="48"
                             OpenPaneLength="200"
-                            IsBackButtonVisible="Auto"
+                            IsBackButtonVisible="Collapsed"
                             BackRequested="NavView_BackRequested"
                             IsSettingsVisible="True"
                             SelectionChanged="NavView_SelectionChanged">

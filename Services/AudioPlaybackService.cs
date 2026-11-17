@@ -583,6 +583,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         StartSessionSyncTimer();
         UpdateSmtcPlaybackState(true);
 
+        // Resuming: this session owns the position again.
+        if (_currentAudioBook != null)
+            _syncService.SetActivePlaybackItem(_currentAudioBook.Id);
+
         // Chapter intro skipping happens from UpdateCurrentChapter, which knows which
         // chapter the position belongs to.
     }
@@ -605,6 +609,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         }
 
         UpdateSmtcPlaybackState(false);
+
+        // The session no longer owns the position once we pause, so let the periodic sync
+        // pull the server value for this book again. Without this the item stayed "active"
+        // forever and every pull skipped it — which is why the shelf only caught up after a
+        // restart cleared the field.
+        _syncService.SetActivePlaybackItem(null);
+
         // Sync progress immediately on pause
         _ = SyncProgressNowAsync();
         return Task.CompletedTask;
@@ -627,6 +638,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     finalPosition,
                     Duration.TotalSeconds,
                     isFinished: false);
+
+                WeakReferenceMessenger.Default.Send(new PlaybackProgressSavedMessage(
+                    _currentAudioBook.Id,
+                    TimeSpan.FromSeconds(finalPosition),
+                    Duration,
+                    isFinished: false));
             }
             else
             {
@@ -1019,6 +1036,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 _currentAudioBook.Id,
                 TimeSpan.FromSeconds(currentTime),
                 isFinished: false);
+
+            // Let the shelf and the book page show this position right away.
+            WeakReferenceMessenger.Default.Send(new PlaybackProgressSavedMessage(
+                _currentAudioBook.Id,
+                TimeSpan.FromSeconds(currentTime),
+                _currentAudioBook.Duration,
+                isFinished: false));
         }
         catch (Exception ex)
         {
