@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace NineLivesAudio.Views;
 
@@ -58,15 +59,13 @@ public sealed partial class HomePage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        // Deliberately does *not* unhook Loaded and does not dispose the view model.
+        // The Frame caches page instances, so coming back to Home re-raises Loaded on the
+        // same object: that is the moment to re-read the database. Disposing here also
+        // unregistered the messenger subscriptions, which is why the shelf stopped
+        // refreshing after the first visit and only caught up on a restart.
         _localization.LanguageChanged -= ApplyLocalization;
-        this.Loaded -= OnLoaded;
-        this.Unloaded -= OnUnloaded;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
     }
 
     private void LoadLogo()
@@ -85,16 +84,30 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Every navigation to this page reloads it. Loaded alone is not enough: the Frame caches
+    /// page instances and the handler used to be detached on unload, so a second visit showed
+    /// the numbers from the first one (a restart was the only thing that refreshed them).
+    /// </summary>
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        base.OnNavigatedTo(e);
+
         ApplyLocalization();
         _localization.LanguageChanged -= ApplyLocalization;
         _localization.LanguageChanged += ApplyLocalization;
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         // Local snapshot first (instant), then the server's numbers replace it as soon as the
         // pull comes back — SyncCompletedMessage triggers the reload.
         await ViewModel.LoadAsync();
         _ = ViewModel.RefreshFromServerAsync();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyLocalization();
     }
 
     private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)

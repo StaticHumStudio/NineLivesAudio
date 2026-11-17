@@ -114,6 +114,9 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     /// <summary>Throttle marker for reloads triggered by sync messages.</summary>
     private DateTime _lastReload = DateTime.MinValue;
 
+    /// <summary>Throttle marker for server pulls triggered by (re)entering the page.</summary>
+    private DateTime _lastServerPull = DateTime.MinValue;
+
     public void Dispose()
     {
         WeakReferenceMessenger.Default.UnregisterAll(this);
@@ -158,6 +161,12 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     /// </summary>
     public async Task RefreshFromServerAsync()
     {
+        // Switching between pages should not hammer the server; the periodic sync covers the
+        // rest and five seconds is well below what anyone can see.
+        var now = DateTime.UtcNow;
+        if ((now - _lastServerPull).TotalSeconds < 5) return;
+        _lastServerPull = now;
+
         try
         {
             _lastReload = DateTime.MinValue; // allow the reload this pull produces
@@ -177,7 +186,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         try
         {
             IsLoading = true;
-            _logger.Log("[Home] Loading Nine Lives...");
+            _logger.Log("[Home] Loading Nine Lives (page shown or sync finished)...");
 
             var recentEntries = await _database.GetRecentlyPlayedAsync(9);
 

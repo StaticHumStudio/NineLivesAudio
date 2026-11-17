@@ -43,6 +43,7 @@ public sealed partial class LibraryPage : Page
         _localization.LanguageChanged -= ApplyLocalization;
         _localization.LanguageChanged += ApplyLocalization;
         _logger.Log("LibraryPage loaded, initializing ViewModel");
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         await ViewModel.InitializeAsync();
         _logger.Log("LibraryPage ViewModel initialized");
@@ -67,10 +68,8 @@ public sealed partial class LibraryPage : Page
         _localization.LanguageChanged -= ApplyLocalization;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
 
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        // The Frame caches pages: disposing the view model here unregistered its messenger
+        // subscriptions for good, so a cached page stopped reacting to sync/progress events.
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

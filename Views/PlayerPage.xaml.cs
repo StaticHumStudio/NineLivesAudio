@@ -114,10 +114,8 @@ public sealed partial class PlayerPage : Page
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
 
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        // Not disposing the view model: the cached page is shown again and needs its
+        // subscriptions (it drives the position display).
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
