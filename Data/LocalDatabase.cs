@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using System.Globalization;
 using System.Text.Json;
 using T = NineLivesAudio.Data.Db.Tables;
+using AB = NineLivesAudio.Data.Db.AudioBook;
 using PP = NineLivesAudio.Data.Db.Progress;
 using PPU = NineLivesAudio.Data.Db.PendingProgress;
 using PPB = NineLivesAudio.Data.Db.PendingBookmark;
@@ -583,6 +584,24 @@ public class LocalDatabase : ILocalDatabase, IDisposable
             command.Parameters.AddWithValue("@updatedAt", (updatedAt ?? DateTime.UtcNow).ToString("O"));
 
             await command.ExecuteNonQueryAsync();
+
+            // Mirror the position onto the book row as well. The shelf and the book page
+            // read AudioBooks (GetRecentlyPlayed / GetAudioBooksByLibrary), while positions
+            // were only ever written to PlaybackProgress — so everything that displayed a
+            // position kept showing whatever the last server pull had put there.
+            var mirror = GetConnection().CreateCommand();
+            mirror.CommandText = $@"
+                UPDATE {T.AudioBooks}
+                SET {AB.CurrentTimeSeconds} = @positionSeconds,
+                    {AB.Progress} = CASE WHEN {AB.DurationSeconds} > 0
+                                         THEN @positionSeconds / {AB.DurationSeconds}
+                                         ELSE {AB.Progress} END,
+                    {AB.IsFinished} = @isFinished
+                WHERE Id = @audioBookId";
+            mirror.Parameters.AddWithValue("@audioBookId", audioBookId);
+            mirror.Parameters.AddWithValue("@positionSeconds", position.TotalSeconds);
+            mirror.Parameters.AddWithValue("@isFinished", isFinished ? 1 : 0);
+            await mirror.ExecuteNonQueryAsync();
         }
         finally { _gate.Release(); }
     }

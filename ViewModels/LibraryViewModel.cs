@@ -156,6 +156,26 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         WeakReferenceMessenger.Default.Register<ConnectivityChangedMessage>(this, (r, m) =>
             ((LibraryViewModel)r).OnConnectivityChanged(m.Value));
 
+        // Positions are persisted on pause/stop/every 12s. Patch the shelf's own objects so
+        // their progress text moves without waiting for a refresh.
+        WeakReferenceMessenger.Default.Register<PlaybackProgressSavedMessage>(this, (r, m) =>
+        {
+            var self = (LibraryViewModel)r;
+            self._dispatcherQueue?.TryEnqueue(() =>
+            {
+                var book = self.AudioBooks.FirstOrDefault(b => b.Id == m.ItemId);
+                if (book == null) return;
+
+                book.CurrentTime = m.Position;
+                if (m.Duration.TotalSeconds > 0)
+                {
+                    var ratio = m.Position.TotalSeconds / m.Duration.TotalSeconds;
+                    book.Progress = book.Progress > 1.0 ? ratio * 100 : ratio;
+                }
+                if (m.IsFinished) book.IsFinished = true;
+            });
+        });
+
         // A full sync (first connect, "Sync now", 5-minute tick) can bring in new libraries
         // and progress. Reload afterwards so the shelf stops showing the pre-connect state.
         WeakReferenceMessenger.Default.Register<SyncCompletedMessage>(this, (r, m) =>
@@ -406,6 +426,33 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Replaces the shelf only when the set or order of books actually changed. Otherwise the
+    /// incoming values are copied onto the existing objects, which raise change notifications —
+    /// no ItemsRepeater reset, so a background refresh no longer blanks or scrolls the shelf.
+    /// </summary>
+    private void MergeBooks(IReadOnlyList<AudioBook> incoming)
+    {
+        if (!HasSameBooks(AudioBooks, incoming))
+        {
+            AudioBooks.ReplaceRange(incoming);
+            return;
+        }
+
+        for (var i = 0; i < incoming.Count; i++)
+            CopyProgress(AudioBooks[i], incoming[i]);
+    }
+
+    private static void CopyProgress(AudioBook target, AudioBook source)
+    {
+        target.CurrentTime = source.CurrentTime;
+        target.Progress = source.Progress;
+        target.IsFinished = source.IsFinished;
+
+        if (target.IsDownloaded != source.IsDownloaded)
+            target.IsDownloaded = source.IsDownloaded;
+    }
+
     /// <summary>True when both lists hold the same books in the same order (id-only compare).</summary>
     private static bool HasSameBooks(IReadOnlyList<AudioBook> current, IReadOnlyList<AudioBook> candidate)
     {
@@ -463,7 +510,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             var localBooks = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
             _logger.Log($"[Library] Local load: {localBooks.Count} books in {stopwatch.ElapsedMilliseconds} ms");
 
-            AudioBooks.ReplaceRange(localBooks);
+            MergeBooks(localBooks);
             UpdateAvailableGroups();
             ApplyFilterInternal();
 
@@ -490,13 +537,16 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                     var refreshedBooks = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
                     if (!HasSameBooks(AudioBooks, refreshedBooks))
                     {
-                        AudioBooks.ReplaceRange(refreshedBooks);
+                        MergeBooks(refreshedBooks);
                         UpdateAvailableGroups();
                         _logger.Log($"[Library] Server data changed — {AudioBooks.Count} books re-bound");
                     }
                     else
                     {
-                        _logger.LogDebug("[Library] Server data unchanged — keeping the current list");
+                        // Same books, same order: only the progress moved. Update the existing
+                        // objects (they notify) instead of rebinding the shelf.
+                        MergeBooks(refreshedBooks);
+                        _logger.LogDebug("[Library] Server data unchanged — progress patched in place");
                     }
 
                     // The server answered: drop the offline-only filter again (unless the
