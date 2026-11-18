@@ -281,7 +281,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         // log, while audio was playing. Patch from the database first (instant, silent), then
         // let the expensive pull happen once the connection has settled.
         _logger.Log("[Library] Server reachable again — patching from cache, full pull in 45s");
-        _lastServerRefreshAt = DateTime.MinValue; // the delayed pull is allowed to hit the server
+
+        // Deliberately NOT clearing _lastServerRefreshAt here: it used to make the very next page
+        // refresh pull all 309 items again, so a reconnect cost two 12-second pulls back to back
+        // (14:22:40 and 14:23:27 in app_2026-11-8.log). The pull below forces itself instead.
 
         try
         {
@@ -303,10 +306,20 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                 {
                     if (IsLoading) return;
 
+                    // Never spend the shelf's bandwidth on metadata while something is playing.
+                    if (_playbackService.State is PlaybackState.Playing or PlaybackState.Loading or PlaybackState.Buffering)
+                    {
+                        _logger.LogDebug("[Library] Playback active — delayed full pull skipped");
+                        return;
+                    }
+
                     await LoadLibrariesAsync();
                     if (SelectedLibrary != null)
                         _lastServerRefreshAt = DateTime.MinValue; // force the fetch below
                     await LoadAudioBooksAsync();
+
+                    // Just fetched: let the throttle hold off the next page refresh.
+                    _lastServerRefreshAt = DateTime.UtcNow;
                 });
             }
             catch (Exception ex)

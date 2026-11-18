@@ -266,13 +266,21 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         return JsonSerializer.Deserialize<LibraryItemsResponse>(json, JsonOptions);
     }
 
+    public string LastFetchDiagnostics { get; private set; } = string.Empty;
+
     public async Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 100, int page = 0)
     {
         EnsureAuthenticated();
 
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var pagesFetched = 0;
+        var parallel = false;
+
         try
         {
             var first = await FetchLibraryPageAsync(libraryId, limit, page);
+            pagesFetched = 1;
+
             if (first?.Results == null || first.Results.Count == 0)
                 return new List<AudioBook>();
 
@@ -296,6 +304,9 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
                 if (pages.Count > 0)
                 {
+                    parallel = true;
+                    pagesFetched += pages.Count;
+
                     var byPage = new System.Collections.Concurrent.ConcurrentDictionary<int, List<AudioBook>>();
 
                     await Parallel.ForEachAsync(pages,
@@ -357,6 +368,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
             }
 
             LastRequestUnauthorized = false;
+            LastFetchDiagnostics = $"{pagesFetched} page(s) {(parallel ? "parallel" : "sequential")} in {watch.ElapsedMilliseconds} ms";
             return allItems;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)

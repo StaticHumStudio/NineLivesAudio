@@ -33,6 +33,9 @@ public interface IAudioBookshelfApiService
     Task<List<Library>> GetLibrariesAsync();
     Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 100, int page = 0);
 
+    /// <summary>How the last library pull was fetched ("4 page(s) parallel in 12480 ms") for the log.</summary>
+    string LastFetchDiagnostics { get; }
+
     // Audiobooks
     Task<AudioBook?> GetAudioBookAsync(string itemId);
     Task<Stream> GetAudioFileStreamAsync(string itemId, string fileIno);

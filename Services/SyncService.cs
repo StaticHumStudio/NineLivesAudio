@@ -97,6 +97,8 @@ public class SyncService : ISyncService, IDisposable
         return Task.CompletedTask;
     }
 
+    private TimeSpan _currentInterval;
+
     private void StartCore()
     {
 
@@ -115,6 +117,7 @@ public class SyncService : ISyncService, IDisposable
             TimeSpan.FromSeconds(3), // Initial delay — fast first sync so Home page gets data quickly
             interval);
 
+        _currentInterval = interval;
         _logger.Log($"[Sync] Started with {interval.TotalMinutes}min interval");
     }
 
@@ -126,6 +129,17 @@ public class SyncService : ISyncService, IDisposable
     {
         lock (_scheduleLock)
         {
+            var minutes = _settingsService.Settings.SyncIntervalMinutes;
+            var desired = TimeSpan.FromMinutes(minutes > 0 ? minutes : 5);
+
+            // The settings page re-applies the schedule every time it opens; recreating the timer
+            // then logged "Started" twice in a row for no reason.
+            if (_syncTimer != null && _currentInterval == desired)
+            {
+                _logger.LogDebug($"[Sync] Schedule unchanged ({desired.TotalMinutes}min)");
+                return Task.CompletedTask;
+            }
+
             _syncTimer?.Dispose();
             _syncTimer = null;
 
@@ -268,7 +282,10 @@ public class SyncService : ISyncService, IDisposable
 
             foreach (var library in libraries)
             {
+                var itemsWatch = System.Diagnostics.Stopwatch.StartNew();
                 var items = await _apiService.GetLibraryItemsAsync(library.Id);
+                _logger.Log($"[Sync] Library '{library.Name}': {items.Count} items in " +
+                            $"{itemsWatch.ElapsedMilliseconds} ms ({_apiService.LastFetchDiagnostics})");
 
                 if (items.Count == 0)
                 {
