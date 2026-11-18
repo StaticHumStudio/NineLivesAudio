@@ -103,7 +103,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             if ((now - self._lastReload).TotalMilliseconds < 1000) return;
             self._lastReload = now;
 
-            self._logger.Log("[Home] Sync completed, reloading Nine Lives...");
+            self._logger.LogDebug("[Home] Sync completed, reloading Nine Lives...");
             self._dispatcherQueue?.TryEnqueue(() => _ = self.LoadAsync());
         });
     }

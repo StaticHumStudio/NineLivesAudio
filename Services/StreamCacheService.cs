@@ -215,7 +215,7 @@ public sealed class StreamCacheService : IStreamCacheService, IDisposable
         File.Move(tempPath, finalPath, overwrite: true);
         Trim(itemId, keep: trackIndex);
 
-        _logger.Log($"[StreamCache] Stored track {trackIndex + 1} of '{itemId}' " +
+        _logger.Log($"[StreamCache] Stored track {trackIndex + 1} (index {trackIndex}) of '{itemId}' " +
                     $"({new FileInfo(finalPath).Length / 1024} KB) — next play of this track is local");
     }
 

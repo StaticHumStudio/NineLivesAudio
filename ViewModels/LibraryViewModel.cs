@@ -246,17 +246,37 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     {
         if (IsLoading) return;
 
-        _logger.Log("[Library] Server reachable again — refreshing library");
+        // Coming back online used to start a full pull immediately — a 12-second stall in the
+        // log, while audio was playing. Patch from the database first (instant, silent), then
+        // let the expensive pull happen once the connection has settled.
+        _logger.Log("[Library] Server reachable again — patching from cache, full pull in 45s");
+        _lastServerRefreshAt = DateTime.MinValue; // the delayed pull is allowed to hit the server
+
         try
         {
-            await LoadLibrariesAsync();
-            if (SelectedLibrary != null)
-                await LoadAudioBooksAsync();
+            await ReloadAfterSyncAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError("[Library] Reconnect refresh failed", ex);
+            _logger.LogError("[Library] Reconnect cache patch failed", ex);
         }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(45));
+                if (IsLoading) return;
+                await LoadLibrariesAsync();
+                if (SelectedLibrary != null)
+                    _lastServerRefreshAt = DateTime.MinValue; // force the fetch below
+                await LoadAudioBooksAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("[Library] Delayed reconnect refresh failed", ex);
+            }
+        });
     }
 
     /// <summary>

@@ -23,6 +23,7 @@ public static class CoverImageService
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
     private static readonly ConcurrentDictionary<string, byte> Downloads = new(StringComparer.Ordinal);
     private static readonly SemaphoreSlim DownloadSlots = new(4, 4);
+    private static int _storedCount;
 
     /// <summary>
     /// Loads a BitmapImage from a cover path URI, returning null on failure.
@@ -132,6 +133,18 @@ public static class CoverImageService
                     var temp = targetPath + ".part";
                     await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(false);
                     File.Move(temp, targetPath, overwrite: true);
+
+                    // Every 25th cover prints a line: the folder should be visible in <data>.
+                    var stored = Interlocked.Increment(ref _storedCount);
+                    if (stored % 25 == 0)
+                    {
+                        try
+                        {
+                            var logger = App.Services?.GetService(typeof(ILoggingService)) as ILoggingService;
+                            logger?.Log($"[Covers] {stored} cover(s) stored in {AppPaths.CoversDirectory}");
+                        }
+                        catch { /* logging is optional */ }
+                    }
                 }
                 finally
                 {

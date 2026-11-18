@@ -462,7 +462,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             var sourceUri = cachedTrack ?? streamUrl;
             _mediaPlayer.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(sourceUri));
             if (cachedTrack != null)
-                _logger.Log($"[Playback] Track {trackIndex + 1} played from cache: {cachedTrack}");
+                _logger.Log($"[Playback] Track {trackIndex + 1} (index {trackIndex}) served from cache: " +
+                            $"{Path.GetFileName(cachedTrack)}");
 
             // Wait for media to open (with timeout)
             var tcs = new TaskCompletionSource<bool>();
@@ -489,7 +490,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     {
                         // A truncated or corrupt file must not poison every future attempt.
                         try { File.Delete(cachedTrack); } catch { /* in use */ }
-                        _logger.LogWarning($"[Playback] Cached track {trackIndex + 1} was unusable — dropped, will re-download");
+                        _logger.LogWarning($"[Playback] Cached track {trackIndex + 1} (index {trackIndex}) was unusable — dropped, will re-download");
                     }
 
                     _logger.LogWarning("[Playback] MediaPlayer failed to open stream");
@@ -531,7 +532,10 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
 
             SetState(PlaybackState.Paused);
-            _logger.Log($"[Playback] Stream loaded. Duration: {Duration}");
+            // The book length is the useful number when resuming; the track length is what the
+            // player actually holds here, so say both instead of looking like a mismatch.
+            _logger.Log($"[Playback] Stream loaded. Track length: {_mediaPlayer.PlaybackSession.NaturalDuration}, " +
+                        $"book: {Duration}");
             return true;
         }
         catch (Exception ex)
