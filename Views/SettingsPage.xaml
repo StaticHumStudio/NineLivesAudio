@@ -543,6 +543,10 @@
                             <Button x:Name="CheckUpdatesButton"
                                     loc:Loc.Content="CheckForUpdates" Content="Check for updates"
                                     Command="{x:Bind ViewModel.CheckForUpdatesCommand}"/>
+                            <Button x:Name="InstallUpdateButton"
+                                    loc:Loc.Content="InstallUpdate" Content="Download and install"
+                                    Command="{x:Bind ViewModel.InstallUpdateCommand}"
+                                    Visibility="{x:Bind ViewModel.UpdateAvailable, Mode=OneWay}"/>
                             <Button x:Name="OpenReleaseButton"
                                     loc:Loc.Content="OpenReleasePage" Content="Download"
                                     Command="{x:Bind ViewModel.OpenReleasePageCommand}"

@@ -324,6 +324,9 @@ public partial class SettingsViewModel : ObservableObject
     private bool _updateAvailable;
 
     [ObservableProperty]
+    private bool _isInstallingUpdate;
+
+    [ObservableProperty]
     private string _updateStatusText = string.Empty;
 
     /// <summary>Keeps the status line hidden until the user actually asked for a check.</summary>
@@ -333,6 +336,8 @@ public partial class SettingsViewModel : ObservableObject
         => OnPropertyChanged(nameof(HasUpdateStatus));
 
     private string? _latestReleaseUrl;
+    private string? _portableZipUrl;
+    private string? _setupUrl;
 
     /// <summary>
     /// Asks GitHub for the newest release of the fork. Read-only by design: the button becomes
@@ -358,6 +363,8 @@ public partial class SettingsViewModel : ObservableObject
             }
 
             _latestReleaseUrl = result.ReleaseUrl;
+            _portableZipUrl = result.PortableZipUrl;
+            _setupUrl = result.SetupUrl;
 
             if (result.UpdateAvailable)
             {
@@ -372,6 +379,91 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             IsCheckingForUpdates = false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the new build and applies it. Installed copies run the setup silently (it lives
+    /// under %LocalAppData%, so no UAC); portable copies unpack next to the exe and hand off to a
+    /// tiny helper that swaps the files after this process exits. The user asked for it — nothing
+    /// of this happens on its own.
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        if (IsInstallingUpdate) return;
+
+        var installed = _updateService.IsInstalledCopy;
+
+        var url = installed ? _setupUrl : _portableZipUrl;
+        if (string.IsNullOrEmpty(url))
+        {
+            // A release without the asset we need: fall back to the page.
+            await OpenReleasePageAsync();
+            return;
+        }
+
+        IsInstallingUpdate = true;
+        UpdateStatusText = _localization.GetString("DownloadingUpdate");
+
+        try
+        {
+            var progress = new Progress<double>(value =>
+            {
+                var percent = (int)Math.Round(value * 100);
+                UpdateStatusText = _localization.Format("DownloadingUpdate", percent);
+            });
+
+            var file = await _updateService.DownloadAsync(url, progress);
+
+            if (installed)
+            {
+                UpdateStatusText = _localization.GetString("InstallingUpdate");
+                _updateService.RunInstaller(file);
+                await Task.Delay(1200);
+                RequestShutdown();
+                return;
+            }
+
+            UpdateStatusText = _localization.GetString("InstallingUpdate");
+            var helper = await _updateService.StagePortableUpdateAsync(file);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{helper}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+
+            await Task.Delay(1200);
+            RequestShutdown();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("[Update] Install failed", ex);
+            UpdateStatusText = _localization.Format("UpdateFailed", ex.Message);
+        }
+        finally
+        {
+            IsInstallingUpdate = false;
+        }
+    }
+
+    /// <summary>
+    /// Closes the main window so the update helper (or Inno) can replace the files; the window's
+    /// close path is what flushes playback progress and shuts the services down.
+    /// </summary>
+    private void RequestShutdown()
+    {
+        try
+        {
+            var mainWindow = App.Services.GetService(typeof(MainWindow)) as MainWindow;
+            mainWindow?.Close();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"[Update] Could not close the window: {ex.Message}");
         }
     }
 
