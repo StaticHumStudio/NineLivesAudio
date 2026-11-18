@@ -27,9 +27,15 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private bool _showEmptyState;
 
     [ObservableProperty]
+    private bool _isRefreshing;
+
+    [ObservableProperty]
     private string _totalListeningTimeText = "";
 
     public ObservableCollection<NineLivesItem> Lives { get; } = new();
+
+    /// <summary>Tooltip of the home refresh button (localized, re-read on language change).</summary>
+    public string RefreshToolTipText => _localization.GetString("SyncNow");
 
     public HomeViewModel(
         ILocalDatabase database,
@@ -45,6 +51,8 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _logger = loggingService;
         _normalizer = normalizer;
         _localization = localization;
+
+        _localization.LanguageChanged += OnLanguageChanged;
 
         // Live progress: the list used to be a snapshot of the database taken when the page
         // loaded, so the time next to the ring stayed frozen until you left and came back.
@@ -119,6 +127,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _localization.LanguageChanged -= OnLanguageChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
@@ -262,6 +271,39 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         {
             IsLoading = false;
         }
+    }
+
+    private void OnLanguageChanged()
+        => OnPropertyChanged(nameof(RefreshToolTipText));
+
+    /// <summary>
+    /// Pull progress and library metadata from the server right now. The periodic sync is
+    /// deliberately throttled (and steps aside while audio plays), which is fine in the
+    /// background but leaves no way to say "show me the numbers as they are now".
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshAsync()
+    {
+        if (IsRefreshing) return;
+        IsRefreshing = true;
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        _logger.Log("[Home] Manual refresh requested");
+
+        try
+        {
+            await _syncService.SyncProgressAsync();
+            await _syncService.SyncLibrariesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"[Home] Manual refresh failed: {ex.Message}");
+        }
+
+        await LoadAsync();
+
+        _logger.Log($"[Home] Manual refresh finished in {stopwatch.ElapsedMilliseconds} ms ({Lives.Count} lives)");
+        IsRefreshing = false;
     }
 
     /// <summary>True when the shelf would show the same nine books in the same order.</summary>

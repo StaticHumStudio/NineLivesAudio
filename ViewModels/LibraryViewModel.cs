@@ -676,15 +676,21 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     {
         IsRefreshing = true;
 
-        // Explicit user action: pull the library too, not just progress.
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        _logger.Log("[Library] Manual refresh requested");
+
+        // Explicit user action: pull the library too, not just progress, and allow the reload
+        // below to hit the server even though the background throttle said "recently synced".
         await _syncService.SyncLibrariesAsync();
         await _syncService.SyncProgressAsync();
+        _lastServerRefreshAt = DateTime.MinValue;
         await LoadLibrariesAsync();
         if (SelectedLibrary != null)
         {
             await LoadAudioBooksAsync();
         }
         IsRefreshing = false;
+        _logger.Log($"[Library] Manual refresh finished in {stopwatch.ElapsedMilliseconds} ms ({AudioBooks.Count} books)");
         _notifications.ShowSuccess(_localization.GetString("LibraryRefreshed"));
     }
 
