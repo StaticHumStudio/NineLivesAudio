@@ -35,6 +35,8 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
     {
         if (string.IsNullOrEmpty(_authToken)) return;
         _authToken = null;
+        _playbackSessionCache.Clear();
+        _playbackSessionFetches.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = null;
         LastRequestUnauthorized = true;
     }
@@ -469,7 +471,59 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         }
     }
 
+    // The play-session response is what carries the track URLs; the server can take seconds to
+    // produce it (five of them in the user's log). Reusing it for a while turns a replay into a
+    // local lookup, and warming it from the detail page means the POST is already done when the
+    // user presses play.
+    private static readonly TimeSpan PlaybackSessionTtl = TimeSpan.FromMinutes(10);
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<PlaybackSessionInfo?>>
+        _playbackSessionFetches = new(StringComparer.Ordinal);
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (PlaybackSessionInfo Info, DateTime FetchedAt)>
+        _playbackSessionCache = new(StringComparer.Ordinal);
+
+    public void WarmPlaybackSession(string itemId)
+    {
+        if (!IsAuthenticated || string.IsNullOrEmpty(itemId)) return;
+
+        if (_playbackSessionCache.TryGetValue(itemId, out var cached) &&
+            DateTime.UtcNow - cached.FetchedAt < PlaybackSessionTtl)
+            return;
+
+        // Fire and forget: a failure just means pressing play pays the cost as before.
+        _ = _playbackSessionFetches.GetOrAdd(itemId, id => FetchAndCachePlaybackSessionAsync(id));
+    }
+
     public async Task<PlaybackSessionInfo?> StartPlaybackSessionAsync(string itemId)
+    {
+        if (_playbackSessionCache.TryGetValue(itemId, out var cached) &&
+            DateTime.UtcNow - cached.FetchedAt < PlaybackSessionTtl)
+        {
+            return cached.Info;
+        }
+
+        return await _playbackSessionFetches
+            .GetOrAdd(itemId, id => FetchAndCachePlaybackSessionAsync(id))
+            .ConfigureAwait(false);
+    }
+
+    private async Task<PlaybackSessionInfo?> FetchAndCachePlaybackSessionAsync(string itemId)
+    {
+        try
+        {
+            var session = await FetchPlaybackSessionAsync(itemId).ConfigureAwait(false);
+            if (session != null)
+                _playbackSessionCache[itemId] = (session, DateTime.UtcNow);
+            return session;
+        }
+        finally
+        {
+            _playbackSessionFetches.TryRemove(itemId, out _);
+        }
+    }
+
+    private async Task<PlaybackSessionInfo?> FetchPlaybackSessionAsync(string itemId)
     {
         EnsureAuthenticated();
 

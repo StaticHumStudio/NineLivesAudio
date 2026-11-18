@@ -21,6 +21,7 @@ public sealed partial class BookDetailPage : Page
     private readonly LibraryViewModel _libraryViewModel;
     private readonly ILoggingService _logger;
     private readonly ILocalizationService _localization;
+    private readonly IAudioBookshelfApiService _apiService;
 
     public BookDetailPage()
     {
@@ -29,6 +30,7 @@ public sealed partial class BookDetailPage : Page
         _libraryViewModel = App.Services.GetRequiredService<LibraryViewModel>();
         _logger = App.Services.GetRequiredService<ILoggingService>();
         _localization = App.Services.GetRequiredService<ILocalizationService>();
+        _apiService = App.Services.GetRequiredService<IAudioBookshelfApiService>();
         this.Unloaded += Page_Unloaded;
     }
 
@@ -88,6 +90,12 @@ public sealed partial class BookDetailPage : Page
         if (_audioBook == null) return;
 
         _logger.Log($"Loading book details: {_audioBook.Title}");
+
+        // The play session (which carries the track URLs) took almost six seconds on this
+        // server. Ask for it now, while the user reads the blurb, so pressing play finds it
+        // ready. Metadata only — no audio is fetched here.
+        try { _apiService.WarmPlaybackSession(_audioBook.Id); }
+        catch (Exception ex) { _logger.LogDebug($"[Playback] Session warm-up failed: {ex.Message}"); }
 
         // Title — populate both wide and narrow
         TitleText.Text = _audioBook.Title;

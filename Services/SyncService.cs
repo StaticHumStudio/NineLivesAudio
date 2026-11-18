@@ -40,6 +40,25 @@ public class SyncService : ISyncService, IDisposable
     /// <summary>Set while a full sync runs: it sends a single completion message itself.</summary>
     private bool _suppressProgressNotification;
     private static readonly TimeSpan LibrarySyncInterval = TimeSpan.FromMinutes(10);
+
+    // When the session's first library pull had to step aside for playback.
+    private DateTime _librarySyncDeferredAt = DateTime.MinValue;
+
+    /// <summary>
+    /// True while audio is loading or playing. Resolved lazily: SyncService is constructed before
+    /// the playback service, so it cannot ask for it in the constructor.
+    /// </summary>
+    private static bool IsPlaybackBusy()
+    {
+        try
+        {
+            if (App.Services?.GetService(typeof(IAudioPlaybackService)) is IAudioPlaybackService playback)
+                return playback.State is PlaybackState.Playing or PlaybackState.Loading or PlaybackState.Buffering;
+        }
+        catch { /* container not built yet */ }
+
+        return false;
+    }
     private static readonly TimeSpan MinSyncInterval = TimeSpan.FromSeconds(30);
     private const double MinPositionDelta = 2.0;    // seconds
     private const double MinProgressDelta = 0.01;   // 1%
@@ -63,9 +82,27 @@ public class SyncService : ISyncService, IDisposable
         _offlineQueue = offlineQueue;
     }
 
+    private int _startGate;
+
     public Task StartAsync()
     {
-        if (_syncTimer != null) return Task.CompletedTask;
+        if (System.Threading.Interlocked.CompareExchange(ref _startGate, 1, 0) != 0)
+            return Task.CompletedTask;
+
+        try
+        {
+            if (_syncTimer != null) return Task.CompletedTask;
+            StartCore();
+            return Task.CompletedTask;
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _startGate, 0);
+        }
+    }
+
+    private void StartCore()
+    {
 
         var intervalMinutes = _settingsService.Settings.SyncIntervalMinutes;
         var interval = TimeSpan.FromMinutes(intervalMinutes > 0 ? intervalMinutes : 5);
@@ -83,7 +120,6 @@ public class SyncService : ISyncService, IDisposable
             interval);
 
         _logger.Log($"[Sync] Started with {interval.TotalMinutes}min interval");
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -133,13 +169,37 @@ public class SyncService : ISyncService, IDisposable
 
             // Progress every tick; library metadata at most every 10 minutes. "Sync now" and
             // the first sync of a session still do both (see SyncLibrariesAsync callers).
-            if (_lastLibrarySyncAt == DateTime.MinValue ||
-                DateTime.UtcNow - _lastLibrarySyncAt >= LibrarySyncInterval)
+            // While audio is loading or playing the pull is both rarer and, for the session's
+            // first one, deferred: 309 items over four parallel requests racing the stream is
+            // what turned a 1.4 s start into a 7 s one in the user's log.
+            var playbackBusy = IsPlaybackBusy();
+
+            var libraryInterval = playbackBusy
+                ? TimeSpan.FromTicks(LibrarySyncInterval.Ticks * 3)
+                : LibrarySyncInterval;
+
+            var libraryDue = _lastLibrarySyncAt == DateTime.MinValue
+                             || DateTime.UtcNow - _lastLibrarySyncAt >= libraryInterval;
+
+            if (libraryDue && playbackBusy && _lastLibrarySyncAt == DateTime.MinValue)
             {
+                if (_librarySyncDeferredAt == DateTime.MinValue)
+                    _librarySyncDeferredAt = DateTime.UtcNow;
+
+                if (DateTime.UtcNow - _librarySyncDeferredAt < TimeSpan.FromMinutes(10))
+                {
+                    _logger.LogDebug("[Sync] Playback active — first library pull deferred");
+                    libraryDue = false;
+                }
+            }
+
+            if (libraryDue)
+            {
+                _librarySyncDeferredAt = DateTime.MinValue;
                 await SyncLibrariesAsync();
                 _lastLibrarySyncAt = DateTime.UtcNow;
             }
-            else
+            else if (_lastLibrarySyncAt != DateTime.MinValue)
             {
                 _logger.LogDebug($"[Sync] Library metadata is {DateTime.UtcNow - _lastLibrarySyncAt} old — progress only");
             }

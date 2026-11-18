@@ -40,6 +40,12 @@ public interface IAudioBookshelfApiService
 
     // Playback & Progress
     Task<PlaybackSessionInfo?> StartPlaybackSessionAsync(string itemId);
+
+    /// <summary>
+    /// Fetches the play session ahead of time (when a book is opened) so pressing play does not
+    /// wait for it. Metadata only — nothing is downloaded from the audio endpoint.
+    /// </summary>
+    void WarmPlaybackSession(string itemId);
     /// <summary>
     /// Pushes listening progress. <paramref name="duration"/> is used to send the
     /// 0..1 <c>progress</c> ratio; pass 0 to let the server compute it.

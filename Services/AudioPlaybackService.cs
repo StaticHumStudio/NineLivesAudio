@@ -247,10 +247,11 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                     // Blocking session start for streams — required for stream URLs
                     try
                     {
+                        var sessionWatch = System.Diagnostics.Stopwatch.StartNew();
                         _currentSession = await _apiService.StartPlaybackSessionAsync(audioBook.Id);
                         if (_currentSession != null)
                         {
-                            _logger.Log($"[Playback] Session started: {_currentSession.Id}");
+                            _logger.Log($"[Playback] Session started in {sessionWatch.ElapsedMilliseconds} ms: {_currentSession.Id}");
                             if (_chapters.Count == 0 && _currentSession.Chapters.Count > 0)
                                 _chapters = _currentSession.Chapters.OrderBy(c => c.Start).ToList();
                         }
@@ -538,16 +539,20 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 
             WireMediaPlayerEvents();
 
-            // Warm the next track while this one plays: "one book, two chapters" is the whole
-            // cache, and a track change then starts from disk instead of the network.
-            if (trackIndex >= 0 && trackIndex + 1 < _streamTracks.Count)
+            // Warm the current and next track now that the stream has opened: "one book, two
+            // chapters" is the whole cache, and a track change then starts from disk instead of
+            // the network. Deliberately started *after* MediaOpened — downloading the track we
+            // are still opening competed with the player for the same file and stretched the
+            // open from 1.4 s to nearly 7 s in the user's log.
+            if (trackIndex >= 0)
             {
                 try
                 {
-                    _streamCache.Prefetch(audioBook.Id, new[]
-                    {
-                        (trackIndex + 1, _streamTracks[trackIndex + 1].ContentUrl)
-                    });
+                    var warm = new List<(int Index, string Url)> { (trackIndex, streamUrl) };
+                    if (trackIndex + 1 < _streamTracks.Count)
+                        warm.Add((trackIndex + 1, _streamTracks[trackIndex + 1].ContentUrl));
+
+                    _streamCache.Prefetch(audioBook.Id, warm);
                 }
                 catch (Exception ex) { _logger.LogDebug($"[Playback] Prefetch failed: {ex.Message}"); }
             }

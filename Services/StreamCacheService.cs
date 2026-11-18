@@ -80,7 +80,9 @@ public sealed class StreamCacheService : IStreamCacheService, IDisposable
         if (Exists(path))
             return Task.FromResult<string?>(path);
 
-        QueueDownload(itemId, trackIndex, url);
+        // Do NOT queue the download here: the caller is about to stream this very track, and
+        // pulling it twice at once halves the bandwidth available for starting playback.
+        // The playback service prefetches current+next once the stream has opened.
         return Task.FromResult<string?>(null);
     }
 
