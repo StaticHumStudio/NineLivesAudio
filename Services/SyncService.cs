@@ -82,23 +82,19 @@ public class SyncService : ISyncService, IDisposable
         _offlineQueue = offlineQueue;
     }
 
-    private int _startGate;
+    // Guards the timer itself. Two callers landing together (start-up + the settings page
+    // re-applying the schedule) used to create two timers and log "Started" twice.
+    private readonly object _scheduleLock = new();
 
     public Task StartAsync()
     {
-        if (System.Threading.Interlocked.CompareExchange(ref _startGate, 1, 0) != 0)
-            return Task.CompletedTask;
-
-        try
+        lock (_scheduleLock)
         {
             if (_syncTimer != null) return Task.CompletedTask;
             StartCore();
-            return Task.CompletedTask;
         }
-        finally
-        {
-            System.Threading.Interlocked.Exchange(ref _startGate, 0);
-        }
+
+        return Task.CompletedTask;
     }
 
     private void StartCore()
@@ -128,22 +124,31 @@ public class SyncService : ISyncService, IDisposable
     /// </summary>
     public Task ApplyScheduleAsync()
     {
-        _syncTimer?.Dispose();
-        _syncTimer = null;
-
-        if (!_settingsService.Settings.AutoSyncProgress)
+        lock (_scheduleLock)
         {
-            _logger.Log("[Sync] Automatic sync disabled — schedule cleared");
-            return Task.CompletedTask;
+            _syncTimer?.Dispose();
+            _syncTimer = null;
+
+            if (!_settingsService.Settings.AutoSyncProgress)
+            {
+                _logger.Log("[Sync] Automatic sync disabled — schedule cleared");
+                return Task.CompletedTask;
+            }
+
+            StartCore();
         }
 
-        return StartAsync();
+        return Task.CompletedTask;
     }
 
     public Task StopAsync()
     {
-        _syncTimer?.Dispose();
-        _syncTimer = null;
+        lock (_scheduleLock)
+        {
+            _syncTimer?.Dispose();
+            _syncTimer = null;
+        }
+
         _logger.Log("[Sync] Stopped");
         return Task.CompletedTask;
     }

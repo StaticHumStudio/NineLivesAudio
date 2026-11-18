@@ -242,6 +242,37 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs VM work on the UI thread. Touching an <see cref="ObservableCollection{T}"/> or even a
+    /// bound property from a background thread makes WinRT marshal a notification across threads
+    /// — which throws (and that is exactly what surfaced as "load failed").
+    /// </summary>
+    private Task RunOnUiThreadAsync(Func<Task> work)
+    {
+        var dispatcher = _dispatcherQueue;
+        if (dispatcher == null || dispatcher.HasThreadAccess)
+            return work();
+
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var queued = dispatcher.TryEnqueue(async () =>
+        {
+            try
+            {
+                await work();
+                completion.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        });
+
+        if (!queued) completion.TrySetResult(false);
+
+        return completion.Task;
+    }
+
     private async Task ReloadAfterReconnectAsync()
     {
         if (IsLoading) return;
@@ -266,15 +297,21 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(45));
-                if (IsLoading) return;
-                await LoadLibrariesAsync();
-                if (SelectedLibrary != null)
-                    _lastServerRefreshAt = DateTime.MinValue; // force the fetch below
-                await LoadAudioBooksAsync();
+
+                // Waiting is fine on a worker thread; touching the collections is not.
+                await RunOnUiThreadAsync(async () =>
+                {
+                    if (IsLoading) return;
+
+                    await LoadLibrariesAsync();
+                    if (SelectedLibrary != null)
+                        _lastServerRefreshAt = DateTime.MinValue; // force the fetch below
+                    await LoadAudioBooksAsync();
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError("[Library] Delayed reconnect refresh failed", ex);
+                _logger.LogError($"[Library] Delayed reconnect refresh failed ({ex.GetType().Name})", ex);
             }
         });
     }
@@ -389,6 +426,9 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task LoadLibrariesAsync()
     {
+        if (_dispatcherQueue is { HasThreadAccess: false })
+            return RunOnUiThreadAsync(LoadLibrariesAsync);
+
         if (_librariesLoadInFlight is { IsCompleted: false })
             return _librariesLoadInFlight;
 
@@ -472,10 +512,13 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError("LoadLibrariesAsync failed", ex);
-            ErrorMessage = _localization.Format("FailedLoadLibraries", ex.Message);
+            _logger.LogError($"LoadLibrariesAsync failed ({ex.GetType().Name})", ex);
+
+            // WinRT's own messages are empty strings; showing "Failed: " tells the user nothing.
+            var detail = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+            ErrorMessage = _localization.Format("FailedLoadLibraries", detail);
             HasError = true;
-            _notifications.ShowError(ex.Message, _localization.GetString("LoadFailed"));
+            _notifications.ShowError(detail, _localization.GetString("LoadFailed"));
         }
         finally
         {
@@ -527,6 +570,9 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task LoadAudioBooksAsync()
     {
+        if (_dispatcherQueue is { HasThreadAccess: false })
+            return RunOnUiThreadAsync(LoadAudioBooksAsync);
+
         if (_booksLoadInFlight is { IsCompleted: false })
         {
             _logger.LogDebug("[Library] Books load already running — joining it");
@@ -660,8 +706,10 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError($"LoadAudioBooksAsync failed for library {SelectedLibrary?.Name}", ex);
-            ErrorMessage = _localization.Format("FailedLoadBooks", ex.Message);
+            _logger.LogError($"LoadAudioBooksAsync failed for library {SelectedLibrary?.Name} ({ex.GetType().Name})", ex);
+
+            var detail = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+            ErrorMessage = _localization.Format("FailedLoadBooks", detail);
             HasError = true;
         }
         finally
