@@ -311,7 +311,8 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                         LogLoadSummary(audioBook);
 
                         var track = _streamTracks[_currentTrackIndex];
-                        _logger.Log($"[Playback] Stream URL obtained, {_streamTracks.Count} tracks");
+                        _logger.Log($"[Playback] Stream URL obtained, {_streamTracks.Count} tracks " +
+                                    $"(first: {DescribeStreamUrl(track.ContentUrl)})");
 
                         if (await LoadStreamAsync(track.ContentUrl, audioBook, ct, trackIndex: _currentTrackIndex))
                         {
@@ -428,6 +429,31 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         return Task.FromResult(true);
     }
 
+    /// <summary>
+    /// Path of a stream URL plus the names (never the values) of its query parameters —
+    /// enough to tell a plain file from a transcode/HLS session without logging the token.
+    /// </summary>
+    private static string DescribeStreamUrl(string url)
+    {
+        try
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                return "(unparsable)";
+
+            var keys = uri.Query.TrimStart('?')
+                           .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(pair => pair.Split('=', 2)[0])
+                           .Distinct()
+                           .ToList();
+
+            return keys.Count == 0 ? uri.AbsolutePath : $"{uri.AbsolutePath} (query: {string.Join(",", keys)})";
+        }
+        catch
+        {
+            return "(unparsable)";
+        }
+    }
+
     private async Task<bool> LoadStreamAsync(string streamUrl, AudioBook audioBook, CancellationToken ct,
         bool seekToPosition = true, int trackIndex = -1)
     {
@@ -436,15 +462,17 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             ct.ThrowIfCancellationRequested();
             _isStreaming = true;
 
-            // Unwire old events before disposing to prevent leak. Pausing first matters:
-            // disposing a MediaPlayer that is still playing can block the media thread and
-            // take the whole window down with it.
+            // Unwire old events before switching sources to prevent a double subscription.
+            // Pausing first matters: touching a MediaPlayer that is still playing can block the
+            // media thread.
+            var reusedPlayer = _mediaPlayer != null;
             UnwireMediaPlayerEvents();
             try { _mediaPlayer?.Pause(); } catch { /* already gone */ }
-            _mediaPlayer?.Dispose();
-            _mediaPlayer = null;
 
-            _mediaPlayer = new Windows.Media.Playback.MediaPlayer();
+            // Reuse the player when we can: a new MediaPlayer builds a whole media pipeline
+            // (demuxer, decoder, audio renderer) before it can even request the file, and that
+            // setup is part of the pause the user sees after pressing play.
+            _mediaPlayer ??= new Windows.Media.Playback.MediaPlayer();
             _mediaPlayer.Volume = _volume;
             _mediaPlayer.PlaybackSession.PlaybackRate = _playbackSpeed;
             _mediaPlayer.AutoPlay = false;
@@ -460,6 +488,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             }
 
             var sourceUri = cachedTrack ?? streamUrl;
+            var openWatch = System.Diagnostics.Stopwatch.StartNew();
             _mediaPlayer.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(sourceUri));
             if (cachedTrack != null)
                 _logger.Log($"[Playback] Track {trackIndex + 1} (index {trackIndex}) served from cache: " +
@@ -501,6 +530,12 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
                 }
             }
 
+            // Where the pause after pressing play goes: opening a network source has to reach
+            // the server, get a first chunk and spin up the decoders. Printed so the number can
+            // be checked against the next run instead of guessed at.
+            _logger.Log($"[Playback] Media opened in {openWatch.ElapsedMilliseconds} ms " +
+                        $"({(cachedTrack != null ? "cache" : "stream")}, player {(reusedPlayer ? "reused" : "new")})");
+
             WireMediaPlayerEvents();
 
             // Warm the next track while this one plays: "one book, two chapters" is the whole
@@ -527,8 +562,18 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             if (seekToPosition)
             {
                 var withinTrack = GetWithinTrackOffset(audioBook.CurrentTime);
-                if (withinTrack.TotalSeconds > 0)
+
+                // A network stream seek costs a fresh range request, so don't spend one to move
+                // a second or two into the track.
+                if (withinTrack.TotalSeconds >= 2)
+                {
                     _mediaPlayer.PlaybackSession.Position = withinTrack;
+                    _logger.Log($"[Playback] Seeked into track: {withinTrack:hh\\:mm\\:ss}");
+                }
+                else if (withinTrack > TimeSpan.Zero)
+                {
+                    _logger.LogDebug($"[Playback] Skipping seek to {withinTrack} (under 2 s)");
+                }
             }
 
             SetState(PlaybackState.Paused);

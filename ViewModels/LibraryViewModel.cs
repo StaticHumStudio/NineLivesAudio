@@ -590,9 +590,16 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             // SyncService handles LocalPath preservation with robust matching.
             // Skipped when the periodic sync covered it recently — the shelf is already current
             // and re-downloading every time the page is shown is what made it "always loading".
+            // Ten minutes while audio is playing: a full metadata pull is 300+ items and four
+            // parallel requests, and competing with the stream is exactly the "it stutters
+            // while the shelf refreshes" the user reported. Idle pages keep the 30 s refresh.
+            var refreshThrottle = _playbackService.State is PlaybackState.Playing or PlaybackState.Loading
+                ? TimeSpan.FromMinutes(10)
+                : TimeSpan.FromSeconds(30);
+
             var sinceRefresh = DateTime.UtcNow - _lastServerRefreshAt;
             var mayRefresh = _apiService.IsAuthenticated
-                             && sinceRefresh.TotalSeconds >= 30
+                             && sinceRefresh >= refreshThrottle
                              && System.Threading.Interlocked.CompareExchange(ref _serverRefreshGate, 1, 0) == 0;
 
             if (mayRefresh)
