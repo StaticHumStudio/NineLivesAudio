@@ -252,43 +252,109 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
         }
     }
 
+    /// <summary>One page of a library, or null when the server answered with nothing useful.</summary>
+    private async Task<LibraryItemsResponse?> FetchLibraryPageAsync(string libraryId, int limit, int page)
+    {
+        var response = await _httpClient.GetAsync(
+            $"{_serverUrl}/api/libraries/{libraryId}/items?limit={limit}&page={page}&minified=0").ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        LastRequestUnauthorized = false;
+
+        var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        return JsonSerializer.Deserialize<LibraryItemsResponse>(json, JsonOptions);
+    }
+
     public async Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 100, int page = 0)
     {
         EnsureAuthenticated();
 
         try
         {
-            var allItems = new List<AudioBook>();
-            int currentPage = page;
+            var first = await FetchLibraryPageAsync(libraryId, limit, page);
+            if (first?.Results == null || first.Results.Count == 0)
+                return new List<AudioBook>();
+
+            var allItems = new List<AudioBook>(first.Results.Select(MapToAudioBook));
+
+            // A short first page is the whole library.
+            if (first.Results.Count < limit)
+                return allItems;
+
             const int MaxPages = 200; // safety valve — never loop forever on a broken server
 
-            while (currentPage - page < MaxPages)
+            if (first.Total > 0)
             {
-                var response = await _httpClient.GetAsync(
-                    $"{_serverUrl}/api/libraries/{libraryId}/items?limit={limit}&page={currentPage}&minified=0");
-                response.EnsureSuccessStatusCode();
-                LastRequestUnauthorized = false;
+                // `total` is known: fetch the remaining pages in parallel. 309 books used to be
+                // four sequential round trips (~5–12 s on a slow link); four at once cuts the
+                // wall clock to roughly one round trip.
+                var lastPage = (int)Math.Ceiling(first.Total / (double)limit) - 1;
+                var pages = Enumerable.Range(page + 1, Math.Max(0, lastPage - page))
+                                      .Take(MaxPages)
+                                      .ToList();
 
-                var json = await response.Content.ReadAsStringAsync();
-                var apiResponse = JsonSerializer.Deserialize<LibraryItemsResponse>(json, JsonOptions);
+                if (pages.Count > 0)
+                {
+                    var byPage = new System.Collections.Concurrent.ConcurrentDictionary<int, List<AudioBook>>();
 
-                if (apiResponse?.Results == null || apiResponse.Results.Count == 0)
-                    break;
+                    await Parallel.ForEachAsync(pages,
+                        new ParallelOptions { MaxDegreeOfParallelism = 4 },
+                        async (p, _) =>
+                        {
+                            var response = await FetchLibraryPageAsync(libraryId, limit, p).ConfigureAwait(false);
+                            if (response?.Results is { Count: > 0 })
+                                byPage[p] = response.Results.Select(MapToAudioBook).ToList();
+                        }).ConfigureAwait(false);
 
-                allItems.AddRange(apiResponse.Results.Select(MapToAudioBook));
+                    foreach (var p in pages.OrderBy(x => x))
+                    {
+                        if (byPage.TryGetValue(p, out var pageItems))
+                            allItems.AddRange(pageItems);
+                    }
 
-                // Termination: a short page means we hit the end. `total` is only
-                // trusted when it is a positive number — some server versions omit it
-                // (0), which used to stop the loop after the very first page.
-                if (apiResponse.Results.Count < limit)
-                    break;
+                    // If the last page was full the server has more books than `total` claimed:
+                    // keep reading sequentially so nothing is silently dropped.
+                    var lastFetched = pages[pages.Count - 1];
+                    var lastWasFull = byPage.TryGetValue(lastFetched, out var lastItems) && lastItems.Count >= limit;
 
-                if (apiResponse.Total > 0 && allItems.Count >= apiResponse.Total)
-                    break;
+                    if (lastWasFull)
+                    {
+                        var currentPage = lastFetched + 1;
+                        while (currentPage - page < MaxPages)
+                        {
+                            var response = await FetchLibraryPageAsync(libraryId, limit, currentPage).ConfigureAwait(false);
+                            if (response?.Results == null || response.Results.Count == 0)
+                                break;
 
-                currentPage++;
+                            allItems.AddRange(response.Results.Select(MapToAudioBook));
+
+                            if (response.Results.Count < limit)
+                                break;
+
+                            currentPage++;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Unknown total: sequential, exactly as before.
+                int currentPage = page + 1;
+                while (currentPage - page < MaxPages)
+                {
+                    var response = await FetchLibraryPageAsync(libraryId, limit, currentPage);
+                    if (response?.Results == null || response.Results.Count == 0)
+                        break;
+
+                    allItems.AddRange(response.Results.Select(MapToAudioBook));
+
+                    if (response.Results.Count < limit)
+                        break;
+
+                    currentPage++;
+                }
             }
 
+            LastRequestUnauthorized = false;
             return allItems;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)

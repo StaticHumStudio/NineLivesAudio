@@ -34,7 +34,7 @@ public enum LogLevel
 
 public class LoggingService : ILoggingService, IDisposable
 {
-    private readonly string _logPath;
+    private string _logPath;
     private readonly Channel<string> _channel;
     private readonly Task _consumer;
     private readonly CancellationTokenSource _cts = new();
@@ -172,7 +172,8 @@ public class LoggingService : ILoggingService, IDisposable
     /// <summary>Hard cap for a single day's file — diagnostics mode is verbose by design.</summary>
     private const long MaxLogFileBytes = 25L * 1024 * 1024;
 
-    private bool _sizeCapReported;
+    /// <summary>How many times today's file has been rolled over (app_DATE.01.log, …).</summary>
+    private int _rollIndex;
 
     private volatile bool _diagnosticsMode;
 
@@ -312,16 +313,19 @@ public class LoggingService : ILoggingService, IDisposable
                     {
                         // Stop at the per-file cap instead of filling the disk: one final line
                         // says why the log ends here.
-                        if (_sizeCapReported)
+                        if (FileLength(_logPath) > MaxLogFileBytes)
                         {
-                            buffer.Clear();
-                        }
-                        else if (FileLength(_logPath) > MaxLogFileBytes)
-                        {
-                            _sizeCapReported = true;
-                            buffer.Clear();
+                            // Roll over instead of discarding: the lines written right after
+                            // something went wrong are the ones worth keeping.
+                            _rollIndex++;
+                            var directory = Path.GetDirectoryName(_logPath) ?? ".";
+                            var stem = Path.GetFileNameWithoutExtension(_logPath);
+                            var next = Path.Combine(directory, $"{stem}.{_rollIndex:D2}.log");
+
                             buffer.Add($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{SessionId}] [WARN ] " +
-                                       $"[Logging] today's log reached {MaxLogFileBytes / 1024 / 1024} MB — further lines are skipped");
+                                       $"[Logging] {Path.GetFileName(_logPath)} reached {MaxLogFileBytes / 1024 / 1024} MB " +
+                                       $"— continuing in {Path.GetFileName(next)}");
+                            _logPath = next;
                         }
 
                         if (buffer.Count > 0)
