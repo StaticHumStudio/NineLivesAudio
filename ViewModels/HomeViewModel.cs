@@ -185,37 +185,64 @@ public partial class HomeViewModel : ObservableObject, IDisposable
 
         try
         {
-            IsLoading = true;
+            // Only the first load needs a spinner; a refresh of an already-populated shelf is
+            // a silent patch, otherwise the tick would flash the page every minute.
+            if (Lives.Count == 0)
+                IsLoading = true;
+
             _logger.Log("[Home] Loading Nine Lives (page shown or sync finished)...");
 
             var recentEntries = await _database.GetRecentlyPlayedAsync(9);
 
-            Lives.Clear();
-            bool isFirst = true;
-            int idx = 0;
-            foreach (var (book, lastPlayedAt) in recentEntries)
+            if (HasSameOrder(recentEntries))
             {
-                var normalized = _normalizer.Normalize(book);
-                Lives.Add(new NineLivesItem
+                // Same nine books in the same order: only the numbers moved. Patch them in
+                // place (the rows notify) instead of clearing and rebuilding the repeater every
+                // minute — that rebuild is what made the shelf flicker during the sync tick.
+                for (var i = 0; i < recentEntries.Count; i++)
                 {
-                    AudioBook = book,
-                    DisplayTitle = normalized.DisplayTitle,
-                    DisplayAuthor = normalized.DisplayAuthor,
-                    ProgressPercent = book.ProgressPercent,
-                    IsMostRecent = isFirst,
-                    IsDownloaded = book.IsDownloaded,
-                    CoverPath = book.CoverPath,
-                    LifeIndex = idx,
-                    LifeLabel = _localization.Format("LifeLabel", ToRoman(idx + 1)),
-                    Weight = book.Duration.TotalHours < 4 ? "LIGHT"
-                           : book.Duration.TotalHours < 15 ? "MEDIUM" : "HEAVY",
-                    TimeGiven = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
-                    HoursListened = book.CurrentTime.TotalHours,
-                    LastPlayedAt = lastPlayedAt,
-                    LastPlayedLabel = FormatRelativeTime(lastPlayedAt)
-                });
-                isFirst = false;
-                idx++;
+                    var (book, lastPlayedAt) = recentEntries[i];
+                    var item = Lives[i];
+
+                    item.AudioBook = book;
+                    item.ProgressPercent = book.ProgressPercent;
+                    item.IsDownloaded = book.IsDownloaded;
+                    item.CoverPath = book.CoverPath;
+                    item.HoursListened = book.CurrentTime.TotalHours;
+                    item.TimeGiven = CosmicCatHelper.FormatListeningTime(book.CurrentTime);
+                    item.LastPlayedAt = lastPlayedAt;
+                    item.LastPlayedLabel = FormatRelativeTime(lastPlayedAt);
+                }
+            }
+            else
+            {
+                Lives.Clear();
+                bool isFirst = true;
+                int idx = 0;
+                foreach (var (book, lastPlayedAt) in recentEntries)
+                {
+                    var normalized = _normalizer.Normalize(book);
+                    Lives.Add(new NineLivesItem
+                    {
+                        AudioBook = book,
+                        DisplayTitle = normalized.DisplayTitle,
+                        DisplayAuthor = normalized.DisplayAuthor,
+                        ProgressPercent = book.ProgressPercent,
+                        IsMostRecent = isFirst,
+                        IsDownloaded = book.IsDownloaded,
+                        CoverPath = book.CoverPath,
+                        LifeIndex = idx,
+                        LifeLabel = _localization.Format("LifeLabel", ToRoman(idx + 1)),
+                        Weight = book.Duration.TotalHours < 4 ? "LIGHT"
+                               : book.Duration.TotalHours < 15 ? "MEDIUM" : "HEAVY",
+                        TimeGiven = CosmicCatHelper.FormatListeningTime(book.CurrentTime),
+                        HoursListened = book.CurrentTime.TotalHours,
+                        LastPlayedAt = lastPlayedAt,
+                        LastPlayedLabel = FormatRelativeTime(lastPlayedAt)
+                    });
+                    isFirst = false;
+                    idx++;
+                }
             }
 
             // Compute aggregate listening time across all displayed items
@@ -235,6 +262,20 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         {
             IsLoading = false;
         }
+    }
+
+    /// <summary>True when the shelf would show the same nine books in the same order.</summary>
+    private bool HasSameOrder(IReadOnlyList<(AudioBook Book, DateTime LastPlayedAt)> entries)
+    {
+        if (entries.Count != Lives.Count) return false;
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (!string.Equals(entries[i].Book.Id, Lives[i].AudioBook?.Id, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private static readonly string[] RomanNumerals =
@@ -296,8 +337,19 @@ public class NineLivesItem : ObservableObject
         set => SetProperty(ref _progressPercent, value);
     }
 
-    public bool IsMostRecent { get; set; }
-    public bool IsDownloaded { get; set; }
+    private bool _isMostRecent;
+    public bool IsMostRecent
+    {
+        get => _isMostRecent;
+        set => SetProperty(ref _isMostRecent, value);
+    }
+
+    private bool _isDownloaded;
+    public bool IsDownloaded
+    {
+        get => _isDownloaded;
+        set => SetProperty(ref _isDownloaded, value);
+    }
 
     private double _hoursListened;
     public double HoursListened
@@ -306,7 +358,12 @@ public class NineLivesItem : ObservableObject
         set => SetProperty(ref _hoursListened, value);
     }
 
-    public string? CoverPath { get; set; }
+    private string? _coverPath;
+    public string? CoverPath
+    {
+        get => _coverPath;
+        set => SetProperty(ref _coverPath, value);
+    }
 
     // Altar properties
     public int LifeIndex { get; set; }

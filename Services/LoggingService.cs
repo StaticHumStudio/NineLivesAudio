@@ -67,10 +67,11 @@ public class LoggingService : ILoggingService, IDisposable
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd");
         _logPath = Path.Combine(logDir, $"app_{timestamp}.log");
 
-        // Retention: delete log files older than 14 days to bound disk usage.
+        // Retention: one week of logs. A week is enough to look back at "it broke yesterday"
+        // and keeps the folder small on a laptop that never cleans up after itself.
         try
         {
-            var cutoff = DateTime.Now.AddDays(-14);
+            var cutoff = DateTime.Now.AddDays(-LogRetentionDays);
             var pruned = 0;
             long prunedBytes = 0;
             foreach (var old in Directory.GetFiles(logDir, "app_*.log"))
@@ -88,7 +89,7 @@ public class LoggingService : ILoggingService, IDisposable
             }
 
             if (pruned > 0)
-                LogStatic(LogLevel.Info, $"[Logging] pruned {pruned} old log file(s), {prunedBytes / 1024 / 1024} MB freed (retention 14 days)");
+                LogStatic(LogLevel.Info, $"[Logging] pruned {pruned} old log file(s), {prunedBytes / 1024 / 1024} MB freed (retention {LogRetentionDays} days)");
         }
         catch { /* best effort */ }
 
@@ -105,6 +106,9 @@ public class LoggingService : ILoggingService, IDisposable
     /// a log can always be matched to the build it was produced by (the packaged exe would
     /// otherwise only show the time it was copied into Program Files).
     /// </summary>
+    /// <summary>Log files older than this many days are deleted at startup.</summary>
+    private const int LogRetentionDays = 7;
+
     public static string DescribeBuild()
     {
         var version = typeof(LoggingService).Assembly.GetName().Version?.ToString() ?? "unknown";
