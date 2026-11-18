@@ -73,26 +73,6 @@
                        Visibility="{x:Bind ShowGrid, Mode=OneWay}"/>
         </StackPanel>
 
-        <!-- Manual sync: the periodic sync is throttled, so the user gets a way to ask now -->
-        <Button x:Name="HomeRefreshButton"
-                Grid.Row="0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Padding="8"
-                Background="Transparent"
-                BorderThickness="0"
-                Command="{x:Bind ViewModel.RefreshCommand}"
-                ToolTipService.ToolTip="{x:Bind ViewModel.RefreshToolTipText, Mode=OneWay}">
-            <Grid>
-                <FontIcon Glyph="&#xE72C;" FontSize="16"
-                          Foreground="{ThemeResource SigilGoldDimBrush}"
-                          Visibility="{x:Bind ViewModel.IsRefreshing, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
-                <ProgressRing IsActive="{x:Bind ViewModel.IsRefreshing, Mode=OneWay}"
-                              Visibility="{x:Bind ViewModel.IsRefreshing, Mode=OneWay}"
-                              Width="16" Height="16"/>
-            </Grid>
-        </Button>
-
         <!-- Loading -->
         <ProgressRing Grid.Row="1"
                       IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"

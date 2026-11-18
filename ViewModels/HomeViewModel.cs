@@ -26,16 +26,11 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _showEmptyState;
 
-    [ObservableProperty]
-    private bool _isRefreshing;
 
     [ObservableProperty]
     private string _totalListeningTimeText = "";
 
     public ObservableCollection<NineLivesItem> Lives { get; } = new();
-
-    /// <summary>Tooltip of the home refresh button (localized, re-read on language change).</summary>
-    public string RefreshToolTipText => _localization.GetString("SyncNow");
 
     public HomeViewModel(
         ILocalDatabase database,
@@ -52,7 +47,6 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _normalizer = normalizer;
         _localization = localization;
 
-        _localization.LanguageChanged += OnLanguageChanged;
 
         // Live progress: the list used to be a snapshot of the database taken when the page
         // loaded, so the time next to the ring stayed frozen until you left and came back.
@@ -123,11 +117,9 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private DateTime _lastReload = DateTime.MinValue;
 
     /// <summary>Throttle marker for server pulls triggered by (re)entering the page.</summary>
-    private DateTime _lastServerPull = DateTime.MinValue;
 
     public void Dispose()
     {
-        _localization.LanguageChanged -= OnLanguageChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
@@ -164,27 +156,61 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Pulls the current progress from the server and reloads the list when something changed.
-    /// The page calls this on open: without it the rows showed whatever the last 5-minute
-    /// sync (or the last play) had written, which is why positions looked stale.
+    /// Runs on every visit to the page. Progress comes back first (it is what the rings show),
+    /// library metadata follows in the background so the 309-item pull never holds up the page.
+    /// The old five-second throttle is gone: arriving at the page and seeing nothing change was
+    /// indistinguishable from the sync being broken.
     /// </summary>
+    // Never re-pull the 309-item library on every page visit.
+    private DateTime _lastLibraryMetadataPull = DateTime.MinValue;
+
     public async Task RefreshFromServerAsync()
     {
-        // Switching between pages should not hammer the server; the periodic sync covers the
-        // rest and five seconds is well below what anyone can see.
-        var now = DateTime.UtcNow;
-        if ((now - _lastServerPull).TotalSeconds < 5) return;
-        _lastServerPull = now;
+        _lastReload = DateTime.MinValue; // allow the reload this pull produces
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            _lastReload = DateTime.MinValue; // allow the reload this pull produces
             await _syncService.SyncProgressAsync();
+            _logger.Log($"[Home] Page shown — progress synced in {stopwatch.ElapsedMilliseconds} ms");
         }
         catch (Exception ex)
         {
-            _logger.LogDebug($"[Home] Server refresh failed: {ex.Message}");
+            _logger.LogWarning($"[Home] Page shown — progress sync failed: {ex.Message}");
         }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Metadata is 300+ items: never while audio is loading or playing (it competes
+                // for the same connection) and only if the shelf can actually have changed.
+                if (_playbackService.State is PlaybackState.Playing or PlaybackState.Loading or PlaybackState.Buffering)
+                {
+                    _logger.LogDebug("[Home] Playback active — library metadata pull skipped");
+                    return;
+                }
+
+                // Bouncing between pages must not re-download 309 items every time; progress is
+                // what changes minute to minute, metadata does not.
+                var sinceMetadata = DateTime.UtcNow - _lastLibraryMetadataPull;
+                if (sinceMetadata.TotalSeconds < 60)
+                {
+                    _logger.LogDebug($"[Home] Library metadata is {sinceMetadata.TotalSeconds:F0}s old — skipping");
+                    return;
+                }
+
+                _lastLibraryMetadataPull = DateTime.UtcNow;
+
+                var libraryWatch = System.Diagnostics.Stopwatch.StartNew();
+                await _syncService.SyncLibrariesAsync();
+                _logger.Log($"[Home] Page shown — library metadata synced in {libraryWatch.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"[Home] Library metadata pull failed: {ex.Message}");
+            }
+        });
     }
 
     public async Task LoadAsync()
@@ -271,39 +297,6 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         {
             IsLoading = false;
         }
-    }
-
-    private void OnLanguageChanged()
-        => OnPropertyChanged(nameof(RefreshToolTipText));
-
-    /// <summary>
-    /// Pull progress and library metadata from the server right now. The periodic sync is
-    /// deliberately throttled (and steps aside while audio plays), which is fine in the
-    /// background but leaves no way to say "show me the numbers as they are now".
-    /// </summary>
-    [RelayCommand]
-    private async Task RefreshAsync()
-    {
-        if (IsRefreshing) return;
-        IsRefreshing = true;
-
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        _logger.Log("[Home] Manual refresh requested");
-
-        try
-        {
-            await _syncService.SyncProgressAsync();
-            await _syncService.SyncLibrariesAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"[Home] Manual refresh failed: {ex.Message}");
-        }
-
-        await LoadAsync();
-
-        _logger.Log($"[Home] Manual refresh finished in {stopwatch.ElapsedMilliseconds} ms ({Lives.Count} lives)");
-        IsRefreshing = false;
     }
 
     /// <summary>True when the shelf would show the same nine books in the same order.</summary>

@@ -17,6 +17,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ISyncService _syncService;
     private readonly ILocalizationService _localization;
     private readonly IAudioPlaybackService _playbackService;
+    private readonly IUpdateService _updateService;
 
     [ObservableProperty]
     private string _serverUrl = string.Empty;
@@ -211,7 +212,8 @@ public partial class SettingsViewModel : ObservableObject
         ILoggingService loggingService,
         ISyncService syncService,
         ILocalizationService localization,
-        IAudioPlaybackService playbackService)
+        IAudioPlaybackService playbackService,
+        IUpdateService updateService)
     {
         _settingsService = settingsService;
         _apiService = apiService;
@@ -220,6 +222,7 @@ public partial class SettingsViewModel : ObservableObject
         _syncService = syncService;
         _localization = localization;
         _playbackService = playbackService;
+        _updateService = updateService;
 
         // Seed localized defaults before the page is shown.
         ConnectionStatus = _localization.GetString("NotConnectedStatus");
@@ -313,6 +316,79 @@ public partial class SettingsViewModel : ObservableObject
 
     /// <summary>Real assembly version, so the About box cannot drift from the build again.</summary>
     public string AppVersion { get; } = "Version " + LoggingService.DescribeBuild();
+
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+
+    [ObservableProperty]
+    private bool _updateAvailable;
+
+    [ObservableProperty]
+    private string _updateStatusText = string.Empty;
+
+    /// <summary>Keeps the status line hidden until the user actually asked for a check.</summary>
+    public bool HasUpdateStatus => !string.IsNullOrEmpty(UpdateStatusText);
+
+    partial void OnUpdateStatusTextChanged(string value)
+        => OnPropertyChanged(nameof(HasUpdateStatus));
+
+    private string? _latestReleaseUrl;
+
+    /// <summary>
+    /// Asks GitHub for the newest release of the fork. Read-only by design: the button becomes
+    /// "download" and opens the release page — the app never replaces its own executable.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (IsCheckingForUpdates) return;
+
+        IsCheckingForUpdates = true;
+        UpdateAvailable = false;
+        UpdateStatusText = _localization.GetString("CheckingForUpdates");
+
+        try
+        {
+            var result = await _updateService.CheckForUpdateAsync();
+
+            if (!result.Succeeded)
+            {
+                UpdateStatusText = _localization.Format("UpdateCheckFailed", result.Error ?? string.Empty);
+                return;
+            }
+
+            _latestReleaseUrl = result.ReleaseUrl;
+
+            if (result.UpdateAvailable)
+            {
+                UpdateAvailable = true;
+                UpdateStatusText = _localization.Format("UpdateAvailable", result.LatestVersion ?? string.Empty);
+            }
+            else
+            {
+                UpdateStatusText = _localization.Format("UpToDate", result.CurrentVersion);
+            }
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenReleasePageAsync()
+    {
+        if (string.IsNullOrEmpty(_latestReleaseUrl)) return;
+
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri(_latestReleaseUrl));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"[Update] Could not open the release page: {ex.Message}");
+        }
+    }
 
     [RelayCommand]
     private void OpenDataFolder()

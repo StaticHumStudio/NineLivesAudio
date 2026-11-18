@@ -536,6 +536,28 @@
                                    Foreground="{ThemeResource StarlightDimBrush}"/>
                         <TextBlock Text="{x:Bind ViewModel.AppVersion}"
                                    Foreground="{ThemeResource MistBrush}"/>
+
+                        <!-- Update check: reads the newest release of the fork, then hands the
+                             user a link instead of replacing the exe behind their back. -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <Button x:Name="CheckUpdatesButton"
+                                    loc:Loc.Content="CheckForUpdates" Content="Check for updates"
+                                    Command="{x:Bind ViewModel.CheckForUpdatesCommand}"/>
+                            <Button x:Name="OpenReleaseButton"
+                                    loc:Loc.Content="OpenReleasePage" Content="Download"
+                                    Command="{x:Bind ViewModel.OpenReleasePageCommand}"
+                                    Visibility="{x:Bind ViewModel.UpdateAvailable, Mode=OneWay}"/>
+                            <ProgressRing IsActive="{x:Bind ViewModel.IsCheckingForUpdates, Mode=OneWay}"
+                                          Visibility="{x:Bind ViewModel.IsCheckingForUpdates, Mode=OneWay}"
+                                          Width="16" Height="16"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="UpdateStatusText"
+                                   Text="{x:Bind ViewModel.UpdateStatusText, Mode=OneWay}"
+                                   Visibility="{x:Bind ViewModel.HasUpdateStatus, Mode=OneWay}"
+                                   Foreground="{ThemeResource MistFaintBrush}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"/>
                         <TextBlock loc:Loc.Text="AboutDesc" Text="A lightweight Windows client for Audiobookshelf"
                                    Foreground="{ThemeResource MistFaintBrush}"
                                    TextWrapping="Wrap"/>
