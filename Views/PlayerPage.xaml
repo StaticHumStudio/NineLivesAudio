@@ -335,16 +335,23 @@
                                    HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <!-- Sleep Timer -->
+                    <!-- Sleep Timer + Per-book Skip -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                        <Button x:Name="SleepButton" Click="SleepButton_Click"
-                                Style="{StaticResource IconButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <FontIcon Glyph="&#xE708;" FontSize="16"/>
-                                <TextBlock x:Name="SleepButtonText" Text="Off"
-                                           Foreground="{ThemeResource MistBrush}"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                            <Button x:Name="SleepButton" Click="SleepButton_Click"
+                                    Style="{StaticResource IconButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE708;" FontSize="16"/>
+                                    <TextBlock x:Name="SleepButtonText" Text="Off"
+                                               Foreground="{ThemeResource MistBrush}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="SkipButton" Click="SkipButton_Click"
+                                    Style="{StaticResource IconButtonStyle}"
+                                    ToolTipService.ToolTip="Skip Intro / Outro">
+                                <FontIcon Glyph="&#xE893;" FontSize="15"/>
+                            </Button>
+                        </StackPanel>
                         <TextBlock x:Name="SleepLabelText" Text="Sleep" Style="{StaticResource CaptionStyle}"
                                    HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>

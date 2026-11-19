@@ -1473,7 +1473,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     /// </summary>
     private async Task ApplyChapterIntroSkipAsync(Chapter chapter, int chapterIndex)
     {
-        var skip = Math.Max(0, _settingsService.Settings.SkipIntroSeconds);
+        var bookId = CurrentAudioBook?.Id;
+        var rawIntro = (bookId != null
+                        && _settingsService.Settings.BookSkipOverrides.TryGetValue(bookId, out var ov)
+                        && ov.SkipIntroSeconds.HasValue)
+            ? ov.SkipIntroSeconds.Value
+            : _settingsService.Settings.SkipIntroSeconds;
+        var skip = Math.Max(0, rawIntro);
         if (skip <= 0 || _introSkipBusy || _introSkipDone || chapterIndex < 0) return;
 
         // Never eat a chapter that is barely long enough to hold the skip window.
@@ -1534,7 +1540,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     {
         if (_outroSkipDone || _outroSkipInProgress) return;
 
-        var skip = Math.Max(0, _settingsService.Settings.SkipOutroSeconds);
+        var bookId = CurrentAudioBook?.Id;
+        var rawOutro = (bookId != null
+                        && _settingsService.Settings.BookSkipOverrides.TryGetValue(bookId, out var ov)
+                        && ov.SkipOutroSeconds.HasValue)
+            ? ov.SkipOutroSeconds.Value
+            : _settingsService.Settings.SkipOutroSeconds;
+        var skip = Math.Max(0, rawOutro);
         if (skip <= 0) return; // feature off
 
         var chapter = CurrentChapter;

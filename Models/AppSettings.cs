@@ -47,6 +47,15 @@ public class AppSettings
     // Diagnostics
     public bool DiagnosticsMode { get; set; } = false;
 
+    // Per-book skip intro / outro overrides (null fields fall back to global SkipIntroSeconds/SkipOutroSeconds)
+    public Dictionary<string, BookSkipOverride> BookSkipOverrides { get; set; } = new();
+
     // Server profiles for reconnection
     public List<ServerProfile> ServerProfiles { get; set; } = new();
+}
+
+public class BookSkipOverride
+{
+    public int? SkipIntroSeconds { get; set; }
+    public int? SkipOutroSeconds { get; set; }
 }

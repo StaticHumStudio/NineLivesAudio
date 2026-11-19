@@ -763,7 +763,112 @@ public sealed partial class PlayerPage : Page
             flyout.Items.Add(item);
         }
 
+        flyout.Items.Add(new MenuFlyoutSeparator());
+        var customItem = new MenuFlyoutItem
+        {
+            Text = _localization.GetString("SleepCustom"),
+            Icon = new FontIcon { Glyph = "\uE70F" }
+        };
+        customItem.Click += async (s, args) => await ShowCustomSleepTimerDialogAsync();
+        flyout.Items.Add(customItem);
+
         flyout.ShowAt(SleepButton);
+    }
+
+    private async Task ShowCustomSleepTimerDialogAsync()
+    {
+        var input = new NumberBox
+        {
+            Header = _localization.GetString("SleepCustomMinutes"),
+            Value = (double)(ViewModel.SleepTimerMinutes ?? 20),
+            Minimum = 1,
+            Maximum = 480,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = _localization.GetString("SleepCustomTitle"),
+            Content = input,
+            PrimaryButtonText = _localization.GetString("Save"),
+            CloseButtonText = _localization.GetString("Cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary && !double.IsNaN(input.Value))
+        {
+            var minutes = Math.Clamp((int)Math.Round(input.Value), 1, 480);
+            ViewModel.SetSleepTimerCommand.Execute(minutes);
+            UpdateAllUI();
+        }
+    }
+
+    private async void SkipButton_Click(object sender, RoutedEventArgs e)
+    {
+        var book = _playbackService.CurrentAudioBook;
+        if (book == null) return;
+
+        var settingsService = App.Services.GetRequiredService<ISettingsService>();
+        settingsService.Settings.BookSkipOverrides.TryGetValue(book.Id, out var existing);
+
+        var introBox = new NumberBox
+        {
+            Header = _localization.GetString("SkipIntroSecondsLabel"),
+            PlaceholderText = settingsService.Settings.SkipIntroSeconds.ToString(),
+            Value = (double?)existing?.SkipIntroSeconds ?? double.NaN,
+            Minimum = 0,
+            Maximum = 600,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+        };
+
+        var outroBox = new NumberBox
+        {
+            Header = _localization.GetString("SkipOutroSecondsLabel"),
+            PlaceholderText = settingsService.Settings.SkipOutroSeconds.ToString(),
+            Value = (double?)existing?.SkipOutroSeconds ?? double.NaN,
+            Minimum = 0,
+            Maximum = 600,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+        };
+
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = book.Title,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Opacity = 0.8
+        });
+        panel.Children.Add(introBox);
+        panel.Children.Add(outroBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = _localization.GetString("SkipIntroOutroTitle"),
+            Content = panel,
+            PrimaryButtonText = _localization.GetString("Save"),
+            CloseButtonText = _localization.GetString("Cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            int? intro = double.IsNaN(introBox.Value) ? null : Math.Clamp((int)Math.Round(introBox.Value), 0, 600);
+            int? outro = double.IsNaN(outroBox.Value) ? null : Math.Clamp((int)Math.Round(outroBox.Value), 0, 600);
+
+            if (intro == null && outro == null)
+                settingsService.Settings.BookSkipOverrides.Remove(book.Id);
+            else
+                settingsService.Settings.BookSkipOverrides[book.Id] = new BookSkipOverride
+                {
+                    SkipIntroSeconds = intro,
+                    SkipOutroSeconds = outro
+                };
+
+            await settingsService.SaveSettingsAsync();
+            _logger.Log($"[Player] Updated per-book skip for '{book.Title}': intro={intro?.ToString() ?? "global"}s, outro={outro?.ToString() ?? "global"}s");
+        }
     }
 
     private void ChapterModeToggle_Toggled(object sender, RoutedEventArgs e)
