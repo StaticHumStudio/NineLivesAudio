@@ -111,6 +111,8 @@ public sealed partial class SettingsPage : Page
         if (ConnectButton != null) ConnectButton.Content = _localization.GetString("Connect");
         if (DisconnectButton != null) DisconnectButton.Content = _localization.GetString("Disconnect");
         if (TestConnectionButton != null) TestConnectionButton.Content = _localization.GetString("TestConnection");
+        if (AddServerButton != null) AddServerButton.Content = _localization.GetString("AddServer");
+        if (CancelAddServerButton != null) CancelAddServerButton.Content = _localization.GetString("Cancel");
         if (PlaybackTitle != null) PlaybackTitle.Text = _localization.GetString("Playback");
         if (DefaultVolumeLabel != null) DefaultVolumeLabel.Text = _localization.GetString("DefaultVolume");
         if (DefaultSpeedBox != null) DefaultSpeedBox.Header = _localization.GetString("DefaultSpeed");

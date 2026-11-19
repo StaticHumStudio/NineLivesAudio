@@ -30,7 +30,20 @@ public partial class SettingsViewModel : ObservableObject
     private string _password = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditServerFields))]
+    [NotifyPropertyChangedFor(nameof(ShowConnectedActions))]
     private bool _isConnected;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditServerFields))]
+    [NotifyPropertyChangedFor(nameof(ShowConnectedActions))]
+    private bool _isAddingServer;
+
+    public bool CanEditServerFields => !IsConnected || IsAddingServer;
+    public bool ShowConnectedActions => IsConnected && !IsAddingServer;
+
+    private string _previousServerUrl = string.Empty;
+    private string _previousUsername = string.Empty;
 
     [ObservableProperty]
     private bool _isConnecting;
@@ -701,6 +714,17 @@ public partial class SettingsViewModel : ObservableObject
         _isLoadingSettings = true;
         try
         {
+            var currentUrl = _settingsService.Settings.ServerUrl;
+            if (IsConnected && !string.IsNullOrWhiteSpace(currentUrl))
+            {
+                var list = _settingsService.Settings.SavedServers ?? new List<SavedServer>();
+                if (!list.Any(s => SavedServer.Normalize(s.Url) == SavedServer.Normalize(currentUrl)))
+                {
+                    _settingsService.RememberServer(currentUrl, _settingsService.Settings.Username);
+                    _ = _settingsService.SaveSettingsAsync();
+                }
+            }
+
             SavedServers.Clear();
             foreach (var server in (_settingsService.Settings.SavedServers ?? new List<SavedServer>()))
                 SavedServers.Add(server);
@@ -712,6 +736,33 @@ public partial class SettingsViewModel : ObservableObject
         {
             _isLoadingSettings = previous;
         }
+    }
+
+    [RelayCommand]
+    private void StartAddServer()
+    {
+        _previousServerUrl = ServerUrl;
+        _previousUsername = Username;
+        IsAddingServer = true;
+        ServerUrl = string.Empty;
+        Username = string.Empty;
+        Password = string.Empty;
+        ServerUrlStatus = string.Empty;
+        UsernameStatus = string.Empty;
+        ServerSwitchStatus = string.Empty;
+        _logger.Log("[Settings] Entered Add Server mode");
+    }
+
+    [RelayCommand]
+    private void CancelAddServer()
+    {
+        IsAddingServer = false;
+        ServerUrl = _previousServerUrl;
+        Username = _previousUsername;
+        Password = string.Empty;
+        ServerUrlStatus = string.Empty;
+        UsernameStatus = string.Empty;
+        _logger.Log("[Settings] Cancelled Add Server mode");
     }
 
     /// <summary>
@@ -731,6 +782,7 @@ public partial class SettingsViewModel : ObservableObject
             await _settingsService.SaveSettingsAsync();
 
             var authenticated = await _apiService.ReloadCredentialsAsync();
+            IsAddingServer = false;
             IsConnected = authenticated;
             ConnectionStatus = authenticated
                 ? _localization.Format("ConnectedTo", server.Url)
@@ -743,6 +795,9 @@ public partial class SettingsViewModel : ObservableObject
 
             _logger.Log($"[Settings] Switched server to {server.Url} (authenticated={authenticated})");
             LoadDoctorInfo();
+
+            if (authenticated)
+                _ = RunInitialSyncAsync();
         }
         catch (Exception ex)
         {
@@ -862,6 +917,7 @@ public partial class SettingsViewModel : ObservableObject
 
             if (success)
             {
+                IsAddingServer = false;
                 IsConnected = true;
                 ConnectionStatus = _localization.Format("ConnectedTo", ServerUrl);
                 SuccessMessage = _localization.GetString("ConnectedOk");

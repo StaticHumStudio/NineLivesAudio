@@ -55,7 +55,7 @@
                         <TextBox x:Name="ServerUrlBox" Header="Server URL"
                                  PlaceholderText="https://audiobooks.example.com"
                                  Text="{x:Bind ViewModel.ServerUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
+                                 IsEnabled="{x:Bind ViewModel.CanEditServerFields, Mode=OneWay}"/>
 
                         <!-- Username -->
                         <TextBlock Text="{x:Bind ViewModel.ServerUrlStatus, Mode=OneWay}" FontSize="11"
@@ -65,7 +65,7 @@
                         <TextBox x:Name="UsernameBox" Header="Username"
                                  loc:Loc.Placeholder="EnterUsername" PlaceholderText="Enter your username"
                                  Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
+                                 IsEnabled="{x:Bind ViewModel.CanEditServerFields, Mode=OneWay}"/>
 
                         <TextBlock Text="{x:Bind ViewModel.UsernameStatus, Mode=OneWay}" FontSize="11"
                                    Foreground="{ThemeResource RitualSuccessBrush}" Margin="0,-4,0,0"
@@ -75,7 +75,7 @@
                         <PasswordBox x:Name="PasswordBox" Header="Password"
                                      loc:Loc.Placeholder="EnterPassword" PlaceholderText="Enter your password"
                                      Password="{x:Bind ViewModel.Password, Mode=TwoWay}"
-                                     Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
+                                     Visibility="{x:Bind ViewModel.CanEditServerFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                         <!-- Connect/Disconnect Buttons -->
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -84,16 +84,24 @@
                                     Background="{ThemeResource SigilGoldBrush}"
                                     Foreground="{ThemeResource VoidDeepBrush}"
                                     Command="{x:Bind ViewModel.ConnectCommand}"
-                                    Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"
+                                    Visibility="{x:Bind ViewModel.CanEditServerFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
                                     IsEnabled="{x:Bind ViewModel.IsConnecting, Mode=OneWay, Converter={StaticResource BoolToInverseConverter}}"/>
+
+                            <Button x:Name="CancelAddServerButton" Content="Cancel"
+                                    Command="{x:Bind ViewModel.CancelAddServerCommand}"
+                                    Visibility="{x:Bind ViewModel.IsAddingServer, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                             <Button x:Name="DisconnectButton" Content="Disconnect"
                                     Command="{x:Bind ViewModel.DisconnectCommand}"
-                                    Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    Visibility="{x:Bind ViewModel.ShowConnectedActions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                             <Button x:Name="TestConnectionButton" Content="Test Connection"
                                     Command="{x:Bind ViewModel.TestConnectionCommand}"
-                                    Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    Visibility="{x:Bind ViewModel.ShowConnectedActions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                            <Button x:Name="AddServerButton" Content="Add Server"
+                                    Command="{x:Bind ViewModel.StartAddServerCommand}"
+                                    Visibility="{x:Bind ViewModel.ShowConnectedActions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                             <ProgressRing IsActive="{x:Bind ViewModel.IsConnecting, Mode=OneWay}"
                                           Visibility="{x:Bind ViewModel.IsConnecting, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
