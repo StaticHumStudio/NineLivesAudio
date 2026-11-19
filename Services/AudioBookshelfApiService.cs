@@ -268,7 +268,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
     public string LastFetchDiagnostics { get; private set; } = string.Empty;
 
-    public async Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 100, int page = 0)
+    public async Task<List<AudioBook>> GetLibraryItemsAsync(string libraryId, int limit = 500, int page = 0)
     {
         EnsureAuthenticated();
 
@@ -286,8 +286,20 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
             var allItems = new List<AudioBook>(first.Results.Select(MapToAudioBook));
 
-            // A short first page is the whole library.
-            if (first.Results.Count < limit)
+            // Page size as the server understands it, not as we asked. Servers that cap `limit`
+            // would otherwise make a short page look like the end of the library.
+            var pageSize = first.Results.Count;
+
+            // Everything arrived in this one page.
+            if (first.Total > 0 && pageSize >= first.Total)
+            {
+                LastRequestUnauthorized = false;
+                LastFetchDiagnostics = $"1 page in {watch.ElapsedMilliseconds} ms (whole library)";
+                return allItems;
+            }
+
+            // No `total` from this server version: a short page is all we can go by.
+            if (first.Total <= 0 && pageSize < limit)
                 return allItems;
 
             const int MaxPages = 200; // safety valve — never loop forever on a broken server
@@ -297,7 +309,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                 // `total` is known: fetch the remaining pages in parallel. 309 books used to be
                 // four sequential round trips (~5–12 s on a slow link); four at once cuts the
                 // wall clock to roughly one round trip.
-                var lastPage = (int)Math.Ceiling(first.Total / (double)limit) - 1;
+                var lastPage = (int)Math.Ceiling(first.Total / (double)pageSize) - 1;
                 var pages = Enumerable.Range(page + 1, Math.Max(0, lastPage - page))
                                       .Take(MaxPages)
                                       .ToList();
@@ -313,7 +325,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                         new ParallelOptions { MaxDegreeOfParallelism = 4 },
                         async (p, _) =>
                         {
-                            var response = await FetchLibraryPageAsync(libraryId, limit, p).ConfigureAwait(false);
+                            var response = await FetchLibraryPageAsync(libraryId, pageSize, p).ConfigureAwait(false);
                             if (response?.Results is { Count: > 0 })
                                 byPage[p] = response.Results.Select(MapToAudioBook).ToList();
                         }).ConfigureAwait(false);
@@ -327,14 +339,14 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
                     // If the last page was full the server has more books than `total` claimed:
                     // keep reading sequentially so nothing is silently dropped.
                     var lastFetched = pages[pages.Count - 1];
-                    var lastWasFull = byPage.TryGetValue(lastFetched, out var lastItems) && lastItems.Count >= limit;
+                    var lastWasFull = byPage.TryGetValue(lastFetched, out var lastItems) && lastItems.Count >= pageSize;
 
                     if (lastWasFull)
                     {
                         var currentPage = lastFetched + 1;
                         while (currentPage - page < MaxPages)
                         {
-                            var response = await FetchLibraryPageAsync(libraryId, limit, currentPage).ConfigureAwait(false);
+                            var response = await FetchLibraryPageAsync(libraryId, pageSize, currentPage).ConfigureAwait(false);
                             if (response?.Results == null || response.Results.Count == 0)
                                 break;
 
@@ -360,7 +372,7 @@ public class AudioBookshelfApiService : IAudioBookshelfApiService, IDisposable
 
                     allItems.AddRange(response.Results.Select(MapToAudioBook));
 
-                    if (response.Results.Count < limit)
+                    if (response.Results.Count < pageSize)
                         break;
 
                     currentPage++;

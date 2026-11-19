@@ -1049,6 +1049,8 @@ public partial class SettingsViewModel : ObservableObject
             SuccessMessage = _localization.GetString("Syncing");
             HasSuccess = true;
 
+            // The user asked explicitly: don't let the background dedupe swallow it.
+            await _syncService.SyncLibrariesAsync(force: true);
             await _syncService.SyncNowAsync();
 
             SuccessMessage = _localization.GetString("SyncDone");

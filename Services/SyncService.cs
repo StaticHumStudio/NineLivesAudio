@@ -44,6 +44,9 @@ public class SyncService : ISyncService, IDisposable
     // When the session's first library pull had to step aside for playback.
     private DateTime _librarySyncDeferredAt = DateTime.MinValue;
 
+    // When the last successful library pull finished (dedupe across callers).
+    private DateTime _lastLibraryPullCompletedAt = DateTime.MinValue;
+
     /// <summary>
     /// True while audio is loading or playing. Resolved lazily: SyncService is constructed before
     /// the playback service, so it cannot ask for it in the constructor.
@@ -215,7 +218,7 @@ public class SyncService : ISyncService, IDisposable
             if (libraryDue)
             {
                 _librarySyncDeferredAt = DateTime.MinValue;
-                await SyncLibrariesAsync();
+                await SyncLibrariesAsync(force: true);
                 _lastLibrarySyncAt = DateTime.UtcNow;
             }
             else if (_lastLibrarySyncAt != DateTime.MinValue)
@@ -248,7 +251,7 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
-    public async Task SyncLibrariesAsync()
+    public async Task SyncLibrariesAsync(bool force = false)
     {
         // Coalesce concurrent callers: whoever arrives while a sync is running waits
         // for it and then returns — the data is fresh already, no second download.
@@ -257,6 +260,16 @@ public class SyncService : ISyncService, IDisposable
             _logger.LogDebug("[Sync] Library sync already running — joining instead of duplicating");
             await _librariesLock.WaitAsync();
             _librariesLock.Release();
+            return;
+        }
+
+        // Three callers can ask for this within seconds — the home page, the library page and the
+        // timer. Pulling 310 items three times is how one slow pull became several.
+        if (!force &&
+            _lastLibraryPullCompletedAt != DateTime.MinValue &&
+            DateTime.UtcNow - _lastLibraryPullCompletedAt < TimeSpan.FromMinutes(2))
+        {
+            _logger.LogDebug($"[Sync] Library metadata pulled {DateTime.UtcNow - _lastLibraryPullCompletedAt:mm\\:ss} ago — skipping");
             return;
         }
 
@@ -372,6 +385,7 @@ public class SyncService : ISyncService, IDisposable
                     _logger.Log($"[Sync] Seeded {seeded} new PlaybackProgress entries from cached library data");
             }
 
+            _lastLibraryPullCompletedAt = DateTime.UtcNow;
             _logger.Log($"[Sync] Synced {libraries.Count} libraries");
         }
         catch (Exception ex)

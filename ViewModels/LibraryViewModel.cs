@@ -316,6 +316,8 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
                     await LoadLibrariesAsync();
                     if (SelectedLibrary != null)
                         _lastServerRefreshAt = DateTime.MinValue; // force the fetch below
+
+                    await _syncService.SyncLibrariesAsync(force: true);
                     await LoadAudioBooksAsync();
 
                     // Just fetched: let the throttle hold off the next page refresh.
@@ -742,7 +744,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
 
         // Explicit user action: pull the library too, not just progress, and allow the reload
         // below to hit the server even though the background throttle said "recently synced".
-        await _syncService.SyncLibrariesAsync();
+        await _syncService.SyncLibrariesAsync(force: true);
         await _syncService.SyncProgressAsync();
         _lastServerRefreshAt = DateTime.MinValue;
         await LoadLibrariesAsync();
