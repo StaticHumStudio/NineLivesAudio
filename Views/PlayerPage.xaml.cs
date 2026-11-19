@@ -28,6 +28,11 @@ public sealed partial class PlayerPage : Page
     private readonly INotificationService _notifications;
     private readonly IBookmarkQueue _bookmarkQueue;
     private bool _isUserSeeking = false;
+
+    // Set while RefreshProgressDisplay writes the slider. Those writes are not a seek — the
+    // FocusState check alone stopped working as soon as the thumb had been touched once.
+    private bool _isUpdatingProgressSlider;
+    private int _seekDebounceVersion;
     private bool _isChapterMode = false;
 
     // Set while the toggle is changed by code (restore / "this book has no chapters")
@@ -561,27 +566,68 @@ public sealed partial class PlayerPage : Page
 
     private void ProgressSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
-        // Only seek when user is interacting with the slider
-        if (sender is Slider slider && slider.FocusState != FocusState.Unfocused)
-        {
-            _isUserSeeking = true;
+        // Our own refresh writes this slider several times a second; those writes must never seek.
+        if (_isUpdatingProgressSlider) return;
+        if (sender is not Slider slider) return;
+        if (slider.FocusState == FocusState.Unfocused) return;
 
+        _isUserSeeking = true;
+        ScheduleSeek(e.NewValue);
+    }
+
+    /// <summary>
+    /// Dragging the thumb across a 2555-track book used to fire one cross-file load per pixel:
+    /// the log showed 253 "Media opened" lines in a single minute and 53 cached tracks. The seek
+    /// is now committed once the drag settles (or immediately on release).
+    /// </summary>
+    private void ScheduleSeek(double value)
+    {
+        var version = ++_seekDebounceVersion;
+
+        _ = Task.Run(async () =>
+        {
+            try { await Task.Delay(350); } catch { return; }
+            if (version != _seekDebounceVersion) return;
+            DispatcherQueue.TryEnqueue(() => _ = CommitSeekAsync(value));
+        });
+    }
+
+    private void ProgressSlider_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_isUpdatingProgressSlider) return;
+
+        // The thumb is up: commit now instead of waiting out the debounce.
+        _seekDebounceVersion++;
+        _ = CommitSeekAsync(ProgressSlider.Value);
+    }
+
+    private async Task CommitSeekAsync(double value)
+    {
+        try
+        {
             if (_isChapterMode)
             {
                 var chapter = _playbackService.CurrentChapter;
                 if (chapter != null && chapter.Duration.TotalSeconds > 0)
                 {
-                    // Map slider percentage to absolute position within current chapter
-                    var chapterPosition = chapter.Start + (chapter.Duration.TotalSeconds * e.NewValue / 100);
+                    var chapterPosition = chapter.Start + (chapter.Duration.TotalSeconds * value / 100);
                     chapterPosition = Math.Clamp(chapterPosition, chapter.Start, chapter.End);
-                    _ = _playbackService.SeekAsync(TimeSpan.FromSeconds(chapterPosition));
+                    await _playbackService.SeekAsync(TimeSpan.FromSeconds(chapterPosition));
+                    _logger.Log($"[Player] Chapter seek committed: {value:0.0}%");
                 }
             }
             else
             {
-                _ = ViewModel.SeekCommand.ExecuteAsync(e.NewValue);
+                await ViewModel.SeekCommand.ExecuteAsync(value);
+                _logger.Log($"[Player] Seek committed: {value:0.0}%");
             }
-
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"[Player] Seek failed: {ex.Message}");
+        }
+        finally
+        {
             _isUserSeeking = false;
         }
     }
@@ -782,7 +828,9 @@ public sealed partial class PlayerPage : Page
             var chapterElapsed = Math.Clamp(
                 position.TotalSeconds - chapter.Start, 0, chapter.Duration.TotalSeconds);
 
+            _isUpdatingProgressSlider = true;
             ProgressSlider.Value = chapterElapsed / chapter.Duration.TotalSeconds * 100;
+            _isUpdatingProgressSlider = false;
             CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(TimeSpan.FromSeconds(chapterElapsed));
             RemainingTimeText.Text =
                 $"-{TimeFormatHelper.FormatTimeSpan(TimeSpan.FromSeconds(chapter.Duration.TotalSeconds - chapterElapsed))}";
@@ -790,7 +838,11 @@ public sealed partial class PlayerPage : Page
         }
 
         if (duration.TotalSeconds > 0)
+        {
+            _isUpdatingProgressSlider = true;
             ProgressSlider.Value = Math.Clamp(position.TotalSeconds / duration.TotalSeconds * 100, 0, 100);
+            _isUpdatingProgressSlider = false;
+        }
 
         CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
         var remaining = duration - position;

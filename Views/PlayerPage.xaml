@@ -217,7 +217,8 @@
                             Grid.Row="0"
                             Minimum="0"
                             Maximum="100"
-                            ValueChanged="ProgressSlider_ValueChanged"/>
+                            ValueChanged="ProgressSlider_ValueChanged"
+                            PointerReleased="ProgressSlider_PointerReleased"/>
 
                     <Grid Grid.Row="1" Margin="0,4,0,0">
                         <TextBlock x:Name="CurrentTimeText"

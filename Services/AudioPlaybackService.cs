@@ -990,6 +990,11 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     private void WireMediaPlayerEvents()
     {
         if (_mediaPlayer == null) return;
+
+        // Called once per track load on a reused player, so the handlers must not stack: the
+        // user's log had "Stream ended (all tracks)" 141 times in a row from one event.
+        UnwireMediaPlayerEvents();
+
         _mediaPlayer.MediaEnded += OnMediaPlayerEnded;
         _mediaPlayer.MediaFailed += OnMediaPlayerFailed;
         _mediaPlayer.BufferingStarted += OnMediaPlayerBufferingStarted;
