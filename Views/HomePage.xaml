@@ -70,7 +70,7 @@
                        Style="{StaticResource CaptionStyle}"
                        HorizontalAlignment="Center"
                        Opacity="0.5"
-                       Visibility="{x:Bind ShowGrid, Mode=OneWay}"/>
+                       Visibility="{x:Bind ViewModel.ShowGrid, Mode=OneWay}"/>
         </StackPanel>
 
         <!-- Loading -->
@@ -105,7 +105,7 @@
         <!-- Nine Lives List -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Visibility="{x:Bind ShowGrid, Mode=OneWay}">
+                      Visibility="{x:Bind ViewModel.ShowGrid, Mode=OneWay}">
             <StackPanel x:Name="LivesContainer" MaxWidth="800" HorizontalAlignment="Center">
                 <ItemsRepeater x:Name="LivesGrid"
                                ItemsSource="{x:Bind ViewModel.Lives, Mode=OneWay}">

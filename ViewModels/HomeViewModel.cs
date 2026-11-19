@@ -21,10 +21,14 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowGrid))]
     private bool _isLoading;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowGrid))]
     private bool _showEmptyState;
+
+    public bool ShowGrid => !IsLoading && !ShowEmptyState;
 
     [ObservableProperty]
     private string _totalListeningTimeText = "";
