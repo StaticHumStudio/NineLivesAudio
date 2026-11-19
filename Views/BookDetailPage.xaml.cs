@@ -22,6 +22,9 @@ public sealed partial class BookDetailPage : Page
     private readonly ILoggingService _logger;
     private readonly ILocalizationService _localization;
     private readonly IAudioBookshelfApiService _apiService;
+    private readonly ILocalDatabase _database;
+    private readonly IAudioPlaybackService _playbackService;
+    private DateTime _lastLiveProgressAt = DateTime.MinValue;
 
     public BookDetailPage()
     {
@@ -31,6 +34,8 @@ public sealed partial class BookDetailPage : Page
         _logger = App.Services.GetRequiredService<ILoggingService>();
         _localization = App.Services.GetRequiredService<ILocalizationService>();
         _apiService = App.Services.GetRequiredService<IAudioBookshelfApiService>();
+        _database = App.Services.GetRequiredService<ILocalDatabase>();
+        _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();
         this.Unloaded += Page_Unloaded;
     }
 
@@ -47,6 +52,30 @@ public sealed partial class BookDetailPage : Page
             _viewModel.Initialize(audioBook);
             LoadBookDetails();
         }
+
+        // Coming back from the player: the pause happened while this page was unregistered
+        // (Page_Unloaded calls UnregisterAll), so nothing updated the numbers. Read the position
+        // that was just saved instead of showing where playback started.
+        _ = RefreshProgressAsync();
+
+        // While this page is the one on screen and its book is playing, follow the position.
+        WeakReferenceMessenger.Default.Register<PositionChangedMessage>(this, (r, m) =>
+        {
+            var page = (BookDetailPage)r;
+            if (page._audioBook == null) return;
+            if (page._playbackService.CurrentAudioBook?.Id != page._audioBook.Id) return;
+
+            var now = DateTime.UtcNow;
+            if ((now - page._lastLiveProgressAt).TotalMilliseconds < 1500) return;
+            page._lastLiveProgressAt = now;
+
+            page.DispatcherQueue.TryEnqueue(() =>
+            {
+                page._audioBook.CurrentTime = m.Value;
+                page._viewModel.Initialize(page._audioBook);
+                page.UpdateProgressDisplay();
+            });
+        });
 
         // Keep the "N% complete (x / y)" line current: pause and stop both persist a
         // position, and this page used to only pick it up when reopened.
@@ -73,6 +102,47 @@ public sealed partial class BookDetailPage : Page
                 page.UpdateProgressDisplay();
             });
         });
+    }
+
+    /// <summary>
+    /// Re-reads where this book actually is. The live player wins while it holds the book;
+    /// otherwise the database has the position that the pause just wrote.
+    /// </summary>
+    private async Task RefreshProgressAsync()
+    {
+        if (_audioBook == null) return;
+
+        try
+        {
+            var playing = _playbackService.CurrentAudioBook;
+
+            if (playing != null && playing.Id == _audioBook.Id)
+            {
+                var position = _playbackService.Position;
+                if (position > TimeSpan.Zero)
+                    _audioBook.CurrentTime = position;
+            }
+            else
+            {
+                var fresh = await _database.GetAudioBookAsync(_audioBook.Id);
+                if (fresh != null)
+                {
+                    _audioBook.CurrentTime = fresh.CurrentTime;
+                    _audioBook.Progress = fresh.Progress;
+                    _audioBook.IsFinished = fresh.IsFinished;
+                    if (fresh.Duration > TimeSpan.Zero)
+                        _audioBook.Duration = fresh.Duration;
+                }
+            }
+
+            _viewModel.Initialize(_audioBook);
+            UpdateProgressDisplay();
+            _logger.LogDebug($"[BookDetail] Progress refreshed: {_audioBook.CurrentTime} ({_audioBook.ProgressPercent:F1}%)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[BookDetail] Progress refresh failed: {ex.Message}");
+        }
     }
 
     private void Page_Loaded(object sender, RoutedEventArgs e)
