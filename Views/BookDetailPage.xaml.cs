@@ -249,11 +249,14 @@ public sealed partial class BookDetailPage : Page
             TagsPanel.Visibility = Visibility.Visible;
         }
 
-        // Description
-        if (!string.IsNullOrEmpty(_audioBook.Description))
+        // Description — Audiobookshelf stores it as HTML; render plain text.
+        var cleanedDescription = HtmlTextHelper.StripHtml(_audioBook.Description);
+        if (!string.IsNullOrEmpty(cleanedDescription))
         {
-            DescriptionText.Text = _audioBook.Description;
+            DescriptionText.Text = cleanedDescription;
             DescriptionPanel.Visibility = Visibility.Visible;
+            if (cleanedDescription.Length != (_audioBook.Description?.Length ?? 0))
+                _logger.Info($"[BookDetail] Description HTML stripped ({_audioBook.Description!.Length} -> {cleanedDescription.Length} chars)");
         }
 
         // Download state
