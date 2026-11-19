@@ -256,7 +256,7 @@ public sealed partial class BookDetailPage : Page
             DescriptionText.Text = cleanedDescription;
             DescriptionPanel.Visibility = Visibility.Visible;
             if (cleanedDescription.Length != (_audioBook.Description?.Length ?? 0))
-                _logger.Info($"[BookDetail] Description HTML stripped ({_audioBook.Description!.Length} -> {cleanedDescription.Length} chars)");
+                _logger.Log($"[BookDetail] Description HTML stripped ({_audioBook.Description!.Length} -> {cleanedDescription.Length} chars)");
         }
 
         // Download state
