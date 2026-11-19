@@ -805,6 +805,7 @@ public partial class SettingsViewModel : ObservableObject
             ServerName = string.Empty;
             ServerUrl = string.Empty;
             Username = string.Empty;
+            await _database.ClearAllDataAsync();
         }
 
         RefreshSavedServers();
