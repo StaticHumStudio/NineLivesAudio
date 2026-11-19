@@ -235,6 +235,16 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         try
         {
             var books = await _database.GetAudioBooksByLibraryAsync(SelectedLibrary.Id);
+            if (books.Count == 0 && !_apiService.IsAuthenticated)
+            {
+                Libraries.Clear();
+                SelectedLibrary = null;
+                AudioBooks.Clear();
+                FilteredAudioBooks.Clear();
+                _normalizedCache.Clear();
+                _logger.Log("[Library] Cleared in-memory shelf after server disconnect/delete");
+                return;
+            }
             MergeBooks(books);
             UpdateShowEmptyState();
             _logger.LogDebug($"[Library] Background refresh merged {books.Count} books (idle, no re-render)");
