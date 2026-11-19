@@ -222,7 +222,7 @@
                               loc:Loc.Placeholder="Sort" PlaceholderText="Sort" MinWidth="110"
                               SelectionChanged="SortComboBox_SelectionChanged"
                               VerticalAlignment="Center">
-                        <ComboBoxItem loc:Loc.Content="SortDefault" Content="Default" Tag="Default" IsSelected="True"/>
+                        <ComboBoxItem loc:Loc.Content="SortDefault" Content="Default" Tag="Default"/>
                         <ComboBoxItem loc:Loc.Content="SortTitle" Content="Title" Tag="Title"/>
                         <ComboBoxItem loc:Loc.Content="SortAuthor" Content="Author" Tag="Author"/>
                         <ComboBoxItem loc:Loc.Content="SortProgress" Content="Progress" Tag="Progress"/>

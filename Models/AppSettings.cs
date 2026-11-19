@@ -35,6 +35,12 @@ public class AppSettings
     /// <summary>UI language: "system" | "en-US" | "zh-CN".</summary>
     public string Language { get; set; } = "system";
 
+    // Library page: sort, filters and layout are per-user taste, so they survive a restart.
+    public string LibrarySortMode { get; set; } = "Default";
+    public bool LibraryHideFinished { get; set; } = false;
+    public bool LibraryShowDownloadedOnly { get; set; } = false;
+    public string LibraryViewMode { get; set; } = "All";
+
     // Security
     public bool AllowSelfSignedCertificates { get; set; } = false;
 

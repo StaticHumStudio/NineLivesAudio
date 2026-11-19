@@ -32,6 +32,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     private readonly IAudioBookshelfApiService _apiService;
     private readonly ILocalDatabase _database;
     private readonly IAudioPlaybackService _playbackService;
+    private readonly ISettingsService _settingsService;
     private readonly IDownloadService _downloadService;
     private readonly ISyncService _syncService;
     private readonly ILoggingService _logger;
@@ -128,11 +129,13 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         INotificationService notifications,
         IMetadataNormalizer normalizer,
         ILibraryFilterService filterService,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        ISettingsService settingsService)
     {
         _apiService = apiService;
         _database = database;
         _playbackService = playbackService;
+        _settingsService = settingsService;
         _downloadService = downloadService;
         _syncService = syncService;
         _logger = logger;
@@ -864,6 +867,58 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) { /* superseded by newer keystroke */ }
     }
 
+    // Set while applying saved preferences, so restoring does not immediately write them back.
+    private bool _restoringLibraryPreferences;
+
+    /// <summary>
+    /// Sort order, the two filters and the layout were reset on every launch. They are the kind
+    /// of setting a user sets once, so they are now stored alongside the rest of the app settings.
+    /// </summary>
+    private void RestoreLibraryPreferences()
+    {
+        _restoringLibraryPreferences = true;
+        try
+        {
+            var settings = _settingsService.Settings;
+
+            if (Enum.TryParse<SortMode>(settings.LibrarySortMode, out var sort))
+                CurrentSortMode = sort;
+            if (Enum.TryParse<ViewMode>(settings.LibraryViewMode, out var view))
+                CurrentViewMode = view;
+
+            HideFinished = settings.LibraryHideFinished;
+            ShowDownloadedOnly = settings.LibraryShowDownloadedOnly;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Library] Could not restore view preferences: {ex.Message}");
+        }
+        finally
+        {
+            _restoringLibraryPreferences = false;
+        }
+    }
+
+    private void PersistLibraryPreferences()
+    {
+        if (_restoringLibraryPreferences) return;
+
+        try
+        {
+            var settings = _settingsService.Settings;
+            settings.LibrarySortMode = CurrentSortMode.ToString();
+            settings.LibraryViewMode = CurrentViewMode.ToString();
+            settings.LibraryHideFinished = HideFinished;
+            settings.LibraryShowDownloadedOnly = ShowDownloadedOnly;
+
+            _ = _settingsService.SaveSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[Library] Could not save view preferences: {ex.Message}");
+        }
+    }
+
     partial void OnCurrentViewModeChanged(ViewMode value)
     {
         UpdateAvailableGroups();
@@ -879,11 +934,13 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
     partial void OnCurrentSortModeChanged(SortMode value)
     {
         ApplyFilterInternal();
+        PersistLibraryPreferences();
     }
 
     partial void OnHideFinishedChanged(bool value)
     {
         ApplyFilterInternal();
+        PersistLibraryPreferences();
     }
 
     partial void OnShowDownloadedOnlyChanged(bool value)
@@ -893,6 +950,7 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
             _autoOfflineFallback = false;
 
         ApplyFilterInternal();
+        PersistLibraryPreferences();
     }
 
     [RelayCommand]

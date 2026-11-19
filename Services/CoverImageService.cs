@@ -34,7 +34,9 @@ public static class CoverImageService
         if (string.IsNullOrEmpty(coverPath))
             return null;
 
-        var cacheKey = $"{coverPath}|{decodeWidth}x{decodeHeight}";
+        // Keyed by the cover's identity (item id), not the raw URL: the URL carries the auth
+        // token, so every relogin used to throw away the decoded bitmaps.
+        var cacheKey = $"{KeyFor(coverPath)}|{decodeWidth}x{decodeHeight}";
         if (Cache.TryGetValue(cacheKey, out var cached))
             return cached;
 
@@ -174,7 +176,7 @@ public static class CoverImageService
         if (string.IsNullOrEmpty(coverPath))
             return null;
 
-        var cacheKey = $"{coverPath}|thumb{width}x{height}";
+        var cacheKey = $"{KeyFor(coverPath)}|thumb{width}x{height}";
         if (Cache.TryGetValue(cacheKey, out var cached))
             return cached;
 

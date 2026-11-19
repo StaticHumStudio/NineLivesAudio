@@ -48,6 +48,7 @@ public sealed partial class LibraryPage : Page
         await ViewModel.InitializeAsync();
         _logger.Log("LibraryPage ViewModel initialized");
         SyncTogglesToViewModel();
+        RestoreSortSelection();
         UpdateViewDisplay();
         UpdateStatusPill();
     }
@@ -81,6 +82,25 @@ public sealed partial class LibraryPage : Page
                 if (DownloadedOnlyToggle.IsOn != ViewModel.ShowDownloadedOnly)
                     DownloadedOnlyToggle.IsOn = ViewModel.ShowDownloadedOnly;
             });
+        }
+    }
+
+    /// <summary>
+    /// The sort dropdown is driven by the ViewModel's remembered mode; without this it always
+    /// showed "Default" while the list was actually sorted the saved way.
+    /// </summary>
+    private void RestoreSortSelection()
+    {
+        var tag = ViewModel.CurrentSortMode.ToString();
+
+        for (var i = 0; i < SortComboBox.Items.Count; i++)
+        {
+            if (SortComboBox.Items[i] is ComboBoxItem item && item.Tag as string == tag)
+            {
+                if (SortComboBox.SelectedIndex != i)
+                    SortComboBox.SelectedIndex = i;
+                return;
+            }
         }
     }
 
