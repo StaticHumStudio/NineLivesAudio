@@ -288,7 +288,7 @@ public class SettingsService : ISettingsService
         return Task.CompletedTask;
     }
 
-    public void RememberServer(string serverUrl, string username)
+    public void RememberServer(string serverUrl, string username, string? name = null)
     {
         var url = SavedServer.Normalize(serverUrl);
         if (string.IsNullOrEmpty(url)) return;
@@ -298,12 +298,20 @@ public class SettingsService : ISettingsService
 
         if (existing == null)
         {
-            servers.Add(new SavedServer { Url = url, Username = username ?? string.Empty, LastUsedAt = DateTime.Now });
+            servers.Add(new SavedServer
+            {
+                Name = name?.Trim() ?? string.Empty,
+                Url = url,
+                Username = username ?? string.Empty,
+                LastUsedAt = DateTime.Now
+            });
         }
         else
         {
             existing.Url = url;
             existing.Username = username ?? string.Empty;
+            if (name != null)
+                existing.Name = name.Trim();
             existing.LastUsedAt = DateTime.Now;
         }
 
@@ -312,6 +320,32 @@ public class SettingsService : ISettingsService
             .OrderByDescending(s => s.LastUsedAt)
             .Take(8)
             .ToList();
+    }
+
+    public void RemoveServer(string serverUrl, string username)
+    {
+        var url = SavedServer.Normalize(serverUrl);
+        if (string.IsNullOrEmpty(url)) return;
+
+        var servers = Settings.SavedServers ??= new List<SavedServer>();
+        servers.RemoveAll(s => s.Matches(url, username));
+
+        try
+        {
+            var tokenPath = TokenPathFor(url);
+            if (File.Exists(tokenPath))
+                File.Delete(tokenPath);
+        }
+        catch { /* best-effort token cleanup */ }
+
+        try
+        {
+            var vault = new Windows.Security.Credentials.PasswordVault();
+            var resource = VaultResourceFor(url);
+            foreach (var cred in vault.FindAllByResource(resource))
+                vault.Remove(cred);
+        }
+        catch { /* not present in vault */ }
     }
 
     private void NormalizeSettings()

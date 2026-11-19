@@ -6,6 +6,7 @@ namespace NineLivesAudio.Models;
 /// </summary>
 public class SavedServer
 {
+    public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public DateTime LastUsedAt { get; set; }
@@ -14,6 +15,9 @@ public class SavedServer
     {
         get
         {
+            if (!string.IsNullOrWhiteSpace(Name))
+                return Name.Trim();
+
             var host = Url;
             try { host = new Uri(Url).Host; } catch { /* keep raw text */ }
 

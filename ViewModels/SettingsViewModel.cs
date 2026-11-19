@@ -44,6 +44,15 @@ public partial class SettingsViewModel : ObservableObject
 
     private string _previousServerUrl = string.Empty;
     private string _previousUsername = string.Empty;
+    private string _previousServerName = string.Empty;
+
+    [ObservableProperty]
+    private string _serverName = string.Empty;
+
+    [ObservableProperty]
+    private string _serverNameStatus = string.Empty;
+
+    public bool HasSelectedServer => SelectedServer != null;
 
     [ObservableProperty]
     private bool _isConnecting;
@@ -698,6 +707,7 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnSelectedServerChanged(SavedServer? value)
     {
+        OnPropertyChanged(nameof(HasSelectedServer));
         if (_isLoadingSettings || value == null) return;
 
         // Selecting the server that is already active must not restart anything.
@@ -733,6 +743,9 @@ public partial class SettingsViewModel : ObservableObject
 
             SelectedServer = SavedServers.FirstOrDefault(s =>
                 SavedServer.Normalize(s.Url) == SavedServer.Normalize(currentUrl));
+            OnPropertyChanged(nameof(HasSelectedServer));
+            if (!IsAddingServer)
+                ServerName = SelectedServer?.Name ?? string.Empty;
         }
         finally
         {
@@ -745,10 +758,13 @@ public partial class SettingsViewModel : ObservableObject
     {
         _previousServerUrl = ServerUrl;
         _previousUsername = Username;
+        _previousServerName = ServerName;
         IsAddingServer = true;
+        ServerName = string.Empty;
         ServerUrl = string.Empty;
         Username = string.Empty;
         Password = string.Empty;
+        ServerNameStatus = string.Empty;
         ServerUrlStatus = string.Empty;
         UsernameStatus = string.Empty;
         ServerSwitchStatus = string.Empty;
@@ -759,12 +775,51 @@ public partial class SettingsViewModel : ObservableObject
     private void CancelAddServer()
     {
         IsAddingServer = false;
+        ServerName = _previousServerName;
         ServerUrl = _previousServerUrl;
         Username = _previousUsername;
         Password = string.Empty;
+        ServerNameStatus = string.Empty;
         ServerUrlStatus = string.Empty;
         UsernameStatus = string.Empty;
         _logger.Log("[Settings] Cancelled Add Server mode");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedServerAsync()
+    {
+        var target = SelectedServer;
+        if (target == null) return;
+
+        var isCurrent = SavedServer.Normalize(ServerUrl) == SavedServer.Normalize(target.Url)
+                        && string.Equals(Username ?? string.Empty, target.Username ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+
+        if (isCurrent && IsConnected)
+            await DisconnectAsync();
+
+        _settingsService.RemoveServer(target.Url, target.Username);
+        await _settingsService.SaveSettingsAsync();
+
+        if (isCurrent)
+        {
+            ServerName = string.Empty;
+            ServerUrl = string.Empty;
+            Username = string.Empty;
+        }
+
+        RefreshSavedServers();
+        _logger.Log($"[Settings] Removed saved server {target.Url} (wasCurrent={isCurrent})");
+    }
+
+    partial void OnServerNameChanged(string value)
+    {
+        if (_isLoadingSettings || IsAddingServer || SelectedServer == null) return;
+        SelectedServer.Name = value?.Trim() ?? string.Empty;
+        AutoSave(s =>
+        {
+            ServerNameStatus = s;
+            RefreshSavedServers();
+        }, 500);
     }
 
     /// <summary>
@@ -934,7 +989,7 @@ public partial class SettingsViewModel : ObservableObject
                 Password = string.Empty; // Clear password from UI
 
                 await SaveSettingsAsync();
-                _settingsService.RememberServer(ServerUrl, Username);
+                _settingsService.RememberServer(ServerUrl, Username, ServerName);
                 RefreshSavedServers();
                 LoadDoctorInfo();
 

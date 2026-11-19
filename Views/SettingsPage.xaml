@@ -36,20 +36,39 @@
 
                         <!-- Remembered servers -->
                         <StackPanel>
-                            <ComboBox x:Name="SavedServerBox" Header="Saved servers"
-                                      HorizontalAlignment="Stretch"
-                                      ItemsSource="{x:Bind ViewModel.SavedServers}"
-                                      SelectedItem="{x:Bind ViewModel.SelectedServer, Mode=TwoWay}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="models:SavedServer">
-                                        <TextBlock Text="{x:Bind DisplayName}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="SavedServerBox" Grid.Column="0" Header="Saved servers"
+                                          HorizontalAlignment="Stretch"
+                                          ItemsSource="{x:Bind ViewModel.SavedServers}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedServer, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:SavedServer">
+                                            <TextBlock Text="{x:Bind DisplayName}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button x:Name="DeleteServerButton" Grid.Column="1" Content="Delete"
+                                        VerticalAlignment="Bottom"
+                                        Command="{x:Bind ViewModel.DeleteSelectedServerCommand}"
+                                        IsEnabled="{x:Bind ViewModel.HasSelectedServer, Mode=OneWay}"/>
+                            </Grid>
                             <TextBlock Text="{x:Bind ViewModel.ServerSwitchStatus, Mode=OneWay}" FontSize="11"
                                        Foreground="{ThemeResource RitualSuccessBrush}" TextWrapping="Wrap"
                                        Visibility="{x:Bind ViewModel.ServerSwitchStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
                         </StackPanel>
+
+                        <!-- Server Name (optional) -->
+                        <TextBox x:Name="ServerNameBox" Header="Server name (optional)"
+                                 PlaceholderText="e.g. Home NAS"
+                                 Text="{x:Bind ViewModel.ServerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <TextBlock Text="{x:Bind ViewModel.ServerNameStatus, Mode=OneWay}" FontSize="11"
+                                   Foreground="{ThemeResource RitualSuccessBrush}" Margin="0,-4,0,0"
+                                   Visibility="{x:Bind ViewModel.ServerNameStatus, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                         <!-- Server URL -->
                         <TextBox x:Name="ServerUrlBox" Header="Server URL"

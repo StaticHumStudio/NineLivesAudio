@@ -105,6 +105,12 @@ public sealed partial class SettingsPage : Page
         }
         if (ServerConnectionTitle != null) ServerConnectionTitle.Text = _localization.GetString("ServerConnection");
         if (SavedServerBox != null) SavedServerBox.Header = _localization.GetString("SavedServers");
+        if (DeleteServerButton != null) DeleteServerButton.Content = _localization.GetString("Delete");
+        if (ServerNameBox != null)
+        {
+            ServerNameBox.Header = _localization.GetString("ServerName");
+            ServerNameBox.PlaceholderText = _localization.GetString("ServerNamePlaceholder");
+        }
         if (ServerUrlBox != null) ServerUrlBox.Header = _localization.GetString("ServerUrl");
         if (UsernameBox != null) UsernameBox.Header = _localization.GetString("Username");
         if (PasswordBox != null) PasswordBox.Header = _localization.GetString("Password");
