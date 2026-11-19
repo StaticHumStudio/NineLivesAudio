@@ -116,6 +116,10 @@ public class AppInitializer : IAppInitializer
             }
 
             SetState(InitState.Ready);
+            // How much cover art is already on disk — covers are permanent, so this is the
+            // quickest way to confirm the cache survived an update.
+            CoverImageService.LogCacheSummary();
+
             _logger.Log("AppInitializer: initialization complete");
         }
         catch (Exception ex)

@@ -124,6 +124,12 @@ public static class CoverImageService
 
                 if (settings != null && !settings.Settings.AutoDownloadCovers) return;
 
+                // Covers are the least urgent download in the app. While audio is playing, give
+                // the link to the player first — 300 covers at once is otherwise a bandwidth
+                // fight the stream loses.
+                if (IsPlaybackActive())
+                    await Task.Delay(1500).ConfigureAwait(false);
+
                 await DownloadSlots.WaitAsync().ConfigureAwait(false);
                 try
                 {
@@ -197,4 +203,75 @@ public static class CoverImageService
     /// <summary>Drops the in-memory images; the files on disk stay (that is the point).</summary>
     /// <summary>Clears the cover cache (e.g. on logout / cache clear).</summary>
     public static void ClearCache() => Cache.Clear();
+
+    /// <summary>
+    /// Deletes the downloaded covers from disk. They are permanent by design (they survive
+    /// restarts and updates), so this only runs when the user asks for it.
+    /// </summary>
+    public static void ClearDiskCache()
+    {
+        ClearCache();
+
+        try
+        {
+            if (!Directory.Exists(AppPaths.CoversDirectory)) return;
+
+            var deleted = 0;
+            foreach (var file in Directory.GetFiles(AppPaths.CoversDirectory, "*.img"))
+            {
+                try { File.Delete(file); deleted++; }
+                catch { /* in use */ }
+            }
+
+            _storedCount = 0;
+            Log("[Covers] cleared {0} cover file(s) from {1}", deleted, AppPaths.CoversDirectory);
+        }
+        catch { /* nothing to clear */ }
+    }
+
+    /// <summary>One line at start-up so the folder's size can be checked from the log.</summary>
+    public static void LogCacheSummary()
+    {
+        try
+        {
+            if (!Directory.Exists(AppPaths.CoversDirectory))
+            {
+                Log("[Covers] cache is empty ({0})", AppPaths.CoversDirectory);
+                return;
+            }
+
+            var files = Directory.GetFiles(AppPaths.CoversDirectory, "*.img");
+            long bytes = 0;
+            foreach (var file in files)
+            {
+                try { bytes += new FileInfo(file).Length; } catch { /* vanished */ }
+            }
+
+            Log("[Covers] {0} cover(s), {1:0.0} MB on disk in {2}",
+                files.Length, bytes / 1024.0 / 1024.0, AppPaths.CoversDirectory);
+        }
+        catch { /* logging is optional */ }
+    }
+
+    private static bool IsPlaybackActive()
+    {
+        try
+        {
+            if (App.Services?.GetService(typeof(IAudioPlaybackService)) is IAudioPlaybackService playback)
+                return playback.State is PlaybackState.Playing or PlaybackState.Loading or PlaybackState.Buffering;
+        }
+        catch { /* services not ready */ }
+
+        return false;
+    }
+
+    private static void Log(string template, params object[] args)
+    {
+        try
+        {
+            var logger = App.Services?.GetService(typeof(ILoggingService)) as ILoggingService;
+            logger?.Log(string.Format(template, args));
+        }
+        catch { /* logging is optional */ }
+    }
 }

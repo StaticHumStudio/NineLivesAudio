@@ -18,6 +18,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ILocalizationService _localization;
     private readonly IAudioPlaybackService _playbackService;
     private readonly IUpdateService _updateService;
+    private readonly IStreamCacheService _streamCache;
 
     [ObservableProperty]
     private string _serverUrl = string.Empty;
@@ -213,7 +214,8 @@ public partial class SettingsViewModel : ObservableObject
         ISyncService syncService,
         ILocalizationService localization,
         IAudioPlaybackService playbackService,
-        IUpdateService updateService)
+        IUpdateService updateService,
+        IStreamCacheService streamCache)
     {
         _settingsService = settingsService;
         _apiService = apiService;
@@ -223,6 +225,7 @@ public partial class SettingsViewModel : ObservableObject
         _localization = localization;
         _playbackService = playbackService;
         _updateService = updateService;
+        _streamCache = streamCache;
 
         // Seed localized defaults before the page is shown.
         ConnectionStatus = _localization.GetString("NotConnectedStatus");
@@ -1018,8 +1021,11 @@ public partial class SettingsViewModel : ObservableObject
             HasSuccess = false;
 
             await _database.ClearAllDataAsync();
-            // Drop decoded cover art too, otherwise memory keeps the old bitmaps.
-            CoverImageService.ClearCache();
+
+            // Clear what is actually on disk too — covers and cached tracks used to survive, so
+            // "clear local cache" only looked like it worked.
+            CoverImageService.ClearDiskCache();
+            await _streamCache.ClearAsync();
 
             SuccessMessage = _localization.GetString("CacheCleared");
             HasSuccess = true;
