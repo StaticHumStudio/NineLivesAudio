@@ -141,7 +141,6 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
     private async Task StopAsync()
     {
         await _playbackService.StopAsync();

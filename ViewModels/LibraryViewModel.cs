@@ -441,7 +441,6 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
-    [RelayCommand]
     private Task LoadLibrariesAsync()
     {
         if (_dispatcherQueue is { HasThreadAccess: false })
@@ -585,7 +584,6 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
         return true;
     }
 
-    [RelayCommand]
     private Task LoadAudioBooksAsync()
     {
         if (_dispatcherQueue is { HasThreadAccess: false })
@@ -951,12 +949,6 @@ public partial class LibraryViewModel : ObservableObject, IDisposable
 
         ApplyFilterInternal();
         PersistLibraryPreferences();
-    }
-
-    [RelayCommand]
-    private void SetViewMode(ViewMode mode)
-    {
-        CurrentViewMode = mode;
     }
 
     private void UpdateAvailableGroups()

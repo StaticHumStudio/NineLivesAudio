@@ -38,6 +38,11 @@ public sealed partial class BookDetailPage : Page
         _database = App.Services.GetRequiredService<ILocalDatabase>();
         _playbackService = App.Services.GetRequiredService<IAudioPlaybackService>();
         this.Unloaded += Page_Unloaded;
+
+        // The chapter rows are produced by XamlReader, so event handlers cannot be declared in the
+        // template. Attaching them when a row is realised is the supported route.
+        ChaptersRepeater.ElementPrepared += ChaptersRepeater_ElementPrepared;
+        ThemeService.PaletteChanged += OnPaletteChanged;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -152,6 +157,7 @@ public sealed partial class BookDetailPage : Page
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        ThemeService.PaletteChanged -= OnPaletteChanged;
         _localization.LanguageChanged -= ApplyLocalization;
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }
@@ -376,6 +382,63 @@ public sealed partial class BookDetailPage : Page
         MetadataItemsPanel.Children.Add(grid);
     }
 
+    private void ChaptersRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        if (args.Element is not FrameworkElement row) return;
+
+        row.Tapped -= ChapterRow_Tapped;
+        row.Tapped += ChapterRow_Tapped;
+    }
+
+    /// <summary>
+    /// Clicking a chapter used to do nothing at all — the list was display-only. Now it loads the
+    /// book if the player is holding another one, jumps to that chapter and opens the player.
+    /// </summary>
+    private async void ChapterRow_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        if (_audioBook == null) return;
+        if (sender is not FrameworkElement row || row.DataContext is not ChapterDisplayItem item) return;
+
+        var chapterIndex = item.Index - 1;
+        if (chapterIndex < 0) return;
+
+        try
+        {
+            if (_playbackService.CurrentAudioBook?.Id != _audioBook.Id)
+            {
+                _logger.Log($"[BookDetail] Chapter tap needs the book in the player: {_audioBook.Title}");
+                if (!await _playbackService.LoadAudioBookAsync(_audioBook))
+                {
+                    _logger.LogWarning($"[BookDetail] Could not load '{_audioBook.Title}' for a chapter jump");
+                    return;
+                }
+            }
+
+            await _playbackService.SeekToChapterAsync(chapterIndex);
+            await _playbackService.PlayAsync();
+
+            _logger.Log($"[BookDetail] Jumped to chapter #{item.Index}: {item.Title}");
+            Frame.Navigate(typeof(PlayerPage));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"[BookDetail] Chapter jump failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The row brushes are snapshots, so a theme switch has to rebuild the lists.
+    /// </summary>
+    private void OnPaletteChanged()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_audioBook == null) return;
+            LoadChapters();
+            LoadTracks();
+        });
+    }
+
     private void LoadChapters()
     {
         var chapterItems = _viewModel.GetChapterDisplayItems();
@@ -397,7 +460,7 @@ public sealed partial class BookDetailPage : Page
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
                 <Grid CornerRadius=""4"" Padding=""12,8""
-                      Background=""{Binding ChapterBackground}"">
+                      Background=""{Binding RowBackgroundBrush}"">
                     <Grid.RowDefinitions>
                         <RowDefinition Height=""Auto""/>
                         <RowDefinition Height=""Auto""/>
@@ -408,18 +471,18 @@ public sealed partial class BookDetailPage : Page
                         <ColumnDefinition Width=""Auto""/>
                         <ColumnDefinition Width=""Auto""/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""#FF6B7280""/>
+                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""{Binding MetaBrush}""/>
                     <TextBlock Grid.Column=""1"" Text=""{Binding Title}"" TextTrimming=""CharacterEllipsis""
-                               FontWeight=""{Binding TitleWeight}"" Foreground=""#FFE0E0E8""/>
+                               FontWeight=""{Binding TitleWeight}"" Foreground=""{Binding TitleBrush}""/>
                     <TextBlock Grid.Column=""2"" Text=""{Binding StatusIcon}"" Margin=""8,0,0,0"" FontSize=""12""
-                               Foreground=""#FFC5A55A""/>
-                    <TextBlock Grid.Column=""3"" Text=""{Binding StartTime}"" Foreground=""#FF6B7280"" Margin=""8,0,0,0""/>
+                               Foreground=""{Binding AccentBrush}""/>
+                    <TextBlock Grid.Column=""3"" Text=""{Binding StartTime}"" Foreground=""{Binding MetaBrush}"" Margin=""8,0,0,0""/>
                     <ProgressBar Grid.Row=""1"" Grid.ColumnSpan=""4""
                                  Minimum=""0"" Maximum=""100""
                                  Value=""{Binding ProgressPercent}""
                                  Height=""3"" Margin=""0,4,0,0""
                                  CornerRadius=""2""
-                                 Foreground=""#FFC5A55A""
+                                 Foreground=""{Binding AccentBrush}""
                                  Visibility=""{Binding ProgressBarVisibility}""/>
                 </Grid>
             </DataTemplate>");
@@ -445,7 +508,7 @@ public sealed partial class BookDetailPage : Page
     {
         var template = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(@"
             <DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
-                <Grid Background=""#FF111827""
+                <Grid Background=""{Binding RowBackgroundBrush}""
                       CornerRadius=""4""
                       Padding=""12,8"">
                     <Grid.ColumnDefinitions>
@@ -453,10 +516,10 @@ public sealed partial class BookDetailPage : Page
                         <ColumnDefinition Width=""*""/>
                         <ColumnDefinition Width=""Auto""/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""#FF6B7280""/>
+                    <TextBlock Grid.Column=""0"" Text=""{Binding Index}"" Foreground=""{Binding MetaBrush}""/>
                     <TextBlock Grid.Column=""1"" Text=""{Binding Title}"" TextTrimming=""CharacterEllipsis""
-                               Foreground=""#FFE0E0E8""/>
-                    <TextBlock Grid.Column=""2"" Text=""{Binding Duration}"" Foreground=""#FF6B7280"" Margin=""8,0,0,0""/>
+                               Foreground=""{Binding TitleBrush}""/>
+                    <TextBlock Grid.Column=""2"" Text=""{Binding Duration}"" Foreground=""{Binding MetaBrush}"" Margin=""8,0,0,0""/>
                 </Grid>
             </DataTemplate>");
         return template;

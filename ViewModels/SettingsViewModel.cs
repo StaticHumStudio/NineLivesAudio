@@ -989,7 +989,6 @@ public partial class SettingsViewModel : ObservableObject
     /// Safety net for the connect flow (it changes server + credentials at once). The
     /// settings page itself has no Save button: individual controls persist themselves.
     /// </summary>
-    [RelayCommand]
     private async Task SaveSettingsAsync()
     {
         try
@@ -1184,10 +1183,4 @@ public partial class SettingsViewModel : ObservableObject
         ErrorMessage = string.Empty;
     }
 
-    [RelayCommand]
-    private void DismissSuccess()
-    {
-        HasSuccess = false;
-        SuccessMessage = string.Empty;
-    }
 }

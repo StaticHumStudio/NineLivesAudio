@@ -26,7 +26,6 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _showEmptyState;
 
-
     [ObservableProperty]
     private string _totalListeningTimeText = "";
 
@@ -46,7 +45,6 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _logger = loggingService;
         _normalizer = normalizer;
         _localization = localization;
-
 
         // Live progress: the list used to be a snapshot of the database taken when the page
         // loaded, so the time next to the ring stayed frozen until you left and came back.
@@ -334,25 +332,6 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         return AppLanguage.FormatShortDate(timestamp);
     }
 
-    [RelayCommand]
-    private async Task PlayBookAsync(NineLivesItem? item)
-    {
-        if (item?.AudioBook == null) return;
-
-        try
-        {
-            _logger.Log($"[Home] Resuming: {item.DisplayTitle}");
-            var loaded = await _playbackService.LoadAudioBookAsync(item.AudioBook);
-            if (loaded)
-            {
-                await _playbackService.PlayAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("[Home] Play failed", ex);
-        }
-    }
 }
 
 /// <summary>

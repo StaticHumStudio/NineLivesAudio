@@ -48,19 +48,13 @@
             <Color x:Key="RitualWarning">#FFFBBF24</Color>
 
             <SolidColorBrush x:Key="VoidDeepBrush" Color="{StaticResource VoidDeep}"/>
-            <SolidColorBrush x:Key="VoidBaseBrush" Color="{StaticResource VoidBase}"/>
             <SolidColorBrush x:Key="VoidSurfaceBrush" Color="{StaticResource VoidSurface}"/>
             <SolidColorBrush x:Key="VoidElevatedBrush" Color="{StaticResource VoidElevated}"/>
 
             <SolidColorBrush x:Key="NebulaDarkBrush" Color="{StaticResource NebulaDark}"/>
-            <SolidColorBrush x:Key="NebulaMidBrush" Color="{StaticResource NebulaMid}"/>
-            <SolidColorBrush x:Key="NebulaLightBrush" Color="{StaticResource NebulaLight}"/>
 
             <SolidColorBrush x:Key="SigilGoldBrush" Color="{StaticResource SigilGold}"/>
-            <SolidColorBrush x:Key="SigilGoldBrightBrush" Color="{StaticResource SigilGoldBright}"/>
             <SolidColorBrush x:Key="SigilGoldDimBrush" Color="{StaticResource SigilGoldDim}"/>
-            <SolidColorBrush x:Key="SigilGoldGlowBrush" Color="{StaticResource SigilGoldGlow}"/>
-            <SolidColorBrush x:Key="SigilGoldFaintBrush" Color="{StaticResource SigilGoldFaint}"/>
 
             <SolidColorBrush x:Key="StarlightBrush" Color="{StaticResource Starlight}"/>
             <SolidColorBrush x:Key="StarlightDimBrush" Color="{StaticResource StarlightDim}"/>
@@ -73,11 +67,6 @@
             <SolidColorBrush x:Key="RitualWarningBrush" Color="{StaticResource RitualWarning}"/>
             <SolidColorBrush x:Key="RitualErrorFaintBrush" Color="#33EF4444"/>
 
-            <LinearGradientBrush x:Key="SigilProgressGradient" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{StaticResource SigilGold}" Offset="0.0"/>
-                <GradientStop Color="{StaticResource NebulaLight}" Offset="1.0"/>
-            </LinearGradientBrush>
-
             <!-- BACKWARD COMPAT: old Cosmic* aliases -->
             <Color x:Key="CosmicDeep">#FF050810</Color>
             <Color x:Key="CosmicSurface">#FF111827</Color>
@@ -88,14 +77,6 @@
             <Color x:Key="CosmicTextSecondary">#FF9BA4B5</Color>
             <Color x:Key="CosmicBorderGlow">#33C5A55A</Color>
 
-            <SolidColorBrush x:Key="CosmicDeepBrush" Color="{StaticResource CosmicDeep}"/>
-            <SolidColorBrush x:Key="CosmicSurfaceBrush" Color="{StaticResource CosmicSurface}"/>
-            <SolidColorBrush x:Key="CosmicCardBrush" Color="{StaticResource CosmicCard}"/>
-            <SolidColorBrush x:Key="CosmicAccentBrush" Color="{StaticResource CosmicAccent}"/>
-            <SolidColorBrush x:Key="CosmicSuccessBrush" Color="{StaticResource CosmicSuccess}"/>
-            <SolidColorBrush x:Key="CosmicTextPrimaryBrush" Color="{StaticResource CosmicTextPrimary}"/>
-            <SolidColorBrush x:Key="CosmicTextSecondaryBrush" Color="{StaticResource CosmicTextSecondary}"/>
-            <SolidColorBrush x:Key="CosmicBorderGlowBrush" Color="{StaticResource CosmicBorderGlow}"/>
         </ResourceDictionary>
 
         <!-- LIGHT: same keys (and the same names), daylight palette -->
@@ -131,19 +112,13 @@
             <Color x:Key="RitualWarning">#FFB45309</Color>
 
             <SolidColorBrush x:Key="VoidDeepBrush" Color="{StaticResource VoidDeep}"/>
-            <SolidColorBrush x:Key="VoidBaseBrush" Color="{StaticResource VoidBase}"/>
             <SolidColorBrush x:Key="VoidSurfaceBrush" Color="{StaticResource VoidSurface}"/>
             <SolidColorBrush x:Key="VoidElevatedBrush" Color="{StaticResource VoidElevated}"/>
 
             <SolidColorBrush x:Key="NebulaDarkBrush" Color="{StaticResource NebulaDark}"/>
-            <SolidColorBrush x:Key="NebulaMidBrush" Color="{StaticResource NebulaMid}"/>
-            <SolidColorBrush x:Key="NebulaLightBrush" Color="{StaticResource NebulaLight}"/>
 
             <SolidColorBrush x:Key="SigilGoldBrush" Color="{StaticResource SigilGold}"/>
-            <SolidColorBrush x:Key="SigilGoldBrightBrush" Color="{StaticResource SigilGoldBright}"/>
             <SolidColorBrush x:Key="SigilGoldDimBrush" Color="{StaticResource SigilGoldDim}"/>
-            <SolidColorBrush x:Key="SigilGoldGlowBrush" Color="{StaticResource SigilGoldGlow}"/>
-            <SolidColorBrush x:Key="SigilGoldFaintBrush" Color="{StaticResource SigilGoldFaint}"/>
 
             <SolidColorBrush x:Key="StarlightBrush" Color="{StaticResource Starlight}"/>
             <SolidColorBrush x:Key="StarlightDimBrush" Color="{StaticResource StarlightDim}"/>
@@ -156,11 +131,6 @@
             <SolidColorBrush x:Key="RitualWarningBrush" Color="{StaticResource RitualWarning}"/>
             <SolidColorBrush x:Key="RitualErrorFaintBrush" Color="#33DC2626"/>
 
-            <LinearGradientBrush x:Key="SigilProgressGradient" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{StaticResource SigilGold}" Offset="0.0"/>
-                <GradientStop Color="{StaticResource NebulaLight}" Offset="1.0"/>
-            </LinearGradientBrush>
-
             <Color x:Key="CosmicDeep">#FFF6F7F9</Color>
             <Color x:Key="CosmicSurface">#FFFFFFFF</Color>
             <Color x:Key="CosmicCard">#FFEDF0F5</Color>
@@ -170,14 +140,6 @@
             <Color x:Key="CosmicTextSecondary">#FF55606F</Color>
             <Color x:Key="CosmicBorderGlow">#33C5A55A</Color>
 
-            <SolidColorBrush x:Key="CosmicDeepBrush" Color="{StaticResource CosmicDeep}"/>
-            <SolidColorBrush x:Key="CosmicSurfaceBrush" Color="{StaticResource CosmicSurface}"/>
-            <SolidColorBrush x:Key="CosmicCardBrush" Color="{StaticResource CosmicCard}"/>
-            <SolidColorBrush x:Key="CosmicAccentBrush" Color="{StaticResource CosmicAccent}"/>
-            <SolidColorBrush x:Key="CosmicSuccessBrush" Color="{StaticResource CosmicSuccess}"/>
-            <SolidColorBrush x:Key="CosmicTextPrimaryBrush" Color="{StaticResource CosmicTextPrimary}"/>
-            <SolidColorBrush x:Key="CosmicTextSecondaryBrush" Color="{StaticResource CosmicTextSecondary}"/>
-            <SolidColorBrush x:Key="CosmicBorderGlowBrush" Color="{StaticResource CosmicBorderGlow}"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -186,44 +148,21 @@
          ORBIT SPACING SYSTEM
          Core → Inner → Mid → Outer (gravity metaphor)
          ════════════════════════════════════════════════════════════════════ -->
-    <x:Double x:Key="OrbitCore">0</x:Double>
-    <x:Double x:Key="OrbitInner">12</x:Double>
-    <x:Double x:Key="OrbitInnerFar">16</x:Double>
-    <x:Double x:Key="OrbitMid">24</x:Double>
-    <x:Double x:Key="OrbitMidFar">32</x:Double>
-    <x:Double x:Key="OrbitOuter">48</x:Double>
-    <x:Double x:Key="OrbitOuterFar">64</x:Double>
 
     <!-- Backward-compatible flat spacing -->
-    <x:Double x:Key="SpacingXS">4</x:Double>
-    <x:Double x:Key="SpacingSM">8</x:Double>
-    <x:Double x:Key="SpacingMD">12</x:Double>
-    <x:Double x:Key="SpacingLG">16</x:Double>
-    <x:Double x:Key="SpacingXL">24</x:Double>
-    <x:Double x:Key="SpacingXXL">32</x:Double>
 
     <Thickness x:Key="PagePadding">32,24,32,24</Thickness>
-    <Thickness x:Key="AltarPadding">24,32,24,32</Thickness>
     <Thickness x:Key="CardPadding">16</Thickness>
-    <Thickness x:Key="SectionSpacing">0,0,0,24</Thickness>
 
     <!-- Corner Radius -->
     <CornerRadius x:Key="RadiusSM">4</CornerRadius>
     <CornerRadius x:Key="RadiusMD">8</CornerRadius>
-    <CornerRadius x:Key="RadiusLG">12</CornerRadius>
-    <CornerRadius x:Key="RadiusRound">9999</CornerRadius>
 
     <!-- ════════════════════════════════════════════════════════════════════
          TYPOGRAPHY — Ritual + Standard
          ════════════════════════════════════════════════════════════════════ -->
 
     <!-- Ritual Display: major page headers (THE ALTAR, THE ARCHIVE) -->
-    <Style x:Key="RitualDisplayStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="32"/>
-        <Setter Property="FontWeight" Value="Light"/>
-        <Setter Property="CharacterSpacing" Value="200"/>
-        <Setter Property="Foreground" Value="{ThemeResource StarlightDimBrush}"/>
-    </Style>
 
     <!-- Ritual Title: section headers -->
     <Style x:Key="RitualTitleStyle" TargetType="TextBlock">
@@ -335,13 +274,6 @@
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
-    <Style x:Key="LargeCircularButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
-        <Setter Property="CornerRadius" Value="36"/>
-        <Setter Property="Width" Value="72"/>
-        <Setter Property="Height" Value="72"/>
-        <Setter Property="Padding" Value="0"/>
-    </Style>
-
     <!-- Sigil Play Button: gold, sacred -->
     <Style x:Key="SigilPlayButtonStyle" TargetType="Button">
         <Setter Property="CornerRadius" Value="36"/>
@@ -365,41 +297,14 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
-    <Style x:Key="MediumCircularButtonStyle" TargetType="Button">
-        <Setter Property="CornerRadius" Value="24"/>
-        <Setter Property="Width" Value="48"/>
-        <Setter Property="Height" Value="48"/>
-        <Setter Property="Padding" Value="0"/>
-        <Setter Property="Background" Value="{ThemeResource VoidElevatedBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
-    </Style>
-
     <!-- ════════════════════════════════════════════════════════════════════
          CARD STYLES
          ════════════════════════════════════════════════════════════════════ -->
-
-    <Style x:Key="CardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource VoidSurfaceBrush}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
-        <Setter Property="Padding" Value="{StaticResource CardPadding}"/>
-    </Style>
-
-    <Style x:Key="ElevatedCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource VoidSurfaceBrush}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
-        <Setter Property="Padding" Value="{StaticResource CardPadding}"/>
-        <Setter Property="BorderBrush" Value="{ThemeResource DustBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-    </Style>
 
     <Style x:Key="BookCardBorderStyle" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource VoidSurfaceBrush}"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
         <Setter Property="Padding" Value="8"/>
-    </Style>
-
-    <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
-        <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -420,14 +325,6 @@
         <Setter Property="Height" Value="4"/>
         <Setter Property="Margin" Value="0,4,0,0"/>
         <Setter Property="CornerRadius" Value="2"/>
-    </Style>
-
-    <Style x:Key="PlayerSliderStyle" TargetType="Slider">
-        <Setter Property="Minimum" Value="0"/>
-        <Setter Property="Maximum" Value="100"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="Padding" Value="0,8"/>
-        <Setter Property="MinHeight" Value="32"/>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -477,13 +374,6 @@
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
 
-    <Style x:Key="StreamingBadgeStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource VoidElevatedBrush}"/>
-        <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="Padding" Value="6,2,6,2"/>
-        <Setter Property="HorizontalAlignment" Value="Left"/>
-    </Style>
-
     <Style x:Key="BadgeTextStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="10"/>
         <Setter Property="FontWeight" Value="Medium"/>
@@ -499,18 +389,8 @@
         <Setter Property="Background" Value="{ThemeResource VoidElevatedBrush}"/>
     </Style>
 
-    <Style x:Key="LargeCoverImageBorderStyle" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}"/>
-        <Setter Property="Background" Value="{ThemeResource VoidElevatedBrush}"/>
-    </Style>
-
     <!-- ════════════════════════════════════════════════════════════════════
          ANIMATION RESOURCES
          ════════════════════════════════════════════════════════════════════ -->
-
-    <x:String x:Key="AnimationMicro">0:0:0.12</x:String>
-    <x:String x:Key="AnimationFast">0:0:0.18</x:String>
-    <x:String x:Key="AnimationNormal">0:0:0.28</x:String>
-    <x:String x:Key="AnimationSlow">0:0:0.32</x:String>
 
 </ResourceDictionary>
