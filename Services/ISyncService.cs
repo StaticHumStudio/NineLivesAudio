@@ -16,6 +16,7 @@ public interface ISyncService
     /// </summary>
     Task ApplyScheduleAsync();
     Task SyncNowAsync();
+    void NotifyDataCleared();
     /// <summary>Pulls library metadata. Skipped when the same pull just happened, unless forced.</summary>
     Task SyncLibrariesAsync(bool force = false);
     Task SyncProgressAsync();

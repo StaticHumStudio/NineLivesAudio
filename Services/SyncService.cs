@@ -251,6 +251,11 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
+    public void NotifyDataCleared()
+    {
+        WeakReferenceMessenger.Default.Send(new SyncCompletedMessage(new SyncEventArgs()));
+    }
+
     public async Task SyncLibrariesAsync(bool force = false)
     {
         // Coalesce concurrent callers: whoever arrives while a sync is running waits

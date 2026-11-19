@@ -806,6 +806,7 @@ public partial class SettingsViewModel : ObservableObject
             ServerUrl = string.Empty;
             Username = string.Empty;
             await _database.ClearAllDataAsync();
+            _syncService.NotifyDataCleared();
         }
 
         RefreshSavedServers();
@@ -989,8 +990,8 @@ public partial class SettingsViewModel : ObservableObject
                 HasSuccess = true;
                 Password = string.Empty; // Clear password from UI
 
-                await SaveSettingsAsync();
                 _settingsService.RememberServer(ServerUrl, Username, ServerName);
+                await SaveSettingsAsync();
                 RefreshSavedServers();
                 LoadDoctorInfo();
 
