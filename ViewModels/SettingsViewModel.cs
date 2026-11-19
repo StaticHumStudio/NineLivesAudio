@@ -714,7 +714,9 @@ public partial class SettingsViewModel : ObservableObject
         _isLoadingSettings = true;
         try
         {
-            var currentUrl = _settingsService.Settings.ServerUrl;
+            var currentUrl = !string.IsNullOrWhiteSpace(_settingsService.Settings.ServerUrl)
+                ? _settingsService.Settings.ServerUrl
+                : (_apiService.ServerUrl ?? string.Empty);
             if (IsConnected && !string.IsNullOrWhiteSpace(currentUrl))
             {
                 var list = _settingsService.Settings.SavedServers ?? new List<SavedServer>();
@@ -730,7 +732,7 @@ public partial class SettingsViewModel : ObservableObject
                 SavedServers.Add(server);
 
             SelectedServer = SavedServers.FirstOrDefault(s =>
-                SavedServer.Normalize(s.Url) == SavedServer.Normalize(_settingsService.Settings.ServerUrl));
+                SavedServer.Normalize(s.Url) == SavedServer.Normalize(currentUrl));
         }
         finally
         {
@@ -806,10 +808,17 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    partial void OnServerUrlChanged(string value) =>
+    partial void OnServerUrlChanged(string value)
+    {
+        if (IsAddingServer) return;
         AutoSave(s => ServerUrlStatus = Detail(s, value), 600);
+    }
 
-    partial void OnUsernameChanged(string value) => AutoSave(s => UsernameStatus = s, 600);
+    partial void OnUsernameChanged(string value)
+    {
+        if (IsAddingServer) return;
+        AutoSave(s => UsernameStatus = s, 600);
+    }
 
     partial void OnDownloadPathChanged(string value) =>
         AutoSave(s => DownloadPathStatus = Detail(s, value), 600);
