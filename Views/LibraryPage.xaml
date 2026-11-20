@@ -304,16 +304,16 @@
                                            Style="{StaticResource SubtitleStyle}"/>
 
                                 <!-- Progress -->
-                                <!-- Edge Progress Ring (2px, closed loop when finished) -->
-                                <Rectangle Grid.Row="0" Grid.RowSpan="3"
-                                           Margin="-4"
-                                           RadiusX="8" RadiusY="8"
-                                           Stroke="{ThemeResource SigilGoldBrush}"
-                                           StrokeThickness="2"
-                                           IsHitTestVisible="False"
-                                           Tag="{x:Bind}"
-                                           SizeChanged="CardProgressRing_SizeChanged"
-                                           DataContextChanged="CardProgressRing_DataContextChanged"/>
+                                <!-- Edge Progress Bar (3px along bottom edge, hardware-accelerated) -->
+                                <ProgressBar Grid.Row="0" Grid.RowSpan="3"
+                                             VerticalAlignment="Bottom"
+                                             Height="3"
+                                             Minimum="0" Maximum="100"
+                                             Value="{x:Bind ProgressPercent, Mode=OneWay}"
+                                             Visibility="{x:Bind HasProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                             Foreground="{ThemeResource SigilGoldBrush}"
+                                             Background="Transparent"
+                                             IsHitTestVisible="False"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
