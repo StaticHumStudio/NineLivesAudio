@@ -339,7 +339,8 @@
                     <!-- Sleep Timer -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                         <Button x:Name="SleepButton" Click="SleepButton_Click"
-                                Style="{StaticResource IconButtonStyle}">
+                                Style="{StaticResource IconButtonStyle}"
+                                Width="Auto" MinWidth="40" Padding="6,4">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <FontIcon Glyph="&#xE916;" FontSize="16"/>
                                 <TextBlock x:Name="SleepButtonText" Text=""
