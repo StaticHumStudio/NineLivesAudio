@@ -635,6 +635,8 @@ public sealed partial class LibraryPage : Page
             var gapLen = (perimeter * (1.0 - progress)) / 2.0 + 10.0;
             rect.StrokeDashArray = new DoubleCollection { dashLen, gapLen };
         }
+
+        rect.InvalidateArrange();
     }
 
 }
