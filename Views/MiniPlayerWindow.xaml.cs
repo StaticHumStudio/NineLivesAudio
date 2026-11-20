@@ -142,16 +142,31 @@ public sealed partial class MiniPlayerWindow : Window
         {
             if (_isUserSeeking) return;
 
-            var duration = _playbackService.Duration;
-            if (duration.TotalSeconds > 0)
+            var settings = App.Services.GetService<ISettingsService>()?.Settings;
+            var ch = _playbackService.CurrentChapter;
+            if (settings?.PlayerChapterMode == true && ch != null && ch.End > ch.Start)
             {
-                ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
+                var chDur = TimeSpan.FromSeconds(ch.End - ch.Start);
+                var chPos = TimeSpan.FromSeconds(Math.Clamp(position.TotalSeconds - ch.Start, 0, chDur.TotalSeconds));
+                ProgressSlider.Value = chPos.TotalSeconds / chDur.TotalSeconds * 100;
+                CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(chPos);
+                var remaining = chDur - chPos;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
             }
+            else
+            {
+                var duration = _playbackService.Duration;
+                if (duration.TotalSeconds > 0)
+                {
+                    ProgressSlider.Value = position.TotalSeconds / duration.TotalSeconds * 100;
+                }
 
-            CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
-            var remaining = duration - position;
-            if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-            RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
+                CurrentTimeText.Text = TimeFormatHelper.FormatTimeSpan(position);
+                var remaining = duration - position;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                RemainingTimeText.Text = $"-{TimeFormatHelper.FormatTimeSpan(remaining)}";
+            }
         });
     }
 

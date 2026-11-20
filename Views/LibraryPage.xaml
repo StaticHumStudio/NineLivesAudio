@@ -311,6 +311,7 @@
                                            Stroke="{ThemeResource SigilGoldBrush}"
                                            StrokeThickness="2"
                                            IsHitTestVisible="False"
+                                           Tag="{x:Bind}"
                                            Loaded="CardProgressRing_Loaded"
                                            SizeChanged="CardProgressRing_SizeChanged"
                                            DataContextChanged="CardProgressRing_DataContextChanged"/>

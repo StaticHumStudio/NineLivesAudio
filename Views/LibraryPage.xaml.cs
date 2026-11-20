@@ -590,7 +590,7 @@ public sealed partial class LibraryPage : Page
 
     private static void UpdateCardProgressRing(Microsoft.UI.Xaml.Shapes.Rectangle rect)
     {
-        if (rect.DataContext is not AudioBook book || !book.HasProgress)
+        if (rect.Tag is not AudioBook book || !book.HasProgress)
         {
             rect.Visibility = Visibility.Collapsed;
             return;
