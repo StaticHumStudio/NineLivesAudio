@@ -317,8 +317,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition x:Name="ChaptersColumn" Width="0"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition x:Name="ChaptersColumn" Width="0"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
@@ -376,7 +376,7 @@
                     </StackPanel>
 
                     <!-- Chapters -->
-                    <StackPanel x:Name="ChaptersButtonPanel" Grid.Column="3" HorizontalAlignment="Center" Visibility="Collapsed">
+                    <StackPanel x:Name="ChaptersButtonPanel" Grid.Column="4" HorizontalAlignment="Center" Visibility="Collapsed">
                         <Button x:Name="ChaptersButton" Click="ChaptersButton_Click"
                                 Style="{StaticResource IconButtonStyle}">
                             <FontIcon Glyph="&#xE8FD;" FontSize="16"/>
@@ -386,7 +386,7 @@
                     </StackPanel>
 
                     <!-- Bookmarks -->
-                    <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                    <StackPanel Grid.Column="5" HorizontalAlignment="Center">
                         <Button x:Name="BookmarkButton" Click="BookmarkButton_Click"
                                 Style="{StaticResource IconButtonStyle}">
                             <FontIcon Glyph="&#xE8A4;" FontSize="16"/>
@@ -396,7 +396,7 @@
                     </StackPanel>
 
                     <!-- Per-book Skip Intro/Outro -->
-                    <StackPanel Grid.Column="5" HorizontalAlignment="Center">
+                    <StackPanel Grid.Column="3" HorizontalAlignment="Center">
                         <Button x:Name="SkipButton" Click="SkipButton_Click"
                                 Style="{StaticResource IconButtonStyle}">
                             <FontIcon Glyph="&#xE8C6;" FontSize="16"/>
