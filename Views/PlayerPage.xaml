@@ -34,7 +34,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid x:Name="PlayerRootGrid" Padding="{StaticResource PagePadding}">
+    <Grid x:Name="PlayerRootGrid">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="PlayerLayoutStates">
                 <!-- Wide: > 900px — generous spacing, large cover -->
