@@ -326,7 +326,11 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private string FormatRelativeTime(DateTime timestamp)
     {
         if (timestamp == DateTime.MinValue) return "";
-        var elapsed = DateTime.Now - timestamp;
+        var utc = timestamp.Kind == DateTimeKind.Local
+            ? timestamp.ToUniversalTime()
+            : DateTime.SpecifyKind(timestamp, DateTimeKind.Utc);
+        var elapsed = DateTime.UtcNow - utc;
+        if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
         if (elapsed.TotalMinutes < 1) return _localization.GetString("JustNow");
         if (elapsed.TotalMinutes < 60) return _localization.Format("MinutesAgo", (int)elapsed.TotalMinutes);
         if (elapsed.TotalHours < 24) return _localization.Format("HoursAgo", (int)elapsed.TotalHours);
