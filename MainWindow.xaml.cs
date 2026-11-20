@@ -457,9 +457,20 @@ namespace NineLivesAudio
 
             DispatcherQueue.TryEnqueue(() =>
             {
-                var duration = _playbackService.Duration;
-                if (duration.TotalSeconds > 0)
-                    MiniPlayerProgress.Value = position.TotalSeconds / duration.TotalSeconds * 100;
+                var settings = App.Services.GetService<ISettingsService>()?.Settings;
+                var ch = _playbackService.CurrentChapter;
+                if (settings?.PlayerChapterMode == true && ch != null && ch.End > ch.Start)
+                {
+                    var chDur = ch.End - ch.Start;
+                    var chPos = Math.Clamp(position.TotalSeconds - ch.Start, 0, chDur);
+                    MiniPlayerProgress.Value = chPos / chDur * 100;
+                }
+                else
+                {
+                    var duration = _playbackService.Duration;
+                    if (duration.TotalSeconds > 0)
+                        MiniPlayerProgress.Value = position.TotalSeconds / duration.TotalSeconds * 100;
+                }
             });
         }
 

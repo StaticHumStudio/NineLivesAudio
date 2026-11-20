@@ -329,6 +329,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <FontIcon Glyph="&#xEC57;" FontSize="16"/>
                                 <TextBlock x:Name="SpeedText" Text="1.0x"
+                                           Visibility="Collapsed"
                                            Foreground="{ThemeResource MistBrush}"/>
                             </StackPanel>
                         </Button>
