@@ -132,7 +132,7 @@
             </StackPanel>
 
             <!-- Playback Settings -->
-            <StackPanel>
+            <StackPanel Visibility="Collapsed">
                 <TextBlock x:Name="PlaybackTitle" Text="Playback"
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,0,0,12"/>

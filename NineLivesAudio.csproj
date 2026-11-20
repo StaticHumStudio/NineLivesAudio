@@ -23,9 +23,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <Version>1.0.49</Version>
-    <AssemblyVersion>1.0.49.0</AssemblyVersion>
-    <FileVersion>1.0.49.0</FileVersion>
+    <Version>1.0.50</Version>
+    <AssemblyVersion>1.0.50.0</AssemblyVersion>
+    <FileVersion>1.0.50.0</FileVersion>
     <Company>Static Hum Studio</Company>
     <Product>Nine Lives Audio</Product>
     <Description>Native Windows client for Audiobookshelf with offline downloads and sync.</Description>
