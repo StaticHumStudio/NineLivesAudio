@@ -193,7 +193,15 @@ public sealed partial class PlayerPage : Page
         SpeedText.Text = $"{ViewModel.PlaybackSpeed:0.0}x";
 
         // Sleep timer
-        SleepButtonText.Text = ViewModel.SleepTimerMinutes.HasValue ? $"{ViewModel.SleepTimerMinutes}m" : _localization.GetString("Off");
+        if (ViewModel.SleepTimerMinutes.HasValue)
+        {
+            SleepButtonText.Text = $"{ViewModel.SleepTimerMinutes}m";
+            SleepButtonText.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            SleepButtonText.Visibility = Visibility.Collapsed;
+        }
         SleepTimerPanel.Visibility = ViewModel.SleepTimerMinutes.HasValue ? Visibility.Visible : Visibility.Collapsed;
         SleepTimerStatusText.Text = ViewModel.SleepTimerText;
 
