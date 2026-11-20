@@ -63,23 +63,6 @@ public sealed partial class MiniPlayerWindow : Window
         }
         catch { /* Non-fatal */ }
 
-        if (_appWindow != null)
-        {
-            _appWindow.Changed += (s, args) =>
-            {
-                if (args.DidPresenterChange
-                    && _appWindow.Presenter is OverlappedPresenter p
-                    && p.State == OverlappedPresenterState.Minimized)
-                {
-                    var settings = App.Services.GetService<ISettingsService>()?.Settings;
-                    if (settings?.MinimizeToTray == true)
-                    {
-                        _appWindow.Hide();
-                    }
-                }
-            };
-        }
-
         // Title bar colours follow the current palette (see ThemeService).
         ThemeService.RegisterTitleBar(_appWindow, hwnd);
 
