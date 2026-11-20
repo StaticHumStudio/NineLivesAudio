@@ -341,7 +341,7 @@
                         <Button x:Name="SleepButton" Click="SleepButton_Click"
                                 Style="{StaticResource IconButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <FontIcon Glyph="&#xE708;" FontSize="16"/>
+                                <FontIcon Glyph="&#xE916;" FontSize="16"/>
                                 <TextBlock x:Name="SleepButtonText" Text=""
                                            Visibility="Collapsed"
                                            Foreground="{ThemeResource MistBrush}"/>
