@@ -195,6 +195,13 @@ public sealed class TrayIconService : ITrayIconService
 
     private void RestoreFromTray()
     {
+        if (App.TryRestoreMiniPlayer())
+        {
+            Hide();
+            _logger.Log("[Tray] Restored mini player from the notification area");
+            return;
+        }
+
         ShowWindow(_hwnd, SW_SHOW);
         ShowWindow(_hwnd, SW_RESTORE);
         SetForegroundWindow(_hwnd);

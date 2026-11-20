@@ -15,6 +15,13 @@ public partial class App : Application
     private static IHost? _host;
     private static MiniPlayerWindow? _miniPlayerWindow;
 
+    public static bool TryRestoreMiniPlayer()
+    {
+        if (_miniPlayerWindow == null) return false;
+        _miniPlayerWindow.RestoreFromTray();
+        return true;
+    }
+
     public static IServiceProvider Services => _host!.Services;
 
     public App()
