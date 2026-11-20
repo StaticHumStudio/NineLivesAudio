@@ -677,6 +677,9 @@ public sealed partial class PlayerPage : Page
     private void PopOut_Click(object sender, RoutedEventArgs e)
     {
         App.OpenMiniPlayer();
+        var mainWindow = App.Services.GetRequiredService<MainWindow>();
+        if (mainWindow.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            presenter.Minimize();
     }
 
     private void GoToLibrary_Click(object sender, RoutedEventArgs e)

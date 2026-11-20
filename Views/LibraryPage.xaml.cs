@@ -556,6 +556,16 @@ public sealed partial class LibraryPage : Page
     {
         if (LibraryTitleText != null) LibraryTitleText.Text = _localization.GetString("LibraryTitle");
         if (LoadingLibraryText != null) LoadingLibraryText.Text = _localization.GetString("LoadingLibrary");
+        if (SearchBox != null) SearchBox.PlaceholderText = _localization.GetString("SearchBooks");
+        if (SearchBoxNarrow != null) SearchBoxNarrow.PlaceholderText = _localization.GetString("SearchBooks");
+        if (SortComboBox != null)
+        {
+            foreach (var obj in SortComboBox.Items)
+            {
+                if (obj is ComboBoxItem item && item.Tag is string tag)
+                    item.Content = _localization.GetString($"Sort{tag}");
+            }
+        }
         ViewModel.RefreshLocalizedStrings();
         UpdateStatusPill();
     }
@@ -567,6 +577,12 @@ public sealed partial class LibraryPage : Page
     }
 
     private void CardProgressRing_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is Microsoft.UI.Xaml.Shapes.Rectangle rect)
+            UpdateCardProgressRing(rect);
+    }
+
+    private void CardProgressRing_DataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
         if (sender is Microsoft.UI.Xaml.Shapes.Rectangle rect)
             UpdateCardProgressRing(rect);

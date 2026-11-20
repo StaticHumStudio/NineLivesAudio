@@ -312,7 +312,8 @@
                                            StrokeThickness="2"
                                            IsHitTestVisible="False"
                                            Loaded="CardProgressRing_Loaded"
-                                           SizeChanged="CardProgressRing_SizeChanged"/>
+                                           SizeChanged="CardProgressRing_SizeChanged"
+                                           DataContextChanged="CardProgressRing_DataContextChanged"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
