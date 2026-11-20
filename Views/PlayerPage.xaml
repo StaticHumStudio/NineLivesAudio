@@ -319,6 +319,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition x:Name="ChaptersColumn" Width="0"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- Playback Speed -->
@@ -335,23 +336,16 @@
                                    HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <!-- Sleep Timer + Per-book Skip -->
+                    <!-- Sleep Timer -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
-                            <Button x:Name="SleepButton" Click="SleepButton_Click"
-                                    Style="{StaticResource IconButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE708;" FontSize="16"/>
-                                    <TextBlock x:Name="SleepButtonText" Text="Off"
-                                               Foreground="{ThemeResource MistBrush}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="SkipButton" Click="SkipButton_Click"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTipService.ToolTip="Skip Intro / Outro">
-                                <FontIcon Glyph="&#xE893;" FontSize="15"/>
-                            </Button>
-                        </StackPanel>
+                        <Button x:Name="SleepButton" Click="SleepButton_Click"
+                                Style="{StaticResource IconButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <FontIcon Glyph="&#xE708;" FontSize="16"/>
+                                <TextBlock x:Name="SleepButtonText" Text="Off"
+                                           Foreground="{ThemeResource MistBrush}"/>
+                            </StackPanel>
+                        </Button>
                         <TextBlock x:Name="SleepLabelText" Text="Sleep" Style="{StaticResource CaptionStyle}"
                                    HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
@@ -395,6 +389,16 @@
                             <FontIcon Glyph="&#xE8A4;" FontSize="16"/>
                         </Button>
                         <TextBlock x:Name="BookmarksLabelText" Text="Bookmarks" Style="{StaticResource CaptionStyle}"
+                                   HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Per-book Skip Intro/Outro -->
+                    <StackPanel Grid.Column="5" HorizontalAlignment="Center">
+                        <Button x:Name="SkipButton" Click="SkipButton_Click"
+                                Style="{StaticResource IconButtonStyle}">
+                            <FontIcon Glyph="&#xE8C6;" FontSize="16"/>
+                        </Button>
+                        <TextBlock x:Name="SkipLabelText" Text="Skip" Style="{StaticResource CaptionStyle}"
                                    HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Grid>

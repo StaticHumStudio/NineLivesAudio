@@ -1127,6 +1127,7 @@ public sealed partial class PlayerPage : Page
         if (ChapterLabelText != null) ChapterLabelText.Text = _localization.GetString("Chapter");
         if (SpeedLabelText != null) SpeedLabelText.Text = _localization.GetString("Speed");
         if (SleepLabelText != null) SleepLabelText.Text = _localization.GetString("Sleep");
+        if (SkipLabelText != null) SkipLabelText.Text = _localization.GetString("SkipLabel");
         if (VolumeLabelText != null) VolumeLabelText.Text = _localization.GetString("Volume");
         if (ChaptersLabelText != null) ChaptersLabelText.Text = _localization.GetString("Chapters");
         if (BookmarksLabelText != null) BookmarksLabelText.Text = _localization.GetString("Bookmarks");
