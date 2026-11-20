@@ -86,7 +86,7 @@
         </Grid.RowDefinitions>
 
         <!-- Back Button + Pop-Out -->
-        <Grid Grid.Row="0" Padding="8,4">
+        <Grid Grid.Row="0" Padding="16,8">
             <Button x:Name="PlayerBackButton" Click="BackButton_Click"
                     HorizontalAlignment="Left"
                     Background="Transparent" BorderThickness="0">

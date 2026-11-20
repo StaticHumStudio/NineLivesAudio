@@ -474,6 +474,19 @@ namespace NineLivesAudio
             });
         }
 
+        public void MinimizeRespectingTray()
+        {
+            var settings = App.Services.GetService<ISettingsService>()?.Settings;
+            if (settings?.MinimizeToTray == true)
+            {
+                AppWindow?.Hide();
+            }
+            else if (AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                presenter.Minimize();
+            }
+        }
+
         private void MiniPlayer_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             var point = e.GetCurrentPoint(sender as UIElement);
