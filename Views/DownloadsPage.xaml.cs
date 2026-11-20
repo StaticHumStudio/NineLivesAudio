@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Collections.Specialized;
 using NineLivesAudio.Models;
+using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -11,6 +12,7 @@ namespace NineLivesAudio.Views;
 public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
 {
     public DownloadsViewModel ViewModel { get; }
+    private readonly ILocalizationService _localization;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -21,6 +23,7 @@ public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
     public DownloadsPage()
     {
         ViewModel = App.Services.GetRequiredService<DownloadsViewModel>();
+        _localization = App.Services.GetRequiredService<ILocalizationService>();
         this.InitializeComponent();
         this.Unloaded += Page_Unloaded;
 
@@ -31,17 +34,27 @@ public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        _localization.LanguageChanged -= ApplyLocalization;
         ViewModel.ActiveDownloads.CollectionChanged -= OnCollectionChanged;
         ViewModel.CompletedDownloads.CollectionChanged -= OnCollectionChanged;
 
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        // View model lifetime is not tied to this page: the Frame caches page instances and
+        // disposing would drop its subscriptions permanently.
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
+        ApplyLocalization();
+        _localization.LanguageChanged -= ApplyLocalization;
+        _localization.LanguageChanged += ApplyLocalization;
+
+        // Re-hook the collections: Unloaded removes these, and the cached page can be shown
+        // again without going through the constructor.
+        ViewModel.ActiveDownloads.CollectionChanged -= OnCollectionChanged;
+        ViewModel.ActiveDownloads.CollectionChanged += OnCollectionChanged;
+        ViewModel.CompletedDownloads.CollectionChanged -= OnCollectionChanged;
+        ViewModel.CompletedDownloads.CollectionChanged += OnCollectionChanged;
+
         await ViewModel.InitializeAsync();
         NotifyVisibilityChanged();
     }
@@ -93,4 +106,15 @@ public sealed partial class DownloadsPage : Page, INotifyPropertyChanged
     {
         Frame.Navigate(typeof(LibraryPage));
     }
+
+    private void ApplyLocalization()
+    {
+        if (DownloadsTitleText != null) DownloadsTitleText.Text = _localization.GetString("DownloadsTitle");
+        if (ClearCompletedText != null) ClearCompletedText.Text = _localization.GetString("ClearCompleted");
+        if (ActiveDownloadsText != null) ActiveDownloadsText.Text = _localization.GetString("ActiveDownloads");
+        if (CompletedText != null) CompletedText.Text = _localization.GetString("Completed");
+        if (NoDownloadsText != null) NoDownloadsText.Text = _localization.GetString("NoDownloads");
+        if (NoDownloadsSubtitleText != null) NoDownloadsSubtitleText.Text = _localization.GetString("NoDownloadsSubtitle");
+    }
+
 }

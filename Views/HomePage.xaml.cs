@@ -1,4 +1,5 @@
 using NineLivesAudio.Helpers;
+using NineLivesAudio.Services;
 using NineLivesAudio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -6,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace NineLivesAudio.Views;
 
@@ -18,13 +20,24 @@ public sealed partial class HomePage : Page
 
     private readonly TapHelper _tapHelper = new();
 
-    // Hover brush cache
-    private static readonly SolidColorBrush HoverBrush =
-        new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)); // subtle white overlay
+    // Hover/restore brushes, one pair per palette: a white overlay is invisible on the
+    // light theme and #111827 (the dark VoidSurface) is a black slab there.
+    private static readonly SolidColorBrush HoverDark =
+        new(Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush HoverLight =
+        new(Windows.UI.Color.FromArgb(0x0D, 0x00, 0x00, 0x00));
+
+    private static SolidColorBrush HoverBrush =>
+        Helpers.ThemeService.IsLight ? HoverLight : HoverDark;
+    private static readonly SolidColorBrush TransparentBrush =
+        new(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
+
+    private readonly ILocalizationService _localization;
 
     public HomePage()
     {
         ViewModel = App.Services.GetRequiredService<HomeViewModel>();
+        _localization = App.Services.GetRequiredService<ILocalizationService>();
         this.InitializeComponent();
         this.Loaded += OnLoaded;
         this.Unloaded += OnUnloaded;
@@ -46,14 +59,13 @@ public sealed partial class HomePage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        this.Loaded -= OnLoaded;
-        this.Unloaded -= OnUnloaded;
+        // Deliberately does *not* unhook Loaded and does not dispose the view model.
+        // The Frame caches page instances, so coming back to Home re-raises Loaded on the
+        // same object: that is the moment to re-read the database. Disposing here also
+        // unregistered the messenger subscriptions, which is why the shelf stopped
+        // refreshing after the first visit and only caught up on a restart.
+        _localization.LanguageChanged -= ApplyLocalization;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
     }
 
     private void LoadLogo()
@@ -72,20 +84,37 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Every navigation to this page reloads it. Loaded alone is not enough: the Frame caches
+    /// page instances and the handler used to be detached on unload, so a second visit showed
+    /// the numbers from the first one (a restart was the only thing that refreshed them).
+    /// </summary>
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        base.OnNavigatedTo(e);
+
+        ApplyLocalization();
+        _localization.LanguageChanged -= ApplyLocalization;
+        _localization.LanguageChanged += ApplyLocalization;
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+        // Local snapshot first (instant), then the server's numbers replace it as soon as the
+        // pull comes back — SyncCompletedMessage triggers the reload.
         await ViewModel.LoadAsync();
+        _ = ViewModel.RefreshFromServerAsync();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyLocalization();
     }
 
     private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (sender is Grid grid)
         {
-            var isMostRecent = (grid.Tag as NineLivesItem)?.IsMostRecent ?? false;
-            if (!isMostRecent)
-            {
-                grid.Background = HoverBrush;
-            }
+            grid.Background = HoverBrush;
         }
     }
 
@@ -93,19 +122,7 @@ public sealed partial class HomePage : Page
     {
         if (sender is Grid grid)
         {
-            var item = grid.Tag as NineLivesItem;
-            var isMostRecent = item?.IsMostRecent ?? false;
-            if (isMostRecent)
-            {
-                // Restore VoidSurface highlight
-                grid.Background = new SolidColorBrush(
-                    Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
-            }
-            else
-            {
-                grid.Background = new SolidColorBrush(
-                    Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
-            }
+            grid.Background = TransparentBrush;
         }
     }
 
@@ -138,4 +155,12 @@ public sealed partial class HomePage : Page
             frame?.Navigate(typeof(LibraryPage));
         }
     }
+
+    private void ApplyLocalization()
+    {
+        if (HomeTitleText != null) HomeTitleText.Text = _localization.GetString("HomeTitle");
+        if (HomeEmptyTitleText != null) HomeEmptyTitleText.Text = _localization.GetString("HomeEmptyTitle");
+        if (HomeEmptySubtitleText != null) HomeEmptySubtitleText.Text = _localization.GetString("HomeEmptySubtitle");
+    }
+
 }

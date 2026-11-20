@@ -3,11 +3,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:loc="using:NineLivesAudio.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     NavigationCacheMode="Enabled">
 
-    <Grid x:Name="HomeRootGrid" Padding="24,32,24,32" Background="{StaticResource VoidDeepBrush}">
+    <Grid x:Name="HomeRootGrid" Padding="24,32,24,32" Background="{ThemeResource VoidDeepBrush}">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="AltarLayoutStates">
                 <!-- Wide: > 900px — centered list with generous padding -->
@@ -61,15 +62,15 @@
                    Width="80" Height="80"
                    HorizontalAlignment="Center"
                    Margin="0,0,0,4"/>
-            <TextBlock Text="NINE LIVES"
+            <TextBlock x:Name="HomeTitleText" Text="NINE LIVES"
                        Style="{StaticResource RitualLabelStyle}"
                        HorizontalAlignment="Center"
-                       Foreground="{StaticResource SigilGoldDimBrush}"/>
+                       Foreground="{ThemeResource SigilGoldDimBrush}"/>
             <TextBlock Text="{x:Bind ViewModel.TotalListeningTimeText, Mode=OneWay}"
                        Style="{StaticResource CaptionStyle}"
                        HorizontalAlignment="Center"
                        Opacity="0.5"
-                       Visibility="{x:Bind ShowGrid, Mode=OneWay}"/>
+                       Visibility="{x:Bind ViewModel.ShowGrid, Mode=OneWay}"/>
         </StackPanel>
 
         <!-- Loading -->
@@ -77,25 +78,25 @@
                       IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                       Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                       Width="36" Height="36"
-                      Foreground="{StaticResource SigilGoldDimBrush}"
+                      Foreground="{ThemeResource SigilGoldDimBrush}"
                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
         <!-- Empty State -->
         <StackPanel Grid.Row="1"
                     Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay}"
                     VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-            <TextBlock Text="NINE LIVES AWAIT"
+            <TextBlock x:Name="HomeEmptyTitleText" Text="NINE LIVES AWAIT"
                        Style="{StaticResource RitualTitleStyle}"
                        HorizontalAlignment="Center"/>
-            <TextBlock Text="Begin listening to summon your nine lives."
+            <TextBlock x:Name="HomeEmptySubtitleText" Text="Begin listening to summon your nine lives."
                        Style="{StaticResource SubtitleStyle}"
-                       Foreground="{StaticResource MistBrush}"
+                       Foreground="{ThemeResource MistBrush}"
                        HorizontalAlignment="Center"
                        TextAlignment="Center"/>
-            <Button Content="Go to Library"
+            <Button loc:Loc.Content="GoToLibrary" Content="Go to Library"
                     Style="{ThemeResource AccentButtonStyle}"
-                    Background="{StaticResource SigilGoldBrush}"
-                    Foreground="{StaticResource VoidDeepBrush}"
+                    Background="{ThemeResource SigilGoldBrush}"
+                    Foreground="{ThemeResource VoidDeepBrush}"
                     Margin="0,16,0,0"
                     HorizontalAlignment="Center"
                     Click="GoToLibrary_Click"/>
@@ -104,7 +105,7 @@
         <!-- Nine Lives List -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Visibility="{x:Bind ShowGrid, Mode=OneWay}">
+                      Visibility="{x:Bind ViewModel.ShowGrid, Mode=OneWay}">
             <StackPanel x:Name="LivesContainer" MaxWidth="800" HorizontalAlignment="Center">
                 <ItemsRepeater x:Name="LivesGrid"
                                ItemsSource="{x:Bind ViewModel.Lives, Mode=OneWay}">
@@ -114,8 +115,10 @@
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
                             <!-- Row Container -->
-                            <Grid Background="{Binding IsMostRecent,
-                                      Converter={StaticResource BoolToHighlightBrushConverter}}"
+                            <!-- No selected state: the first row used to be highlighted as
+                                 "most recent", which read like a selection the user never
+                                 made. Hover is the only feedback now. -->
+                            <Grid Background="Transparent"
                                   Padding="12,10"
                                   CornerRadius="8"
                                   PointerEntered="Card_PointerEntered"
@@ -136,7 +139,7 @@
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Stretch"
                                         CornerRadius="2"
-                                        Background="{StaticResource SigilGoldBrush}"
+                                        Background="{ThemeResource SigilGoldBrush}"
                                         Margin="-12,4,0,4"
                                         Visibility="{Binding IsMostRecent,
                                             Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -150,9 +153,9 @@
                                                 Converter={StaticResource HoursToCosmicBrushConverter}}">
                                         <Grid>
                                             <Border CornerRadius="4"
-                                                    Background="{StaticResource VoidElevatedBrush}">
+                                                    Background="{ThemeResource VoidElevatedBrush}">
                                                 <FontIcon Glyph="&#xE8F1;" FontSize="20" Opacity="0.15"
-                                                          Foreground="{StaticResource MistFaintBrush}"
+                                                          Foreground="{ThemeResource MistFaintBrush}"
                                                           HorizontalAlignment="Center"
                                                           VerticalAlignment="Center"/>
                                             </Border>
@@ -164,7 +167,7 @@
 
                                     <!-- Downloaded indicator dot -->
                                     <Ellipse Width="10" Height="10"
-                                             Fill="{StaticResource RitualSuccessBrush}"
+                                             Fill="{ThemeResource RitualSuccessBrush}"
                                              HorizontalAlignment="Right"
                                              VerticalAlignment="Bottom"
                                              Margin="0,0,-2,-2"
@@ -185,18 +188,18 @@
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
                                         <TextBlock Text="{Binding LifeLabel}"
                                                    Style="{StaticResource RitualLabelStyle}"
-                                                   Foreground="{StaticResource SigilGoldDimBrush}"
+                                                   Foreground="{ThemeResource SigilGoldDimBrush}"
                                                    Opacity="0.7"/>
                                         <TextBlock Text="·"
                                                    Style="{StaticResource RitualLabelStyle}"
-                                                   Foreground="{StaticResource DustBrush}"/>
+                                                   Foreground="{ThemeResource DustBrush}"/>
                                         <TextBlock Text="{Binding Weight}"
                                                    Style="{StaticResource RitualLabelStyle}"
                                                    Foreground="{Binding Weight,
                                                        Converter={StaticResource WeightToBrushConverter}}"/>
                                         <TextBlock Text="·"
                                                    Style="{StaticResource RitualLabelStyle}"
-                                                   Foreground="{StaticResource DustBrush}"/>
+                                                   Foreground="{ThemeResource DustBrush}"/>
                                         <TextBlock Text="{Binding LastPlayedLabel}"
                                                    Style="{StaticResource CaptionStyle}"
                                                    Opacity="0.6"/>
@@ -212,7 +215,7 @@
                                                   Width="32" Height="32"
                                                   Foreground="{Binding HoursListened,
                                                       Converter={StaticResource HoursToCosmicBrushConverter}}"
-                                                  Background="{StaticResource DustBrush}"
+                                                  Background="{ThemeResource DustBrush}"
                                                   HorizontalAlignment="Center"/>
                                     <TextBlock Text="{Binding TimeGiven}"
                                                Style="{StaticResource CaptionStyle}"

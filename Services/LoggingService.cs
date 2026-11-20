@@ -16,6 +16,12 @@ public interface ILoggingService
 
     /// <summary>Unique ID for this app run — included in every log line.</summary>
     string SessionId { get; }
+
+    /// <summary>
+    /// Settings → Diagnostics. Off (default) writes Info and above; on also writes the
+    /// Debug lines (API calls, state transitions, sync detail) that support asks for.
+    /// </summary>
+    void SetDiagnosticsMode(bool enabled);
 }
 
 public enum LogLevel
@@ -28,11 +34,12 @@ public enum LogLevel
 
 public class LoggingService : ILoggingService, IDisposable
 {
-    private readonly string _logPath;
+    private string _logPath;
     private readonly Channel<string> _channel;
     private readonly Task _consumer;
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _flushSignal = new(0, 1);
+    private volatile TaskCompletionSource<bool>? _flushAck;
     private bool _disposed;
 
     public string SessionId { get; } = Guid.NewGuid().ToString("N")[..8]; // short 8-char id
@@ -49,8 +56,7 @@ public class LoggingService : ILoggingService, IDisposable
         string logDir;
         try
         {
-            var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            logDir = Path.Combine(localFolder, "NineLivesAudio", "Logs");
+            logDir = NineLivesAudio.Helpers.AppPaths.LogsDirectory;
             Directory.CreateDirectory(logDir);
         }
         catch
@@ -61,15 +67,128 @@ public class LoggingService : ILoggingService, IDisposable
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd");
         _logPath = Path.Combine(logDir, $"app_{timestamp}.log");
 
+        // Retention: one week of logs. A week is enough to look back at "it broke yesterday"
+        // and keeps the folder small on a laptop that never cleans up after itself.
+        try
+        {
+            var cutoff = DateTime.Now.AddDays(-LogRetentionDays);
+            var pruned = 0;
+            long prunedBytes = 0;
+            foreach (var old in Directory.GetFiles(logDir, "app_*.log"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTime(old) >= cutoff) continue;
+
+                    var size = new FileInfo(old).Length;
+                    File.Delete(old);
+                    pruned++;
+                    prunedBytes += size;
+                }
+                catch { /* best effort */ }
+            }
+
+            if (pruned > 0)
+                LogStatic(LogLevel.Info, $"[Logging] pruned {pruned} old log file(s), {prunedBytes / 1024 / 1024} MB freed (retention {LogRetentionDays} days)");
+        }
+        catch { /* best effort */ }
+
         // Start the single background consumer
         _consumer = Task.Run(ConsumeLogsAsync);
 
         Log($"=== Session {SessionId} started ===");
         Log($"Log file: {_logPath}");
+        Log($"Build: {DescribeBuild()}");
+    }
+
+    /// <summary>
+    /// "1.0.1.0 (compiled 2026-11-14 06:41)" — the compiled date comes from the PE header, so
+    /// a log can always be matched to the build it was produced by (the packaged exe would
+    /// otherwise only show the time it was copied into Program Files).
+    /// </summary>
+    /// <summary>Log files older than this many days are deleted at startup.</summary>
+    private const int LogRetentionDays = 7;
+
+    public static string DescribeBuild()
+    {
+        var version = typeof(LoggingService).Assembly.GetName().Version?.ToString() ?? "unknown";
+
+        // CI stamps the commit into InformationalVersion ("1.0.8+<sha>"), which is the only
+        // trustworthy identity: the PE timestamp is a deterministic-build hash, so it can
+        // read "compiled 2096-02-19" and tells you nothing about which build you have.
+        try
+        {
+            var informational = typeof(LoggingService).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()?.InformationalVersion;
+
+            if (!string.IsNullOrEmpty(informational))
+            {
+                var plus = informational.IndexOf('+');
+                if (plus >= 0 && informational.Length > plus + 1)
+                {
+                    var sha = informational[(plus + 1)..].Trim();
+                    if (sha.Length > 7) sha = sha[..7];
+                    return $"{version} (build {sha})";
+                }
+            }
+        }
+        catch { /* fall through to the file timestamp */ }
+
+        try
+        {
+            var path = typeof(LoggingService).Assembly.Location;
+            if (string.IsNullOrEmpty(path))
+                path = Environment.ProcessPath ?? string.Empty;
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                var built = File.GetLastWriteTime(path);
+                if (built.Year is > 2020 and < 2100)
+                    return $"{version} (local build {built:yyyy-MM-dd HH:mm})";
+            }
+        }
+        catch { /* version-only fallback */ }
+        return version;
+    }
+
+    /// <summary>
+    /// Writes one line straight to the current log file. Used before the DI container exists
+    /// (folder resolution, legacy data import) where <see cref="Log"/> cannot be called yet.
+    /// </summary>
+    public static void LogStatic(LogLevel level, string message)
+    {
+        try
+        {
+            var dir = NineLivesAudio.Helpers.AppPaths.LogsDirectory;
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"app_{DateTime.Now:yyyy-MM-dd}.log");
+            var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [startup] [{level.ToString().ToUpper().PadRight(5)}] {message}";
+            File.AppendAllText(path, line + Environment.NewLine);
+        }
+        catch { /* logging must never throw */ }
+    }
+
+    /// <summary>Hard cap for a single day's file — diagnostics mode is verbose by design.</summary>
+    private const long MaxLogFileBytes = 25L * 1024 * 1024;
+
+    /// <summary>How many times today's file has been rolled over (app_DATE.01.log, …).</summary>
+    private int _rollIndex;
+
+    private volatile bool _diagnosticsMode;
+
+    public void SetDiagnosticsMode(bool enabled)
+    {
+        if (_diagnosticsMode == enabled) return;
+        _diagnosticsMode = enabled;
+        Log($"[Logging] Diagnostics mode {(enabled ? "enabled — debug lines are written" : "disabled — debug lines are skipped")}");
     }
 
     public void Log(string message, LogLevel level = LogLevel.Info)
     {
+        // Debug is opt-in: without diagnostics mode the file stays small and readable.
+        if (level == LogLevel.Debug && !_diagnosticsMode) return;
+
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var levelStr = level.ToString().ToUpper().PadRight(5);
         var logLine = $"[{timestamp}] [{SessionId}] [{levelStr}] {message}";
@@ -128,9 +247,33 @@ public class LoggingService : ILoggingService, IDisposable
     {
         if (_disposed) return;
 
-        // Signal the consumer to flush, then give it a moment
-        try { _flushSignal.Release(); } catch { /* already signaled */ }
-        await Task.Delay(200); // allow consumer to drain
+        // Ask the consumer to drain, then wait for its acknowledgement instead of
+        // guessing with a fixed delay. Bounded so a wedged consumer cannot hang us.
+        var ack = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _flushAck = ack;
+        try { _flushSignal.Release(); }
+        catch (ObjectDisposedException) { return; }     // shutting down
+        catch (SemaphoreFullException) { /* a flush is already pending — consumer will wake anyway */ }
+
+        await Task.WhenAny(ack.Task, Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
+    }
+
+    private void AcknowledgeFlush()
+    {
+        var ack = _flushAck;
+        if (ack == null) return;
+        _flushAck = null;
+        ack.TrySetResult(true);
+    }
+
+    private static long FileLength(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0;
+        }
+        catch { return 0; }
     }
 
     private async Task ConsumeLogsAsync()
@@ -168,13 +311,34 @@ public class LoggingService : ILoggingService, IDisposable
                 {
                     try
                     {
-                        await File.AppendAllLinesAsync(_logPath, buffer).ConfigureAwait(false);
+                        // Stop at the per-file cap instead of filling the disk: one final line
+                        // says why the log ends here.
+                        if (FileLength(_logPath) > MaxLogFileBytes)
+                        {
+                            // Roll over instead of discarding: the lines written right after
+                            // something went wrong are the ones worth keeping.
+                            _rollIndex++;
+                            var directory = Path.GetDirectoryName(_logPath) ?? ".";
+                            var stem = Path.GetFileNameWithoutExtension(_logPath);
+                            var next = Path.Combine(directory, $"{stem}.{_rollIndex:D2}.log");
+
+                            buffer.Add($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{SessionId}] [WARN ] " +
+                                       $"[Logging] {Path.GetFileName(_logPath)} reached {MaxLogFileBytes / 1024 / 1024} MB " +
+                                       $"— continuing in {Path.GetFileName(next)}");
+                            _logPath = next;
+                        }
+
+                        if (buffer.Count > 0)
+                            await File.AppendAllLinesAsync(_logPath, buffer).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Log write failed: {ex.Message}");
                     }
                 }
+
+                // Tell a waiting FlushAsync that pending lines are on disk.
+                AcknowledgeFlush();
 
                 // Small delay to batch more efficiently (unless flush was requested)
                 try
@@ -206,6 +370,9 @@ public class LoggingService : ILoggingService, IDisposable
         _disposed = true;
 
         Log($"=== Session {SessionId} ending ===");
+
+        // Release any waiter before tearing down the signal.
+        AcknowledgeFlush();
 
         // Signal shutdown and wait for consumer to finish
         _channel.Writer.TryComplete();

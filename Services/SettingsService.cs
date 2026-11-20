@@ -15,6 +15,44 @@ public class SettingsService : ISettingsService
     private const string TokenFile = ".auth_token_dpapi";
 
     private AppSettings? _settings;
+
+    /// <summary>
+    /// Tokens are per server: switching between two servers used to overwrite the single
+    /// token file, so going back always meant logging in again.
+    /// </summary>
+    private string TokenPathFor(string? serverUrl)
+    {
+        var server = SavedServer.Normalize(serverUrl);
+        if (string.IsNullOrEmpty(server)) return _tokenPath;
+
+        try
+        {
+            var host = new Uri(server).Host.ToLowerInvariant();
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(host)))[..8].ToLowerInvariant();
+            return Path.Combine(_appFolder, $".auth_token_{hash}.dpapi");
+        }
+        catch
+        {
+            return _tokenPath;
+        }
+    }
+
+    private string VaultResourceFor(string? serverUrl)
+    {
+        var server = SavedServer.Normalize(serverUrl);
+        if (string.IsNullOrEmpty(server)) return VaultResource;
+
+        try
+        {
+            var host = new Uri(server).Host.ToLowerInvariant();
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(host)))[..8].ToLowerInvariant();
+            return $"{VaultResource}.{hash}";
+        }
+        catch
+        {
+            return VaultResource;
+        }
+    }
     private readonly string _appFolder;
     private readonly string _settingsPath;
     private readonly string _tokenPath;
@@ -30,13 +68,12 @@ public class SettingsService : ISettingsService
 
     public SettingsService()
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _appFolder = Path.Combine(localAppData, "NineLivesAudio");
+        _appFolder = NineLivesAudio.Helpers.AppPaths.DataRoot;
         Directory.CreateDirectory(_appFolder);
 
-        _settingsPath = Path.Combine(_appFolder, SettingsFile);
-        _tokenPath = Path.Combine(_appFolder, TokenFile);
-        _migratedPath = Path.Combine(_appFolder, MigratedFlag);
+        _settingsPath = NineLivesAudio.Helpers.AppPaths.SettingsFile;
+        _tokenPath = NineLivesAudio.Helpers.AppPaths.TokenFile;
+        _migratedPath = NineLivesAudio.Helpers.AppPaths.MigratedFlag;
     }
 
     public async Task LoadSettingsAsync()
@@ -61,7 +98,7 @@ public class SettingsService : ISettingsService
                 {
                     // Corrupt or empty JSON — back up and reset
                     var backupPath = _settingsPath + ".bak";
-                    try { File.Copy(_settingsPath, backupPath, overwrite: true); } catch { }
+                    try { File.Copy(_settingsPath, backupPath, overwrite: true); } catch { /* best-effort: ignore */ }
                     SettingsSource = "reset_corrupt";
                 }
             }
@@ -69,7 +106,7 @@ public class SettingsService : ISettingsService
             {
                 // Corrupt JSON — backup and reset
                 var backupPath = _settingsPath + ".bak";
-                try { File.Copy(_settingsPath, backupPath, overwrite: true); } catch { }
+                try { File.Copy(_settingsPath, backupPath, overwrite: true); } catch { /* best-effort: ignore */ }
                 SettingsSource = "reset_corrupt";
             }
             catch (Exception)
@@ -100,7 +137,7 @@ public class SettingsService : ISettingsService
             catch { /* ApplicationData not available for unpackaged */ }
 
             // Write migration flag so we never try again
-            try { await File.WriteAllTextAsync(_migratedPath, DateTime.Now.ToString("o")); } catch { }
+            try { await File.WriteAllTextAsync(_migratedPath, DateTime.Now.ToString("o")); } catch { /* best-effort: ignore */ }
         }
 
         // 3. Defaults if nothing loaded
@@ -131,11 +168,14 @@ public class SettingsService : ISettingsService
 
     public Task<string?> GetAuthTokenAsync()
     {
+        var tokenPath = TokenPathFor(Settings.ServerUrl);
+        var vaultResource = VaultResourceFor(Settings.ServerUrl);
+
         // 1. PasswordVault (primary)
         try
         {
             var vault = new PasswordVault();
-            var cred = vault.Retrieve(VaultResource, VaultUser);
+            var cred = vault.Retrieve(vaultResource, VaultUser);
             cred.RetrievePassword();
             if (!string.IsNullOrEmpty(cred.Password))
             {
@@ -148,9 +188,17 @@ public class SettingsService : ISettingsService
         // 2. DPAPI-encrypted file (fallback)
         try
         {
-            if (File.Exists(_tokenPath))
+            // Migrate the pre-1.0.7 single-token file to the per-server name.
+            if (tokenPath != _tokenPath && !File.Exists(tokenPath) && File.Exists(_tokenPath))
             {
-                var encrypted = File.ReadAllBytes(_tokenPath);
+                try { File.Move(_tokenPath, tokenPath); }
+                catch { /* keep reading the old file below */ }
+            }
+
+            var readPath = File.Exists(tokenPath) ? tokenPath : _tokenPath;
+            if (File.Exists(readPath))
+            {
+                var encrypted = File.ReadAllBytes(readPath);
                 var decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
                 var token = Encoding.UTF8.GetString(decrypted);
                 if (!string.IsNullOrEmpty(token))
@@ -174,12 +222,12 @@ public class SettingsService : ISettingsService
                     TokenSource = "legacy_file";
                     // Migrate to secure storage
                     _ = SaveAuthTokenAsync(token);
-                    try { File.Delete(legacyPath); } catch { }
+                    try { File.Delete(legacyPath); } catch { /* best-effort: ignore */ }
                     return Task.FromResult<string?>(token);
                 }
             }
         }
-        catch { }
+        catch { /* best-effort: ignore */ }
 
         TokenSource = "none";
         return Task.FromResult<string?>(null);
@@ -187,12 +235,15 @@ public class SettingsService : ISettingsService
 
     public Task SaveAuthTokenAsync(string token)
     {
+        var tokenPath = TokenPathFor(Settings.ServerUrl);
+        var vaultResource = VaultResourceFor(Settings.ServerUrl);
+
         // 1. PasswordVault
         try
         {
             var vault = new PasswordVault();
-            try { vault.Remove(vault.Retrieve(VaultResource, VaultUser)); } catch { }
-            vault.Add(new PasswordCredential(VaultResource, VaultUser, token));
+            try { vault.Remove(vault.Retrieve(vaultResource, VaultUser)); } catch { /* best-effort: ignore */ }
+            vault.Add(new PasswordCredential(vaultResource, VaultUser, token));
         }
         catch { /* Vault unavailable */ }
 
@@ -201,7 +252,7 @@ public class SettingsService : ISettingsService
         {
             var plainBytes = Encoding.UTF8.GetBytes(token);
             var encrypted = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
-            File.WriteAllBytes(_tokenPath, encrypted);
+            File.WriteAllBytes(tokenPath, encrypted);
         }
         catch { /* DPAPI failed */ }
 
@@ -210,17 +261,20 @@ public class SettingsService : ISettingsService
 
     public Task ClearAuthTokenAsync()
     {
+        var tokenPath = TokenPathFor(Settings.ServerUrl);
+        var vaultResource = VaultResourceFor(Settings.ServerUrl);
+
         // Clear vault
         try
         {
             var vault = new PasswordVault();
-            var cred = vault.Retrieve(VaultResource, VaultUser);
+            var cred = vault.Retrieve(vaultResource, VaultUser);
             vault.Remove(cred);
         }
-        catch { }
+        catch { /* best-effort: ignore */ }
 
-        // Clear DPAPI file
-        try { if (File.Exists(_tokenPath)) File.Delete(_tokenPath); } catch { }
+        // Clear DPAPI file for this server only — other accounts keep working
+        try { if (File.Exists(tokenPath)) File.Delete(tokenPath); } catch { /* best-effort: ignore */ }
 
         // Clear legacy file
         try
@@ -228,10 +282,70 @@ public class SettingsService : ISettingsService
             var legacyPath = Path.Combine(_appFolder, ".auth_token");
             if (File.Exists(legacyPath)) File.Delete(legacyPath);
         }
-        catch { }
+        catch { /* best-effort: ignore */ }
 
         TokenSource = "none";
         return Task.CompletedTask;
+    }
+
+    public void RememberServer(string serverUrl, string username, string? name = null)
+    {
+        var url = SavedServer.Normalize(serverUrl);
+        if (string.IsNullOrEmpty(url)) return;
+
+        var servers = Settings.SavedServers ??= new List<SavedServer>();
+        var existing = servers.FirstOrDefault(s => s.Matches(url, username));
+
+        if (existing == null)
+        {
+            servers.Add(new SavedServer
+            {
+                Name = name?.Trim() ?? string.Empty,
+                Url = url,
+                Username = username ?? string.Empty,
+                LastUsedAt = DateTime.Now
+            });
+        }
+        else
+        {
+            existing.Url = url;
+            existing.Username = username ?? string.Empty;
+            if (name != null)
+                existing.Name = name.Trim();
+            existing.LastUsedAt = DateTime.Now;
+        }
+
+        // Newest first, and keep the list short — this is a switcher, not a history log.
+        Settings.SavedServers = servers
+            .OrderByDescending(s => s.LastUsedAt)
+            .Take(8)
+            .ToList();
+    }
+
+    public void RemoveServer(string serverUrl, string username)
+    {
+        var url = SavedServer.Normalize(serverUrl);
+        if (string.IsNullOrEmpty(url)) return;
+
+        var servers = Settings.SavedServers ??= new List<SavedServer>();
+        servers.RemoveAll(s => s.Matches(url, username));
+
+        try
+        {
+            var tokenPath = TokenPathFor(url);
+            if (File.Exists(tokenPath))
+                File.Delete(tokenPath);
+        }
+        catch { /* best-effort token cleanup */ }
+
+        try
+        {
+            var vault = new Windows.Security.Credentials.PasswordVault();
+            var resource = VaultResourceFor(url);
+            foreach (var cred in vault.FindAllByResource(resource))
+                vault.Remove(cred);
+        }
+        catch { /* not present in vault */ }
     }
 
     private void NormalizeSettings()

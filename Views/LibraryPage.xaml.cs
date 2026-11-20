@@ -16,6 +16,7 @@ public sealed partial class LibraryPage : Page
     public LibraryViewModel ViewModel { get; }
     private readonly ILoggingService _logger;
     private readonly IAudioBookshelfApiService _apiService;
+    private readonly ILocalizationService _localization;
     private List<LibraryGroupItem> _currentGroups = new();
     private string? _selectedGroup;
 
@@ -26,30 +27,50 @@ public sealed partial class LibraryPage : Page
         ViewModel = App.Services.GetRequiredService<LibraryViewModel>();
         _logger = App.Services.GetRequiredService<ILoggingService>();
         _apiService = App.Services.GetRequiredService<IAudioBookshelfApiService>();
+        _localization = App.Services.GetRequiredService<ILocalizationService>();
         this.InitializeComponent();
         UpdateViewModeButtons();
         UpdateStatusPill();
+
+        // Code-painted colours (status pill, view-mode buttons) do not follow
+        // {ThemeResource}, so they are repainted explicitly when the theme changes.
+        Helpers.ThemeService.PaletteChanged += OnPaletteChanged;
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
+        ApplyLocalization();
+        _localization.LanguageChanged -= ApplyLocalization;
+        _localization.LanguageChanged += ApplyLocalization;
         _logger.Log("LibraryPage loaded, initializing ViewModel");
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         await ViewModel.InitializeAsync();
         _logger.Log("LibraryPage ViewModel initialized");
         SyncTogglesToViewModel();
+        RestoreSortSelection();
         UpdateViewDisplay();
         UpdateStatusPill();
     }
 
+    private void OnPaletteChanged()
+    {
+        try
+        {
+            UpdateStatusPill();
+            UpdateViewModeButtons();
+        }
+        catch { /* page torn down */ }
+    }
+
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
+        Helpers.ThemeService.PaletteChanged -= OnPaletteChanged;
+        _localization.LanguageChanged -= ApplyLocalization;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
 
-        if (ViewModel is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        // The Frame caches pages: disposing the view model here unregistered its messenger
+        // subscriptions for good, so a cached page stopped reacting to sync/progress events.
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -64,6 +85,25 @@ public sealed partial class LibraryPage : Page
         }
     }
 
+    /// <summary>
+    /// The sort dropdown is driven by the ViewModel's remembered mode; without this it always
+    /// showed "Default" while the list was actually sorted the saved way.
+    /// </summary>
+    private void RestoreSortSelection()
+    {
+        var tag = ViewModel.CurrentSortMode.ToString();
+
+        for (var i = 0; i < SortComboBox.Items.Count; i++)
+        {
+            if (SortComboBox.Items[i] is ComboBoxItem item && item.Tag as string == tag)
+            {
+                if (SortComboBox.SelectedIndex != i)
+                    SortComboBox.SelectedIndex = i;
+                return;
+            }
+        }
+    }
+
     private void SyncTogglesToViewModel()
     {
         DownloadedOnlyToggle.IsOn = ViewModel.ShowDownloadedOnly;
@@ -73,18 +113,18 @@ public sealed partial class LibraryPage : Page
     private void UpdateStatusPill()
     {
         var isConnected = _apiService.IsAuthenticated;
-        StatusText.Text = isConnected ? "Connected" : "Offline";
+        StatusText.Text = isConnected ? _localization.GetString("Connected") : _localization.GetString("Offline");
 
         // Update pill color
         if (isConnected)
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["NebulaDarkBrush"];
-            StatusEllipse.Fill = (Brush)Application.Current.Resources["RitualSuccessBrush"];
+            StatusPill.Background = ThemeService.Brush("NebulaDarkBrush");
+            StatusEllipse.Fill = ThemeService.Brush("RitualSuccessBrush");
         }
         else
         {
-            StatusPill.Background = (Brush)Application.Current.Resources["VoidElevatedBrush"];
-            StatusEllipse.Fill = (Brush)Application.Current.Resources["MistFaintBrush"];
+            StatusPill.Background = ThemeService.Brush("VoidElevatedBrush");
+            StatusEllipse.Fill = ThemeService.Brush("MistFaintBrush");
         }
     }
 
@@ -149,7 +189,7 @@ public sealed partial class LibraryPage : Page
 
         var viewItem = new MenuFlyoutItem
         {
-            Text = "View Details",
+            Text = _localization.GetString("ViewDetails"),
             Icon = new FontIcon { Glyph = "\uE8A5" }
         };
         viewItem.Click += (s, e) => NavigateToBookDetail(audioBook);
@@ -179,7 +219,7 @@ public sealed partial class LibraryPage : Page
         {
             var removeItem = new MenuFlyoutItem
             {
-                Text = "Remove Download",
+                Text = _localization.GetString("RemoveDownload"),
                 Icon = new FontIcon { Glyph = "\uE74D" }
             };
             removeItem.Click += (s, e) => _ = ViewModel.RemoveDownloadCommand.ExecuteAsync(audioBook);
@@ -254,10 +294,10 @@ public sealed partial class LibraryPage : Page
 
     private void UpdateViewModeButtons()
     {
-        var activeBg = (Brush)Application.Current.Resources["SigilGoldBrush"];
-        var activeFg = (Brush)Application.Current.Resources["VoidDeepBrush"];
-        var inactiveBg = (Brush)Application.Current.Resources["VoidElevatedBrush"];
-        var inactiveFg = (Brush)Application.Current.Resources["StarlightDimBrush"];
+        var activeBg = ThemeService.Brush("SigilGoldBrush");
+        var activeFg = ThemeService.Brush("VoidDeepBrush");
+        var inactiveBg = ThemeService.Brush("VoidElevatedBrush");
+        var inactiveFg = ThemeService.Brush("StarlightDimBrush");
 
         SetViewModeButton(ViewModeAllButton, ViewModel.CurrentViewMode == ViewMode.All, activeBg, activeFg, inactiveBg, inactiveFg);
         SetViewModeButton(ViewModeSeriesButton, ViewModel.CurrentViewMode == ViewMode.Series, activeBg, activeFg, inactiveBg, inactiveFg);
@@ -510,6 +550,24 @@ public sealed partial class LibraryPage : Page
                 </Grid>
             </DataTemplate>");
         return template;
+    }
+
+    private void ApplyLocalization()
+    {
+        if (LibraryTitleText != null) LibraryTitleText.Text = _localization.GetString("LibraryTitle");
+        if (LoadingLibraryText != null) LoadingLibraryText.Text = _localization.GetString("LoadingLibrary");
+        if (SearchBox != null) SearchBox.PlaceholderText = _localization.GetString("SearchBooks");
+        if (SearchBoxNarrow != null) SearchBoxNarrow.PlaceholderText = _localization.GetString("SearchBooks");
+        if (SortComboBox != null)
+        {
+            foreach (var obj in SortComboBox.Items)
+            {
+                if (obj is ComboBoxItem item && item.Tag is string tag)
+                    item.Content = _localization.GetString($"Sort{tag}");
+            }
+        }
+        ViewModel.RefreshLocalizedStrings();
+        UpdateStatusPill();
     }
 
 }

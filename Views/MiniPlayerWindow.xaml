@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Nine Lives Audio">
 
-    <Grid Background="{StaticResource VoidDeepBrush}" Padding="16,8">
+    <Grid Background="{ThemeResource VoidDeepBrush}" Padding="16,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -20,16 +20,16 @@
                           Padding="6"
                           ToolTipService.ToolTip="Keep on top">
                 <FontIcon x:Name="PinIcon" Glyph="&#xE718;" FontSize="14"
-                          Foreground="{StaticResource MistFaintBrush}"/>
+                          Foreground="{ThemeResource MistFaintBrush}"/>
             </ToggleButton>
 
-            <Button Click="Expand_Click"
+            <Button x:Name="ExpandButton" Click="Expand_Click"
                     HorizontalAlignment="Right"
                     Background="Transparent" BorderThickness="0"
                     Padding="6"
                     ToolTipService.ToolTip="Back to full player">
                 <FontIcon Glyph="&#xE740;" FontSize="14"
-                          Foreground="{StaticResource MistFaintBrush}"/>
+                          Foreground="{ThemeResource MistFaintBrush}"/>
             </Button>
         </Grid>
 
@@ -58,21 +58,25 @@
             </Grid>
         </Grid>
 
-        <!-- Transport Controls -->
+        <!-- Transport Controls — same rhythm as the full player (see docs §11):
+             58x44 text pills for the skips, 72px gold circle for play, 10px spacing. -->
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center"
-                    Spacing="12"
+                    VerticalAlignment="Center"
+                    Spacing="10"
                     Margin="0,4,0,8">
 
             <!-- Skip Back 10s -->
-            <Button Click="SkipBack_Click"
-                    Style="{StaticResource CircularButtonStyle}"
+            <Button x:Name="SkipBackButton"
+                    Click="SkipBack_Click"
+                    Style="{StaticResource SkipPillButtonStyle}"
                     ToolTipService.ToolTip="Skip back 10 seconds">
-                <StackPanel>
-                    <FontIcon Glyph="&#xE892;" FontSize="18"/>
-                    <TextBlock Text="10" FontSize="10" HorizontalAlignment="Center" Opacity="0.7"/>
-                </StackPanel>
+                <TextBlock Text="&#x2212;10s"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
             </Button>
 
             <!-- Play/Pause -->
@@ -80,17 +84,19 @@
                     Click="PlayPause_Click"
                     Style="{StaticResource SigilPlayButtonStyle}">
                 <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" FontSize="28"
-                          Foreground="{StaticResource VoidDeepBrush}"/>
+                          Foreground="{ThemeResource VoidDeepBrush}"/>
             </Button>
 
             <!-- Skip Forward 30s -->
-            <Button Click="SkipForward_Click"
-                    Style="{StaticResource CircularButtonStyle}"
+            <Button x:Name="SkipForwardButton"
+                    Click="SkipForward_Click"
+                    Style="{StaticResource SkipPillButtonStyle}"
                     ToolTipService.ToolTip="Skip forward 30 seconds">
-                <StackPanel>
-                    <FontIcon Glyph="&#xE893;" FontSize="18"/>
-                    <TextBlock Text="30" FontSize="10" HorizontalAlignment="Center" Opacity="0.7"/>
-                </StackPanel>
+                <TextBlock Text="+30s"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
             </Button>
         </StackPanel>
     </Grid>

@@ -15,6 +15,13 @@ public partial class App : Application
     private static IHost? _host;
     private static MiniPlayerWindow? _miniPlayerWindow;
 
+    public static bool TryRestoreMiniPlayer()
+    {
+        if (_miniPlayerWindow == null) return false;
+        _miniPlayerWindow.RestoreFromTray();
+        return true;
+    }
+
     public static IServiceProvider Services => _host!.Services;
 
     public App()
@@ -23,6 +30,11 @@ public partial class App : Application
 
         // Migrate legacy "AudioBookshelfApp" folders/vault to "NineLivesAudio"
         LegacyMigrationHelper.MigrateIfNeeded();
+
+        // Runtime data now lives in <exe folder>\data. On the first start of such a build
+        // the settings/database/logs from %LOCALAPPDATA% are imported, so the library,
+        // saved progress and the server login carry over.
+        AppPaths.MigrateLegacyDataIfNeeded();
 
         // Build dependency injection container
         _host = Host.CreateDefaultBuilder()
@@ -37,18 +49,25 @@ public partial class App : Application
                 services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
                 services.AddSingleton<IDownloadService, DownloadService>();
                 services.AddSingleton<ISyncService, SyncService>();
+                services.AddSingleton<IUpdateService, UpdateService>();
+                services.AddSingleton<IStreamCacheService, StreamCacheService>();
                 services.AddSingleton<ILocalDatabase, LocalDatabase>();
                 services.AddSingleton<IAppInitializer, AppInitializer>();
 
                 // Services - Connectivity & Offline
                 services.AddSingleton<IConnectivityService, ConnectivityService>();
                 services.AddSingleton<IOfflineProgressQueue, OfflineProgressQueue>();
+                services.AddSingleton<IBookmarkQueue, BookmarkQueue>();
 
                 // Services - Navigation
                 services.AddSingleton<INavigationService, NavigationService>();
 
+                // Localization (must be after SettingsService)
+                services.AddSingleton<ILocalizationService, LocalizationService>();
+
                 // Services - UI/UX Enhancements
                 services.AddSingleton<INotificationService, NotificationService>();
+                services.AddSingleton<ITrayIconService, TrayIconService>();
                 services.AddSingleton<IMetadataNormalizer, MetadataNormalizer>();
                 services.AddSingleton<IPlaybackSourceResolver, PlaybackSourceResolver>();
                 services.AddSingleton<ILibraryFilterService, LibraryFilterService>();
@@ -56,12 +75,18 @@ public partial class App : Application
 
                 // ViewModels
                 services.AddTransient<MainViewModel>();
-                services.AddTransient<HomeViewModel>();
-                services.AddTransient<LibraryViewModel>();
-                services.AddTransient<PlayerViewModel>();
-                services.AddTransient<DownloadsViewModel>();
+
+                // Pages are cached by the Frame and are shown again without being recreated,
+                // so a transient view model leaked one messenger subscription per visit: five
+                // visits meant five "reload" reactions to a single sync (see the 22:21 log).
+                // These four are app-scoped state anyway (filters, scroll, current track).
+                services.AddSingleton<HomeViewModel>();
+                services.AddSingleton<LibraryViewModel>();
+                services.AddSingleton<PlayerViewModel>();
+                services.AddSingleton<DownloadsViewModel>();
                 services.AddTransient<SettingsViewModel>();
                 services.AddTransient<BookDetailViewModel>();
+                services.AddTransient<StatsViewModel>();
 
                 // Main Window
                 services.AddSingleton<MainWindow>();
@@ -84,6 +109,11 @@ public partial class App : Application
             logger = Services.GetRequiredService<ILoggingService>();
             logger.Log("App.OnLaunched: activating main window (no async blocking)");
 
+            // Hook up localized XAML text (loc:Loc.*) before any page is created.
+            Loc.Initialize(
+                Services.GetRequiredService<ILocalizationService>(),
+                Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+
             var mainWindow = Services.GetRequiredService<MainWindow>();
             mainWindow.Activate();
 
@@ -101,7 +131,7 @@ public partial class App : Application
     {
         var logger = Services.GetService<ILoggingService>();
         logger?.LogError("UNHANDLED XAML EXCEPTION", e.Exception);
-        logger?.FlushAsync().GetAwaiter().GetResult();
+        FlushLogsBestEffort(logger);
         e.Handled = true;
     }
 
@@ -109,15 +139,30 @@ public partial class App : Application
     {
         var logger = Services.GetService<ILoggingService>();
         logger?.LogError("UNHANDLED DOMAIN EXCEPTION", e.ExceptionObject as Exception);
-        logger?.FlushAsync().GetAwaiter().GetResult();
+        FlushLogsBestEffort(logger);
     }
 
     private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         var logger = Services.GetService<ILoggingService>();
         logger?.LogError("UNOBSERVED TASK EXCEPTION", e.Exception);
-        logger?.FlushAsync().GetAwaiter().GetResult();
+        FlushLogsBestEffort(logger);
         e.SetObserved();
+    }
+
+    private static void FlushLogsBestEffort(ILoggingService? logger)
+    {
+        // Best-effort synchronous flush with a hard timeout to avoid deadlocks
+        // in crash handlers. Never throws.
+        try
+        {
+            if (logger != null)
+            {
+                var flush = logger.FlushAsync();
+                flush.Wait(TimeSpan.FromSeconds(2));
+            }
+        }
+        catch { /* crash path — ignore */ }
     }
 
     // --- Mini Player Window Management ---

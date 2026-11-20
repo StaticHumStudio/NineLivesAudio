@@ -1,10 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace NineLivesAudio.Models;
 
-public class AudioBook
+/// <summary>
+/// An audiobook. The progress fields raise <see cref="PropertyChanged"/> so a refresh can
+/// update the cards in place instead of replacing the whole list (which re-ran the
+/// ItemsRepeater layout and made the shelf flash on every sync).
+/// </summary>
+public class AudioBook : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void Raise(params string[] names)
+    {
+        var handler = PropertyChanged;
+        if (handler == null) return;
+        foreach (var name in names)
+            handler(this, new PropertyChangedEventArgs(name));
+    }
+
+
     public string Id { get; set; } = string.Empty;
     public string? LibraryId { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -27,9 +45,43 @@ public class AudioBook
     // Chapters
     public List<Chapter> Chapters { get; set; } = new();
 
-    public TimeSpan CurrentTime { get; set; }
-    public double Progress { get; set; }
-    public bool IsFinished { get; set; }
+    private TimeSpan _currentTime;
+    public TimeSpan CurrentTime
+    {
+        get => _currentTime;
+        set
+        {
+            if (_currentTime == value) return;
+            _currentTime = value;
+            Raise(nameof(CurrentTime), nameof(ProgressText), nameof(ChapterProgressText),
+                  nameof(CurrentChapterProgressPercent));
+        }
+    }
+
+    private double _progress;
+    public double Progress
+    {
+        get => _progress;
+        set
+        {
+            if (Math.Abs(_progress - value) < 0.000001) return;
+            _progress = value;
+            Raise(nameof(Progress), nameof(ProgressPercent), nameof(HasProgress),
+                  nameof(ProgressText), nameof(ChapterProgressText));
+        }
+    }
+
+    private bool _isFinished;
+    public bool IsFinished
+    {
+        get => _isFinished;
+        set
+        {
+            if (_isFinished == value) return;
+            _isFinished = value;
+            Raise(nameof(IsFinished));
+        }
+    }
 
     /// <summary>Progress as 0–100 regardless of whether the API returned 0–1 or 0–100.</summary>
     public double ProgressPercent => Progress <= 1.0 ? Progress * 100.0 : Progress;
@@ -48,32 +100,40 @@ public class AudioBook
             {
                 var idx = GetCurrentChapterIndex();
                 if (idx >= 0)
-                    return $"{bookPct} \u2022 Ch {idx + 1}/{Chapters.Count}";
+                {
+                    var chLabel = Helpers.AppLanguage.IsChinese
+                        ? $"第{idx + 1}/{Chapters.Count}章"
+                        : $"Ch {idx + 1}/{Chapters.Count}";
+                    return $"{bookPct} \u2022 {chLabel}";
+                }
             }
             return bookPct;
         }
     }
 
-    /// <summary>Find the current chapter based on CurrentTime.</summary>
+    /// <summary>Find the current chapter based on CurrentTime (binary search).</summary>
     public Chapter? GetCurrentChapter()
     {
-        if (Chapters.Count == 0) return null;
-        var posSeconds = CurrentTime.TotalSeconds;
-        return Chapters.FirstOrDefault(c => posSeconds >= c.Start && posSeconds < c.End)
-               ?? (posSeconds >= Chapters.Last().End ? Chapters.Last() : null);
+        var idx = GetCurrentChapterIndex();
+        return idx >= 0 ? Chapters[idx] : null;
     }
 
-    /// <summary>Get current chapter index (0-based), or -1 if none.</summary>
+    /// <summary>Get current chapter index (0-based), or -1 if none. Binary search O(log n).</summary>
     public int GetCurrentChapterIndex()
     {
         if (Chapters.Count == 0) return -1;
         var posSeconds = CurrentTime.TotalSeconds;
-        for (int i = 0; i < Chapters.Count; i++)
+        if (posSeconds >= Chapters[^1].End) return Chapters.Count - 1;
+        if (posSeconds < Chapters[0].Start) return -1;
+        int lo = 0, hi = Chapters.Count - 1;
+        while (lo <= hi)
         {
-            if (posSeconds >= Chapters[i].Start && posSeconds < Chapters[i].End)
-                return i;
+            int mid = lo + (hi - lo) / 2;
+            if (posSeconds < Chapters[mid].Start) hi = mid - 1;
+            else if (posSeconds >= Chapters[mid].End) lo = mid + 1;
+            else return mid;
         }
-        return posSeconds >= Chapters.Last().End ? Chapters.Count - 1 : -1;
+        return -1;
     }
 
     /// <summary>Progress within the current chapter as 0-100.</summary>
@@ -101,7 +161,18 @@ public class AudioBook
         }
     }
 
-    public bool IsDownloaded { get; set; }
+    private bool _isDownloaded;
+    public bool IsDownloaded
+    {
+        get => _isDownloaded;
+        set
+        {
+            if (_isDownloaded == value) return;
+            _isDownloaded = value;
+            Raise(nameof(IsDownloaded));
+        }
+    }
+
     public string? LocalPath { get; set; }
 }
 
