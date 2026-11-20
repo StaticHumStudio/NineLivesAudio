@@ -68,7 +68,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header with Back Button -->
-        <Grid Grid.Row="0" Padding="16,8" Background="{ThemeResource VoidSurfaceBrush}">
+        <Grid Grid.Row="0" Padding="16,8">
             <Button Click="BackButton_Click" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="16" Foreground="{ThemeResource MistFaintBrush}"/>
