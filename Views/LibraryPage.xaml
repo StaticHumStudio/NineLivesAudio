@@ -261,7 +261,6 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
                                 <!-- Cover Image (square) -->
@@ -305,16 +304,15 @@
                                            Style="{StaticResource SubtitleStyle}"/>
 
                                 <!-- Progress -->
-                                <Grid Grid.Row="3" Height="26" Margin="0,6,0,0">
-                                    <StackPanel Spacing="4"
-                                                Visibility="{x:Bind HasProgress, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <ProgressBar Value="{x:Bind ProgressPercent}"
-                                                     Style="{StaticResource DownloadProgressStyle}"/>
-                                        <TextBlock Text="{x:Bind ProgressText}"
-                                                   FontSize="11"
-                                                   Foreground="{ThemeResource MistFaintBrush}"/>
-                                    </StackPanel>
-                                </Grid>
+                                <!-- Edge Progress Ring (2px, closed loop when finished) -->
+                                <Rectangle Grid.Row="0" Grid.RowSpan="3"
+                                           Margin="-4"
+                                           RadiusX="8" RadiusY="8"
+                                           Stroke="{ThemeResource SigilGoldBrush}"
+                                           StrokeThickness="2"
+                                           IsHitTestVisible="False"
+                                           Loaded="CardProgressRing_Loaded"
+                                           SizeChanged="CardProgressRing_SizeChanged"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>

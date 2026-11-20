@@ -560,4 +560,43 @@ public sealed partial class LibraryPage : Page
         UpdateStatusPill();
     }
 
+    private void CardProgressRing_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Microsoft.UI.Xaml.Shapes.Rectangle rect)
+            UpdateCardProgressRing(rect);
+    }
+
+    private void CardProgressRing_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is Microsoft.UI.Xaml.Shapes.Rectangle rect)
+            UpdateCardProgressRing(rect);
+    }
+
+    private static void UpdateCardProgressRing(Microsoft.UI.Xaml.Shapes.Rectangle rect)
+    {
+        if (rect.DataContext is not AudioBook book || !book.HasProgress)
+        {
+            rect.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        rect.Visibility = Visibility.Visible;
+        var w = Math.Max(0, rect.ActualWidth - 2);
+        var h = Math.Max(0, rect.ActualHeight - 2);
+        var perimeter = 2.0 * (w + h);
+        if (perimeter <= 0) return;
+
+        var progress = Math.Clamp(book.ProgressPercent / 100.0, 0.02, 1.0);
+        if (progress >= 0.999)
+        {
+            rect.StrokeDashArray = null;
+        }
+        else
+        {
+            var dashLen = (perimeter * progress) / 2.0;
+            var gapLen = (perimeter * (1.0 - progress)) / 2.0 + 10.0;
+            rect.StrokeDashArray = new DoubleCollection { dashLen, gapLen };
+        }
+    }
+
 }
