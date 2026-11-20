@@ -570,10 +570,15 @@ public sealed partial class LibraryPage : Page
         UpdateStatusPill();
     }
 
-    private void CardProgressRing_Loaded(object sender, RoutedEventArgs e)
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        Microsoft.UI.Xaml.Shapes.Rectangle, RingState> _ringCache = new();
+
+    private sealed class RingState
     {
-        if (sender is Microsoft.UI.Xaml.Shapes.Rectangle rect)
-            UpdateCardProgressRing(rect);
+        public string Id = string.Empty;
+        public double Progress = -1;
+        public double W = -1;
+        public double H = -1;
     }
 
     private void CardProgressRing_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -592,17 +597,34 @@ public sealed partial class LibraryPage : Page
     {
         if (rect.Tag is not AudioBook book || !book.HasProgress)
         {
-            rect.Visibility = Visibility.Collapsed;
+            if (rect.Visibility != Visibility.Collapsed)
+                rect.Visibility = Visibility.Collapsed;
             return;
         }
 
-        rect.Visibility = Visibility.Visible;
+        if (rect.Visibility != Visibility.Visible)
+            rect.Visibility = Visibility.Visible;
+
         var w = Math.Max(0, rect.ActualWidth - 2);
         var h = Math.Max(0, rect.ActualHeight - 2);
         var perimeter = 2.0 * (w + h);
         if (perimeter <= 0) return;
 
         var progress = Math.Clamp(book.ProgressPercent / 100.0, 0.02, 1.0);
+        var state = _ringCache.GetOrCreateValue(rect);
+        if (state.Id == book.Id
+            && Math.Abs(state.Progress - progress) < 0.001
+            && Math.Abs(state.W - w) < 0.5
+            && Math.Abs(state.H - h) < 0.5)
+        {
+            return;
+        }
+
+        state.Id = book.Id;
+        state.Progress = progress;
+        state.W = w;
+        state.H = h;
+
         if (progress >= 0.999)
         {
             rect.StrokeDashArray = null;
