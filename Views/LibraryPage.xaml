@@ -305,14 +305,16 @@
                                            Style="{StaticResource SubtitleStyle}"/>
 
                                 <!-- Progress -->
-                                <StackPanel Grid.Row="3" Spacing="4" Margin="0,6,0,0"
-                                            Visibility="{x:Bind HasProgress, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <ProgressBar Value="{x:Bind ProgressPercent}"
-                                                 Style="{StaticResource DownloadProgressStyle}"/>
-                                    <TextBlock Text="{x:Bind ProgressText}"
-                                               FontSize="11"
-                                               Foreground="{ThemeResource MistFaintBrush}"/>
-                                </StackPanel>
+                                <Grid Grid.Row="3" Height="26" Margin="0,6,0,0">
+                                    <StackPanel Spacing="4"
+                                                Visibility="{x:Bind HasProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <ProgressBar Value="{x:Bind ProgressPercent}"
+                                                     Style="{StaticResource DownloadProgressStyle}"/>
+                                        <TextBlock Text="{x:Bind ProgressText}"
+                                                   FontSize="11"
+                                                   Foreground="{ThemeResource MistFaintBrush}"/>
+                                    </StackPanel>
+                                </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>
