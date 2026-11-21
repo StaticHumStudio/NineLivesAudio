@@ -227,7 +227,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             if (Lives.Count == 0)
                 IsLoading = true;
 
-            _logger.Log("[Home] Loading Nine Lives (page shown or sync finished)...");
+            _logger.LogDebug("[Home] Loading Nine Lives (page shown or sync finished)...");
 
             var recentEntries = await _database.GetRecentlyPlayedAsync(9);
 
@@ -288,7 +288,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             TotalListeningTimeText = CosmicCatHelper.FormatListeningTime(totalTime);
 
             ShowEmptyState = Lives.Count == 0;
-            _logger.Log($"[Home] Loaded {Lives.Count} lives, total listened: {TotalListeningTimeText}");
+            _logger.LogDebug($"[Home] Loaded {Lives.Count} lives, total listened: {TotalListeningTimeText}");
         }
         catch (Exception ex)
         {

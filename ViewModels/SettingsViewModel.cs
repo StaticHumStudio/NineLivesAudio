@@ -806,6 +806,18 @@ public partial class SettingsViewModel : ObservableObject
             ServerUrl = string.Empty;
             Username = string.Empty;
             await _database.ClearAllDataAsync();
+            try
+            {
+                if (Directory.Exists(AppPaths.CoversDirectory))
+                {
+                    foreach (var file in Directory.GetFiles(AppPaths.CoversDirectory))
+                        File.Delete(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"[Covers] Failed to clear covers: {ex.Message}");
+            }
             _syncService.NotifyDataCleared();
         }
 
