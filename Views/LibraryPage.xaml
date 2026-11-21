@@ -301,7 +301,8 @@
                                 <!-- Author -->
                                 <TextBlock Grid.Row="2"
                                            Text="{x:Bind Author}"
-                                           Style="{StaticResource SubtitleStyle}"/>
+                                           Style="{StaticResource SubtitleStyle}"
+                                           Visibility="{x:Bind Author, Converter={StaticResource StringToVisibilityConverter}}"/>
 
                                 <!-- Progress -->
                                 <!-- 4-Edge GPU-Accelerated Progress Ring (partial) + Rounded Closed Loop (100%) -->
