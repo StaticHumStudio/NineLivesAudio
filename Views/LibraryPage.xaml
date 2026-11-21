@@ -310,27 +310,27 @@
                                         BorderBrush="{ThemeResource SigilGoldBrush}" BorderThickness="2"
                                         IsHitTestVisible="False"
                                         Visibility="{x:Bind IsProgressFull, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                <Grid Grid.Row="0" Grid.RowSpan="3" Margin="-2" IsHitTestVisible="False"
+                                <Grid Grid.Row="0" Grid.RowSpan="3" IsHitTestVisible="False"
                                       Visibility="{x:Bind IsProgressPartial, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Border VerticalAlignment="Top" Height="2" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
+                                    <Border VerticalAlignment="Top" Height="2" Margin="6,-4,6,0" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
                                             RenderTransformOrigin="0,0.5">
                                         <Border.RenderTransform>
                                             <ScaleTransform ScaleX="{x:Bind RingTopScale, Mode=OneWay}"/>
                                         </Border.RenderTransform>
                                     </Border>
-                                    <Border HorizontalAlignment="Right" Width="2" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
+                                    <Border HorizontalAlignment="Right" Width="2" Margin="0,6,-4,6" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
                                             RenderTransformOrigin="0.5,0">
                                         <Border.RenderTransform>
                                             <ScaleTransform ScaleY="{x:Bind RingRightScale, Mode=OneWay}"/>
                                         </Border.RenderTransform>
                                     </Border>
-                                    <Border VerticalAlignment="Bottom" Height="2" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
+                                    <Border VerticalAlignment="Bottom" Height="2" Margin="6,0,6,-4" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
                                             RenderTransformOrigin="1,0.5">
                                         <Border.RenderTransform>
                                             <ScaleTransform ScaleX="{x:Bind RingBottomScale, Mode=OneWay}"/>
                                         </Border.RenderTransform>
                                     </Border>
-                                    <Border HorizontalAlignment="Left" Width="2" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
+                                    <Border HorizontalAlignment="Left" Width="2" Margin="-4,6,0,6" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
                                             RenderTransformOrigin="0.5,1">
                                         <Border.RenderTransform>
                                             <ScaleTransform ScaleY="{x:Bind RingLeftScale, Mode=OneWay}"/>
