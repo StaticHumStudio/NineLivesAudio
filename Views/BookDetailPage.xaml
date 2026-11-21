@@ -80,7 +80,7 @@
 
         <!-- Content -->
         <ScrollViewer x:Name="ContentScrollViewer" Grid.Row="1" Padding="16">
-            <StackPanel x:Name="ContentStackPanel" Spacing="20" MaxWidth="900" HorizontalAlignment="Left">
+            <StackPanel x:Name="ContentStackPanel" Spacing="20" MaxWidth="900" HorizontalAlignment="Stretch">
 
                 <!-- === WIDE/MEDIUM: Side-by-side Cover + Info === -->
                 <Grid x:Name="BookHeaderGrid">
