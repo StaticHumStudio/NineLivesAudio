@@ -304,9 +304,13 @@
                                            Style="{StaticResource SubtitleStyle}"/>
 
                                 <!-- Progress -->
-                                <!-- 4-Edge GPU-Accelerated Progress Ring (2px, rounded ends) -->
+                                <!-- 4-Edge GPU-Accelerated Progress Ring (partial) + Rounded Closed Loop (100%) -->
+                                <Border Grid.Row="0" Grid.RowSpan="3" Margin="-4" CornerRadius="8"
+                                        BorderBrush="{ThemeResource SigilGoldBrush}" BorderThickness="2"
+                                        IsHitTestVisible="False"
+                                        Visibility="{x:Bind IsProgressFull, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                 <Grid Grid.Row="0" Grid.RowSpan="3" Margin="-2" IsHitTestVisible="False"
-                                      Visibility="{x:Bind HasProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                      Visibility="{x:Bind IsProgressPartial, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <Border VerticalAlignment="Top" Height="2" CornerRadius="1" Background="{ThemeResource SigilGoldBrush}"
                                             RenderTransformOrigin="0,0.5">
                                         <Border.RenderTransform>

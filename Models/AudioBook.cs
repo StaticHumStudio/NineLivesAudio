@@ -67,6 +67,7 @@ public class AudioBook : INotifyPropertyChanged
             if (Math.Abs(_progress - value) < 0.000001) return;
             _progress = value;
             Raise(nameof(Progress), nameof(ProgressPercent), nameof(HasProgress),
+                  nameof(IsProgressFull), nameof(IsProgressPartial),
                   nameof(RingTopScale), nameof(RingRightScale), nameof(RingBottomScale), nameof(RingLeftScale),
                   nameof(ProgressText), nameof(ChapterProgressText));
         }
@@ -86,6 +87,9 @@ public class AudioBook : INotifyPropertyChanged
 
     /// <summary>Progress as 0–100 regardless of whether the API returned 0–1 or 0–100.</summary>
     public double ProgressPercent => Progress <= 1.0 ? Progress * 100.0 : Progress;
+
+    public bool IsProgressFull => HasProgress && ProgressPercent >= 99.5;
+    public bool IsProgressPartial => HasProgress && ProgressPercent < 99.5;
 
     public double RingTopScale => Math.Clamp(ProgressPercent / 25.0, 0.0, 1.0);
     public double RingRightScale => Math.Clamp((ProgressPercent - 25.0) / 25.0, 0.0, 1.0);
